@@ -9,6 +9,13 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.paper.economics import normalize_execution_economics, paper_economics_match
+from quant_robot.paper.accounting_evidence import paper_accounting_blockers
+from quant_robot.promotion.signatures import (
+    jaccard_similarity as _jaccard_similarity,
+    paper_signal_signature as _paper_signal_signature,
+)
+
 
 @dataclass(frozen=True)
 class PromotionGateConfig:
@@ -52,6 +59,8 @@ class PromotionGateConfig:
     require_quality_report: bool = False
     require_positive_paper_return: bool = True
     require_paper_provenance: bool = False
+    require_execution_economics: bool = False
+    require_execution_accounting: bool = False
 
 
 def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
@@ -120,6 +129,8 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         require_quality_report=bool(data.get("require_quality_report", True)),
         require_positive_paper_return=bool(data.get("require_positive_paper_return", True)),
         require_paper_provenance=bool(data.get("require_paper_provenance", True)),
+        require_execution_economics=bool(data.get("require_execution_economics", False)),
+        require_execution_accounting=bool(data.get("require_execution_accounting", False)),
     )
 
 
@@ -296,8 +307,13 @@ def _candidate_report(
         {
             "case_id": case_id,
             "market": row.get("market"),
-            "factor_source": factor_source,
+            "factor_source": row.get("factor_source"),
             "factor_name": row.get("factor_name"),
+            "factor_windows": row.get("factor_windows"),
+            "rebalance_interval": row.get("rebalance_interval"),
+            **({"execution_economics": paper_summary["execution_economics"],
+                "corporate_actions_path": paper_summary.get("corporate_actions_path")}
+               if "execution_economics" in paper_summary else {}),
             "top_n": _maybe_int(row.get("top_n")),
             "cost_bps": _maybe_float(row.get("cost_bps")),
             "data_mode": data_mode,
@@ -356,15 +372,19 @@ def _paper_summary(row: dict[str, Any], paper_manifests: list[dict[str, Any]], c
         "paper_total_return": 0.0,
         "paper_max_drawdown": 0.0,
         "signal_signature": set(),
-        "blocking": [],
+        "blocking": ["paper_execution_accounting_missing"] if config.require_execution_accounting else [],
         "warnings": [],
     }
     if not paper_manifests:
         summary["warnings"].append("paper_simulation_missing")
+        if config.require_execution_economics:
+            summary["blocking"].append("paper_execution_economics_missing_or_mismatched")
         return summary
     paper_manifest = _matching_paper_manifest(row, paper_manifests, config)
     if paper_manifest is None:
         summary["warnings"].append("paper_simulation_does_not_match_candidate")
+        if config.require_execution_economics:
+            summary["blocking"].append("paper_execution_economics_missing_or_mismatched")
         return summary
     if not _paper_matches(row, paper_manifest, config):
         summary["warnings"].append("paper_simulation_does_not_match_candidate")
@@ -375,6 +395,11 @@ def _paper_summary(row: dict[str, Any], paper_manifests: list[dict[str, Any]], c
     summary["paper_matched"] = True
     summary["paper_manifest_path"] = paper_manifest.get("manifest_path")
     request = paper_manifest.get("request", {})
+    if config.require_execution_accounting:
+        summary["blocking"] = paper_accounting_blockers(paper_manifest)
+    if paper_economics_match(row, request):
+        summary["execution_economics"] = normalize_execution_economics(row["execution_economics"])
+        summary["corporate_actions_path"] = request.get("corporate_actions_path")
     summary["paper_risk_profile_id"] = request.get("risk_profile_id") if isinstance(request, dict) else None
     summary["signal_signature"] = _paper_signal_signature(summary["paper_manifest_path"])
     summary["paper_sharpe"] = _metric(metrics, "sharpe")
@@ -423,34 +448,6 @@ def _mark_duplicate_candidates(candidates: list[dict[str, Any]], config: Promoti
         representatives.append(candidate)
 
 
-def _paper_signal_signature(manifest_path: Any) -> set[str]:
-    if not manifest_path:
-        return set()
-    path = Path(str(manifest_path))
-    intents_path = path.with_name("intents.csv")
-    if not intents_path.exists():
-        return set()
-    try:
-        rows = pd.read_csv(intents_path)
-    except (OSError, pd.errors.EmptyDataError, pd.errors.ParserError):
-        return set()
-    signature_columns = ["signal_date", "execution_date", "asset_id", "side"]
-    if not set(signature_columns).issubset(rows.columns):
-        return set()
-    signature = set()
-    for row in rows[signature_columns].itertuples(index=False):
-        values = [str(value) for value in row]
-        if all(value and value.lower() != "nan" for value in values):
-            signature.add("|".join(values))
-    return signature
-
-
-def _jaccard_similarity(left: set[str], right: set[str]) -> float:
-    if not left or not right:
-        return 0.0
-    return len(left & right) / len(left | right)
-
-
 def _matching_paper_manifest(
     row: dict[str, Any],
     paper_manifests: list[dict[str, Any]],
@@ -485,6 +482,8 @@ def _paper_matches(
     if row_rebalance is not None and request_rebalance is not None and row_rebalance != request_rebalance:
         return False
     if config.require_paper_provenance and not _strict_paper_identity_matches(row, request):
+        return False
+    if config.require_execution_economics and not paper_economics_match(row, request):
         return False
     return True
 

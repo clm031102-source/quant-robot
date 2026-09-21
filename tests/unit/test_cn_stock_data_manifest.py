@@ -1,8 +1,9 @@
 import json
 import tempfile
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -10,10 +11,23 @@ from quant_robot.ops.cn_stock_data_manifest import (
     build_cn_stock_data_manifest,
     validate_cn_stock_data_manifest_packet,
     write_cn_stock_data_manifest,
+    _packet_generated_today,
 )
 
 
 class CnStockDataManifestTests(unittest.TestCase):
+    def test_integrity_freshness_uses_project_day_at_utc_boundary(self) -> None:
+        class ProjectClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                instant = datetime(2026, 9, 11, 16, 5, tzinfo=timezone.utc)
+                return instant.astimezone(tz) if tz is not None else instant.replace(tzinfo=None)
+        with patch("quant_robot.ops.cn_stock_data_manifest.datetime", ProjectClock):
+            self.assertTrue(_packet_generated_today("2026-09-12"))
+            self.assertTrue(_packet_generated_today("2026-09-11T16:00:00Z"))
+            self.assertFalse(_packet_generated_today("2026-09-11"))
+            self.assertFalse(_packet_generated_today("2026-09-11T15:59:59Z"))
+
     def test_manifest_blocks_whole_market_bar_and_moneyflow_session_gaps(self) -> None:
         bars = pd.DataFrame(
             {
@@ -161,8 +175,8 @@ class CnStockDataManifestTests(unittest.TestCase):
             review_reasons=["retrospective_legacy_suspension_evidence"],
         )
         session_packet["generated_at"] = (
-            pd.Timestamp(date.today())
-            .tz_localize("Asia/Shanghai")
+            pd.Timestamp.now(tz="Asia/Shanghai")
+            .normalize()
             .tz_convert("UTC")
             .isoformat()
         )
@@ -475,7 +489,7 @@ def _integrity_packet(
 ) -> dict:
     return {
         "stage": stage,
-        "generated_at": date.today().isoformat() + "T00:00:00+00:00",
+        "generated_at": pd.Timestamp.now(tz="UTC").isoformat(),
         "status": status,
         "source_root": source_root,
         "summary": {},

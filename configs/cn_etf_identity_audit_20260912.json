@@ -1,0 +1,16 @@
+{
+  "data_root": "data/processed/tushare_etf_wide_history_2023_2026",
+  "start_date": "2020-01-02",
+  "end_date": "2024-06-28",
+  "share_root": "data/processed/cn_etf_fund_structure_public_2020_2024",
+  "catalogues": [
+    {
+      "captured_on": "2026-06-21",
+      "path": "data/processed/tushare_etf_wide_history_2023_2026/metadata/tushare_fund_basic/market=E/snapshot=2026-06-21/part-00000.parquet"
+    },
+    {
+      "captured_on": "2026-07-16",
+      "path": "data/processed/tushare_etf_wide_history_2023_2026/metadata/tushare_fund_basic/market=E/snapshot=2026-07-16/part-00000.parquet"
+    }
+  ]
+}

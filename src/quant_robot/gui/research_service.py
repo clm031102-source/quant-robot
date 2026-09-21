@@ -10,6 +10,7 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.gui.daily_trade_factors import (
@@ -19,6 +20,8 @@ from quant_robot.gui.daily_trade_factors import (
     resolve_factor_windows as _resolve_factor_windows,
 )
 from quant_robot.gui.fixtures import mock_data
+from quant_robot.gui.research_access import require_gui_research_access, normalize_gui_source as _normalize_gui_source
+from quant_robot.gui.paper_inputs import complete_gui_paper_inputs, validate_gui_paper_inputs
 from quant_robot.gui.operation_ledger import (
     build_daily_closure_ledger_snapshot,
     build_pre_live_master_gate,
@@ -130,6 +133,7 @@ FACTOR_LEADERBOARD_PARAM_KEYS = (
     "topN",
     "cost_bps",
     "commission_bps",
+    "minimum_commission",
     "slippage_bps",
     "rebalance_interval",
     "holding_period",
@@ -462,7 +466,7 @@ def build_daily_trade_advisory_snapshot(
     market: str = PRIMARY_FACTOR_MARKET,
     limit: int = 3,
     as_of_date: str | None = None,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
     default_top_n: int = 2,
     max_asset_weight: float = 0.4,
     max_market_weight: float = 1.0,
@@ -476,6 +480,7 @@ def build_daily_trade_advisory_snapshot(
     daily_ops_pack: str | Path | None = DEFAULT_DAILY_OPS_PACK,
     repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
+    require_gui_research_access(_normalize_gui_source(source), market)
     leaderboard = build_factor_leaderboard_snapshot(
         reports_root=reports_root,
         configs_root=configs_root,
@@ -1812,7 +1817,7 @@ def run_demo_signal_snapshot(
     max_market_weight: float = 1.0,
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.0,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
 ) -> dict[str, Any]:
     return run_gui_signal_snapshot(
         source="demo_fixture",
@@ -1841,7 +1846,7 @@ def run_gui_signal_snapshot(
     max_market_weight: float = 1.0,
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.0,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
 ) -> dict[str, Any]:
     source_name = _normalize_gui_source(source)
     snapshot = generate_signal_snapshot(
@@ -1884,7 +1889,7 @@ def run_demo_paper_simulation(
     top_n: int = 2,
     start_date: str | None = None,
     end_date: str | None = None,
-    initial_cash: float = 100000.0,
+    initial_cash: float = CURRENT_RESEARCH_CAPITAL_CNY,
     commission_bps: float = 5.0,
     slippage_bps: float = 5.0,
     max_asset_weight: float = 1.0,
@@ -1893,6 +1898,13 @@ def run_demo_paper_simulation(
     min_cash_weight: float = 0.0,
     max_drawdown_guard: float | None = None,
     guard_cooldown_periods: int = 0,
+    minimum_commission: float = 0.0,
+    market_impact_bps: float = 0.0,
+    max_participation_rate: float | None = None,
+    corporate_actions_path: str | Path | None = None,
+    corporate_actions_fingerprint: str | None = None,
+    fixed_hold_benchmark_path: str | Path | None = None,
+    fixed_hold_benchmark_sha256: str | None = None,
 ) -> dict[str, Any]:
     return run_gui_paper_simulation(
         source="demo_fixture",
@@ -1904,6 +1916,13 @@ def run_demo_paper_simulation(
         end_date=end_date,
         initial_cash=initial_cash,
         commission_bps=commission_bps,
+        minimum_commission=minimum_commission,
+        market_impact_bps=market_impact_bps,
+        max_participation_rate=max_participation_rate,
+        corporate_actions_path=corporate_actions_path,
+        corporate_actions_fingerprint=corporate_actions_fingerprint,
+        fixed_hold_benchmark_path=fixed_hold_benchmark_path,
+        fixed_hold_benchmark_sha256=fixed_hold_benchmark_sha256,
         slippage_bps=slippage_bps,
         max_asset_weight=max_asset_weight,
         max_market_weight=max_market_weight,
@@ -1924,7 +1943,7 @@ def run_gui_paper_simulation(
     rebalance_interval: int = 1,
     start_date: str | None = None,
     end_date: str | None = None,
-    initial_cash: float = 100000.0,
+    initial_cash: float = CURRENT_RESEARCH_CAPITAL_CNY,
     commission_bps: float = 5.0,
     slippage_bps: float = 5.0,
     max_asset_weight: float = 1.0,
@@ -1934,10 +1953,22 @@ def run_gui_paper_simulation(
     periods_per_year: float | None = None,
     max_drawdown_guard: float | None = None,
     guard_cooldown_periods: int = 0,
+    minimum_commission: float = 0.0,
+    market_impact_bps: float = 0.0,
+    max_participation_rate: float | None = None,
+    corporate_actions_path: str | Path | None = None,
+    corporate_actions_fingerprint: str | None = None,
+    fixed_hold_benchmark_path: str | Path | None = None,
+    fixed_hold_benchmark_sha256: str | None = None,
 ) -> dict[str, Any]:
     source_name = _normalize_gui_source(source)
+    prepared, fixed_hold = validate_gui_paper_inputs(source=source_name, market=market,
+        market_impact_bps=market_impact_bps, max_participation_rate=max_participation_rate,
+        corporate_actions_path=corporate_actions_path, corporate_actions_fingerprint=corporate_actions_fingerprint,
+        fixed_hold_benchmark_path=fixed_hold_benchmark_path, fixed_hold_benchmark_sha256=fixed_hold_benchmark_sha256)
+    bars = _load_gui_bars(source_name, data_root, market)
     result = run_paper_simulation(
-        _load_gui_bars(source_name, data_root, market),
+        bars,
         PaperSimulationConfig(
             market=market,
             factor_name=factor_name,
@@ -1948,6 +1979,10 @@ def run_gui_paper_simulation(
             end_date=end_date,
             initial_cash=initial_cash,
             commission_bps=commission_bps,
+            minimum_commission=minimum_commission,
+            market_impact_bps=market_impact_bps,
+            max_participation_rate=max_participation_rate,
+            corporate_actions_path=Path(corporate_actions_path) if corporate_actions_path else None,
             slippage_bps=slippage_bps,
             max_asset_weight=max_asset_weight,
             max_market_weight=max_market_weight,
@@ -1958,6 +1993,7 @@ def run_gui_paper_simulation(
             guard_cooldown_periods=guard_cooldown_periods,
         ),
     )
+    result = complete_gui_paper_inputs(bars, result, prepared, fixed_hold, fixed_hold_benchmark_path)
     equity_curve = pd.DataFrame(result["equity_curve"])
     result["data_mode"] = mock_data.DATA_MODE if source_name == "demo_fixture" else result["data_mode"]
     result["data_source"] = source_name
@@ -2048,16 +2084,8 @@ def _filtered_bars(market: str, start_date: str | None, end_date: str | None) ->
     return bars.reset_index(drop=True)
 
 
-def _normalize_gui_source(source: str) -> str:
-    normalized = source.strip().lower().replace("_", "-")
-    if normalized in {"demo", "demo-fixture", "fixture"}:
-        return "demo_fixture"
-    if normalized == "processed-bars":
-        return "processed-bars"
-    raise ValueError(f"Unsupported GUI data source: {source}")
-
-
 def _load_gui_bars(source: str, data_root: str | Path | None, market: str) -> pd.DataFrame:
+    require_gui_research_access(source, market)
     if source == "demo_fixture":
         return mock_data.demo_bars()
     root = Path(data_root) if data_root is not None else DEFAULT_GUI_PROCESSED_ROOT

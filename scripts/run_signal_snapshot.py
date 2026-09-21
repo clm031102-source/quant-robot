@@ -16,6 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
 from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
@@ -23,6 +24,7 @@ from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_
 from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot, write_signal_snapshot
 from quant_robot.storage.processed_bars import load_processed_bars
+from quant_robot.research.cn_etf_entrypoint_access import require_registered_cn_etf_entrypoint
 
 DEFAULT_MARKETS = ("CN", "CN_ETF", "HK", "US", "CRYPTO")
 
@@ -40,7 +42,7 @@ def run_signal_snapshot(
     max_market_weight: float = 1.0,
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.0,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
     positions_csv: str | Path | None = None,
     rotation_membership_root: str | Path | None = None,
     rotation_membership_required: bool = False,
@@ -52,6 +54,7 @@ def run_signal_snapshot(
     ),
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, Any]:
+    require_registered_cn_etf_entrypoint(source, market)
     _enforce_cn_stock_signal_snapshot_inputs(
         source=source,
         market=market,
@@ -107,7 +110,7 @@ def main() -> None:
     parser.add_argument("--max-market-weight", default=1.0, type=float)
     parser.add_argument("--max-gross-exposure", default=1.0, type=float)
     parser.add_argument("--min-cash-weight", default=0.0, type=float)
-    parser.add_argument("--portfolio-value", default=100000.0, type=float)
+    parser.add_argument("--portfolio-value", default=CURRENT_RESEARCH_CAPITAL_CNY, type=float)
     parser.add_argument("--positions-csv")
     parser.add_argument("--rotation-membership-root")
     parser.add_argument("--rotation-membership-required", action="store_true")
@@ -183,6 +186,7 @@ def _attach_processed_cn_etf_rotation_membership(
 
 
 def _load_bars(source: str, data_root: Path, market: str) -> pd.DataFrame:
+    require_registered_cn_etf_entrypoint(source, market)
     if source == "fixture":
         return load_demo_market_bars()
     if source != "processed-bars":

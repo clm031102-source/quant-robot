@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "proposal_id": "household_equity_preference_annual_contrast_event_diagnostic_v1",
+  "economic_hypothesis_id": "household_equity_preference_annual_contrast_v1",
+  "status": "design_review_only_not_admitted",
+  "primary_market": "CN_ETF",
+  "symbol": "510300.SH",
+  "economic_direction": "higher_household_stock_preference_may_imply_lower_subsequent_equity_risk_compensation",
+  "new_mechanism_proposal": true,
+  "statistical_independence_from_previous_trials_verified": false,
+  "source_document": "docs/research/cn_etf_household_equity_preference_review_2026-09-14.md",
+  "source_scope": {
+    "first_report_quarter": "2018Q4",
+    "last_report_quarter": "2024Q1",
+    "required_report_count": 22,
+    "measure": "published_percentage_of_respondents_choosing_stocks_among_reported_preferred_investment_choices",
+    "not_a_portfolio_weight_or_diffusion_index": true,
+    "historical_version_assumption": "retained_current_official_PDF_values_equal_the_values_publicly_available_on_the_later_retained_official_date",
+    "historical_availability_verified": false,
+    "silent_revision_absence_verified": false,
+    "actual_observed_at_preserved": true,
+    "assumed_available_from": "China_midnight_after_maximum_of_catalog_date_article_date_and_present_PDF_declared_date",
+    "multiple_reports_same_available_session": "include_all_visible_reports_then_use_only_latest_report_quarter_for_one_decision",
+    "missing_duplicate_or_inconsistent_source": "stop_without_imputation_or_silent_exclusion"
+  },
+  "signal": {
+    "latest": "latest_report_quarter_visible_before_the_anchor_session",
+    "comparator": "arithmetic_mean_of_exactly_the_four_preceding_consecutive_report_quarters_visible_at_that_time",
+    "z": "1_if_latest_preference_is_strictly_below_comparator_else_0",
+    "comparison_reason": "one_annual_cycle_relative_to_recent_household_preference_level;no_parameter_search",
+    "equality_action": "cash",
+    "update": "first_calendar_session_on_or_after_assumed_availability;all_same_session_sources_batched",
+    "between_publications": "hold_existing_signal_without_manufacturing_new_independent_decisions",
+    "sign_or_window_search_allowed": false
+  },
+  "window": {
+    "first_anchor": "2020-01-02",
+    "terminal_anchor": "2024-06-03",
+    "boundary_reason": "reuse_previously_reviewed_price_and_action_scope;overlapping_outcomes_are_already_seen_exploration",
+    "initial_signal": "latest_visible_report_at_first_anchor_with_its_four_prior_reports",
+    "subsequent_anchors": "unique_source_publication_sessions_strictly_between_first_and_terminal_anchor",
+    "terminal_new_signal": false,
+    "anchor_price": "analytical_total_return_index_at_session_close",
+    "future_return_start": "strictly_after_anchor_close",
+    "expected_anchor_count": 18,
+    "expected_interval_count": 17,
+    "expected_close_to_close_transition_count": 1068,
+    "expand_or_drop_intervals": false
+  },
+  "primary_diagnostic": {
+    "interval_log_return": "L_j=ln(I_next_anchor_close/I_anchor_close)",
+    "interval_weight": "n_j=number_of_close_to_close_session_transitions_in_interval",
+    "matched_exposure": "z_bar=sum(n_j*z_j)/sum(n_j)",
+    "formula": "D=sum((z_j-z_bar)*L_j)/sum(n_j)",
+    "numerical_policy": "Decimal_precision_64_with_ROUND_HALF_EVEN;round_D_to_40_decimal_places_before_decision_and_preserve_unrounded_D",
+    "interpretation": "gross_daily_log_return_selection_differential_with_ex_post_session_weighted_exposure_matching",
+    "comparator_is_executable_strategy": false,
+    "log_diagnostic_is_portfolio_return": false,
+    "cash_interest_assumption": "0",
+    "reject_if": "D_less_than_or_equal_to_zero_or_signal_constant_or_incomplete_fixed_scope",
+    "positive_result": "review_separate_cost_and_account_study_only;not_net_EV_or_promotion"
+  },
+  "descriptive_outputs": [
+    "all_interval_dates_visible_quarters_source_fingerprints_and_session_counts",
+    "signal_counts_and_actual_switch_count_without_alternate_signal",
+    "primary_D_and_its_two_components",
+    "per_interval_contribution_to_same_primary_D_without_subset_selection"
+  ],
+  "source_use": {
+    "calendar_sha256": "dbecac271ded4b95da6234658742177569405c477097ec1b780914ebddcaa11a",
+    "price_basis": "cash_actions_ex_close_reinvestment_v1",
+    "residual_action_assumption": "no_unlisted_unit_conversion_in_bounded_window_not_proven_by_net_share_balance",
+    "use_specific_review_required": true,
+    "global_source_audit_verified": false
+  },
+  "cost_and_risk": {
+    "capital_cny": "10000",
+    "max_position_cny": "1000",
+    "daily_loss_cny": "60",
+    "max_drawdown": "0.08",
+    "commission_bps_per_side_assumed": "5",
+    "minimum_commission_scenarios_cny": ["0", "5", "10"],
+    "minimum_commission_confirmed": false,
+    "net_account_and_fills_computed": false,
+    "risk_compliance_certified": false
+  },
+  "inference": {
+    "already_seen_2020_2024_ETF_outcome_overlap": true,
+    "daily_rows_are_independent_hypotheses": false,
+    "p_values_or_confidence_intervals_allowed": false,
+    "formal_positive_EV_claim_allowed": false,
+    "complete_search_history_verified": false,
+    "one_fixed_hypothesis_only": true
+  },
+  "admission_requirements": [
+    "separate_use_specific_source_review_and_exact_input_hashes",
+    "synthetic_verification_of_release_batching_signal_and_variable_interval_diagnostic",
+    "separate_hash_bound_preregistration_and_dedicated_single_attempt_scheduler_admission",
+    "durable_claim_before_signal_generation_or_ETF_outcome_decoding",
+    "no_reuse_of_consumed_policy_uncertainty_or_other_family_allowance"
+  ],
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "outcome_read_allowed": false,
+    "once_only_attempt_authorization_issued": false,
+    "general_factor_batch_allowed": false,
+    "2026_holdout_allowed": false,
+    "paper_account_run_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "promotion_allowed": false
+  }
+}

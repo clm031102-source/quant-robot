@@ -4,6 +4,7 @@ const state = {
   research: null,
   signals: null,
   paper: null,
+  paperInputVersions: null,
   promotion: null,
   promotionReview: null,
   evidenceRefresh: null,
@@ -144,6 +145,11 @@ const REQUEST_PREVIEW_INPUT_IDS = [
   "paper-end-date",
   "paper-initial-cash",
   "paper-commission-bps",
+  "paper-minimum-commission",
+  "paper-impact-bps",
+  "paper-participation-rate",
+  "paper-actions-path",
+  "paper-fixed-hold-path",
   "paper-slippage-bps",
   "paper-max-asset-weight",
   "paper-max-market-weight",
@@ -364,6 +370,12 @@ function bindActions() {
   byId("run-research").addEventListener("click", runResearch);
   byId("run-signals").addEventListener("click", runSignals);
   byId("run-paper").addEventListener("click", runPaper);
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-paper-archive]");
+    if (!button) return;
+    event.preventDefault();
+    restorePaperArchive(button.dataset.paperArchive, button);
+  });
   byId("run-daily-ops").addEventListener("click", runDailyOps);
   byId("run-daily-trade-advisory").addEventListener("click", runDailyTradeAdvisory);
   byId("run-promotion").addEventListener("click", runPromotionOps);
@@ -749,12 +761,22 @@ async function loadDailyOps() {
   renderDashboard();
 }
 
-async function loadDailyTradeAdvisory() {
-  const params = buildDailyTradeAdvisoryParams();
-  state.dailyTradeAdvisory = attachRequestToResult(
-    await fetchJson(`/api/trade/daily-advisory?${params.toString()}`),
-    params,
-  );
+async function loadDailyTradeAdvisory(params = buildDailyTradeAdvisoryParams()) {
+  try {
+    state.dailyTradeAdvisory = attachRequestToResult(
+      await fetchJson(`/api/trade/daily-advisory?${params.toString()}`),
+      params,
+    );
+  } catch (error) {
+    state.dailyTradeAdvisory = {
+      status: error.status || "request_failed",
+      error: error.message || "交易建议加载失败",
+      summary: {signal_count: 0, selected_factor_count: 0, manual_ticket_count: 0},
+    };
+    renderDailyTradeAdvisory();
+    renderDashboard();
+    throw error;
+  }
   renderDailyTradeAdvisory();
   renderDashboard();
 }
@@ -884,7 +906,7 @@ function buildDailyTradeAdvisoryParams() {
     limit: "3",
     top_n: valueOf("signal-top-n") || "2",
     as_of_date: valueOf("daily-trade-as-of") || valueOf("signal-as-of"),
-    portfolio_value: valueOf("daily-trade-portfolio-value") || valueOf("paper-initial-cash") || "100000",
+    portfolio_value: valueOf("daily-trade-portfolio-value") || valueOf("paper-initial-cash") || "10000",
     manual_available_cash: valueOf("daily-manual-available-cash"),
     risk_profile_id: valueOf("daily-trade-risk-profile") || "balanced_20dd",
     current_positions: valueOf("daily-current-positions"),
@@ -913,8 +935,13 @@ function buildPaperParams() {
     end_date: valueOf("paper-end-date"),
     as_of_date: operationDate,
     run_date: operationDate,
-    initial_cash: valueOf("paper-initial-cash") || "100000",
+    initial_cash: valueOf("paper-initial-cash") || "10000",
     commission_bps: valueOf("paper-commission-bps") || "5",
+    minimum_commission: valueOf("paper-minimum-commission") || "0",
+    market_impact_bps: valueOf("paper-impact-bps") || "0",
+    max_participation_rate: valueOf("paper-participation-rate") || "",
+    corporate_actions_path: valueOf("paper-actions-path") || "",
+    fixed_hold_benchmark_path: valueOf("paper-fixed-hold-path") || "",
     slippage_bps: valueOf("paper-slippage-bps") || "5",
     max_asset_weight: valueOf("paper-max-asset-weight") || "1",
     max_market_weight: valueOf("paper-max-market-weight") || "1",
@@ -925,7 +952,57 @@ function buildPaperParams() {
   });
   addSourceParams(params);
   appendSameParameterPaperMetadata(params, lockedRequest);
+  appendPaperInputPins(params, lockedRequest);
   return params;
+}
+
+function paperInputVersionKey(params) {
+  return JSON.stringify(["source", "market", "corporate_actions_path", "fixed_hold_benchmark_path"]
+    .map((key) => params.get(key) || ""));
+}
+
+function appendPaperInputPins(params, lockedRequest = null) {
+  const cached = state.paperInputVersions;
+  const pins = lockedRequest || (cached?.key === paperInputVersionKey(params) ? cached.pins : {});
+  for (const [path, pin] of [["corporate_actions_path", "corporate_actions_fingerprint"],
+    ["fixed_hold_benchmark_path", "fixed_hold_benchmark_sha256"]]) {
+    params.delete(pin);
+    if (params.get(path) && pins?.[pin]) params.set(pin, String(pins[pin]));
+  }
+}
+
+async function preparePaperParams(lockedRequest = null) {
+  try {
+    const params = buildPaperParams(lockedRequest);
+    if (!params.get("corporate_actions_path") && !params.get("fixed_hold_benchmark_path")) return params;
+    const files = new URLSearchParams();
+    ["source", "market", "corporate_actions_path", "fixed_hold_benchmark_path"]
+      .forEach((key) => files.set(key, params.get(key) || ""));
+    const prepared = await fetchJson(`/api/paper/inputs?${files}`);
+    for (const [path, pin] of [["corporate_actions_path", "corporate_actions_fingerprint"],
+      ["fixed_hold_benchmark_path", "fixed_hold_benchmark_sha256"]]) {
+      if (!params.get(path)) continue;
+      if (!/^[0-9a-f]{64}$/.test(prepared.pins?.[pin] || "")) throw new Error("未取得完整输入文件版本");
+      if (lockedRequest && lockedRequest[pin] !== prepared.pins[pin]) {
+        throw new Error("同参数请求的文件版本缺失或已变化，不能自动替换");
+      }
+    }
+    state.paperInputVersions = {key:paperInputVersionKey(params), pins:prepared.pins};
+    appendPaperInputPins(params, lockedRequest);
+    return params;
+  } catch (error) {
+    invalidatePaperResult(error);
+    showToast(error.message, true);
+    throw error;
+  }
+}
+
+function invalidatePaperResult(error) {
+  state.paperInputVersions = null;
+  state.paper = {status:error.status || "paper_input_error", error:error.message || "模拟请求未完成"};
+  renderDashboard();
+  renderPaper();
+  renderControlCenter();
 }
 
 function appendSameParameterPaperMetadata(params, lockedRequest = null) {
@@ -1433,6 +1510,11 @@ function applyControlDefaults() {
   setValue("paper-end-date", paper.end_date || research.end_date || "");
   setValue("paper-initial-cash", paper.initial_cash ?? "");
   setValue("paper-commission-bps", paper.commission_bps ?? "");
+  setValue("paper-minimum-commission", paper.minimum_commission ?? "0");
+  setValue("paper-impact-bps", paper.market_impact_bps ?? "0");
+  setValue("paper-participation-rate", paper.max_participation_rate ?? "");
+  setValue("paper-actions-path", paper.corporate_actions_path ?? "");
+  setValue("paper-fixed-hold-path", paper.fixed_hold_benchmark_path ?? "");
   setValue("paper-slippage-bps", paper.slippage_bps ?? "");
   setValue("paper-max-asset-weight", paper.max_asset_weight ?? "");
   setValue("paper-max-market-weight", paper.max_market_weight ?? "");
@@ -1479,8 +1561,9 @@ function renderResultFreshness() {
       "模拟盘结果",
       state.paper,
       buildPaperParams(),
-      ["market", "factor_name", "top_n", "start_date", "end_date", "initial_cash"],
-      "修改市场、因子、TopN、日期窗口或初始资金后，需要重新跑本地模拟盘。",
+      ["market", "factor_name", "top_n", "start_date", "end_date", "initial_cash", "commission_bps", "minimum_commission", "slippage_bps",
+        "market_impact_bps", "max_participation_rate", "corporate_actions_path", "corporate_actions_fingerprint", "fixed_hold_benchmark_path", "fixed_hold_benchmark_sha256"],
+      "修改市场、因子、TopN、日期窗口、初始资金或费用情景后，需要重新跑本地模拟盘。",
     ),
     resultFreshnessRow(
       "每日前三建议",
@@ -1591,13 +1674,14 @@ function resultFreshnessRow(label, result, params, keys, detail) {
     };
   }
   const isCurrent = requestMatchesCurrentParams(resultRequest, params, keys);
+  const isArchive = result.paper_archive?.restored === true;
   return {
     label,
-    status: isCurrent ? "当前" : "已过期",
-    statusClass: isCurrent ? "ok" : "warn",
+    status: isArchive ? `历史归档（${isCurrent ? "参数一致" : "参数不同"}）` : isCurrent ? "当前" : "已过期",
+    statusClass: isCurrent && !isArchive ? "ok" : "warn",
     currentSummary: `当前参数=${requestFreshnessSummary(currentRequest)}`,
     resultSummary: `页面结果=${requestFreshnessSummary(resultRequest)}`,
-    detail: isCurrent ? "页面指标匹配当前表单参数。" : detail,
+    detail: isArchive ? "已恢复保存结果，没有重新运行或新增观察日。" : isCurrent ? "页面指标匹配当前表单参数。" : detail,
   };
 }
 
@@ -1626,6 +1710,13 @@ function requestObjectFromParams(params) {
     max_drawdown_limit: params.get("max_drawdown_limit") || "",
     initial_cash: params.get("initial_cash") || "",
     commission_bps: params.get("commission_bps") || "",
+    minimum_commission: params.get("minimum_commission") || "",
+    market_impact_bps: params.get("market_impact_bps") || "",
+    max_participation_rate: params.get("max_participation_rate") || "",
+    corporate_actions_path: params.get("corporate_actions_path") || "",
+    corporate_actions_fingerprint: params.get("corporate_actions_fingerprint") || "",
+    fixed_hold_benchmark_path: params.get("fixed_hold_benchmark_path") || "",
+    fixed_hold_benchmark_sha256: params.get("fixed_hold_benchmark_sha256") || "",
     slippage_bps: params.get("slippage_bps") || "",
     max_asset_weight: params.get("max_asset_weight") || "",
     max_market_weight: params.get("max_market_weight") || "",
@@ -1656,6 +1747,7 @@ function requestFreshnessSummary(request = {}) {
     request.manual_available_cash != null && request.manual_available_cash !== "" ? `手填现金=${request.manual_available_cash}` : "",
     request.risk_profile_id || "",
     request.initial_cash != null && request.initial_cash !== "" ? `初始资金=${request.initial_cash}` : "",
+    request.minimum_commission != null && request.minimum_commission !== "" ? `最低佣金情景=${request.minimum_commission}元/笔` : "",
     request.start_date || request.as_of_date || "",
     request.end_date || "",
   ].filter(Boolean).join(" / ") || "--";
@@ -1981,16 +2073,25 @@ async function runSignals() {
   });
 }
 
-async function refreshPaper() {
-  const params = buildPaperParams();
-  state.paper = await fetchJson(`/api/paper?${params.toString()}`);
+async function refreshPaper(preparedParams = null) {
+  state.paperArchiveGeneration = (state.paperArchiveGeneration || 0) + 1;
+  state.paperSimulationRunning = true;
+  try {
+    const params = preparedParams || await preparePaperParams();
+    state.paper = await fetchJson(`/api/paper?${params.toString()}`);
+  } catch (error) {
+    invalidatePaperResult(error);
+    throw error;
+  } finally {
+    state.paperSimulationRunning = false;
+  }
   renderDashboard();
   renderPaper();
   renderControlCenter();
 }
 
 async function runPaper() {
-  const params = buildPaperParams();
+  const params = await preparePaperParams();
   const confirmed = await confirmSafeWorkflow({
     workflow_id: "paper_simulation",
     label: "本地模拟盘回放",
@@ -1999,7 +2100,7 @@ async function runPaper() {
   });
   if (!confirmed) return;
   await withBusy("run-paper", async () => {
-    await refreshPaper();
+    await refreshPaper(params);
     appendRunHistory({
       workflow_id: "paper_simulation",
       label: "Run local paper simulation",
@@ -2021,12 +2122,7 @@ async function runDailyTradeAdvisory() {
   });
   if (!confirmed) return;
   await withBusy("run-daily-trade-advisory", async () => {
-    state.dailyTradeAdvisory = attachRequestToResult(
-      await fetchJson(`/api/trade/daily-advisory?${params.toString()}`),
-      params,
-    );
-    renderDailyTradeAdvisory();
-    renderDashboard();
+    await loadDailyTradeAdvisory(params);
     appendRunHistory({
       workflow_id: "daily_trade_advisory",
       label: "Generate top-three manual trade advisory",
@@ -6352,6 +6448,11 @@ function applyDailyPaperHandoffToForm(request = {}) {
   if (request.rebalance_interval != null) setValue("rebalance-interval", leaderboardInputValue(request.rebalance_interval));
   if (request.initial_cash != null) setValue("paper-initial-cash", leaderboardInputValue(request.initial_cash));
   if (request.commission_bps != null) setValue("paper-commission-bps", leaderboardInputValue(request.commission_bps));
+  setValue("paper-minimum-commission", leaderboardInputValue(request.minimum_commission ?? 0));
+  setValue("paper-impact-bps", leaderboardInputValue(request.market_impact_bps ?? 0));
+  setValue("paper-participation-rate", leaderboardInputValue(request.max_participation_rate ?? ""));
+  setValue("paper-actions-path", request.corporate_actions_path ?? "");
+  setValue("paper-fixed-hold-path", request.fixed_hold_benchmark_path ?? "");
   if (request.slippage_bps != null) setValue("paper-slippage-bps", leaderboardInputValue(request.slippage_bps));
   if (request.max_asset_weight != null) setValue("paper-max-asset-weight", leaderboardInputValue(request.max_asset_weight));
   if (request.max_market_weight != null) setValue("paper-max-market-weight", leaderboardInputValue(request.max_market_weight));
@@ -6407,7 +6508,7 @@ function applySameParameterPaperToForm(request = {}) {
 async function runSameParameterPaperSimulation(button) {
   const request = sameParameterPaperRequestFromButton(button);
   applySameParameterPaperToForm(request);
-  const params = buildPaperParams(request);
+  const params = await preparePaperParams(request);
   const confirmed = await confirmSafeWorkflow({
     workflow_id: "paper_simulation",
     label: "Top3 同参数本地模拟盘复核",
@@ -6420,23 +6521,23 @@ async function runSameParameterPaperSimulation(button) {
     button.disabled = true;
     button.textContent = "运行中";
   }
-  await withBusy("run-paper", async () => {
-    state.paper = await fetchJson(`/api/paper?${params.toString()}`);
-    renderDashboard();
-    renderPaper();
-    renderControlCenter();
-    appendRunHistory({
-      workflow_id: "paper_simulation",
-      label: "Run locked same-parameter Top3 paper simulation",
-      status: "completed",
-      detail: `${request.factor || valueOf("paper-factor-select") || "--"} / lock=${request.same_parameter_lock_id || request.lock_id || "--"}`,
+  try {
+    await withBusy("run-paper", async () => {
+      await refreshPaper(params);
+      appendRunHistory({
+        workflow_id: "paper_simulation",
+        label: "Run locked same-parameter Top3 paper simulation",
+        status: "completed",
+        detail: `${request.factor || valueOf("paper-factor-select") || "--"} / lock=${request.same_parameter_lock_id || request.lock_id || "--"}`,
+      });
+      appendExecutionReceipt(paperReceipt(state.paper));
+      showToast("同参数模拟盘已更新");
     });
-    appendExecutionReceipt(paperReceipt(state.paper));
-    showToast("同参数模拟盘已更新");
-  });
-  if (button) {
-    button.disabled = false;
-    button.textContent = original || "运行模拟盘";
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original || "运行模拟盘";
+    }
   }
 }
 
@@ -6620,11 +6721,17 @@ function renderPaper() {
   byId("paper-metrics").innerHTML = [
     metric("期末权益", formatNumber(metrics.ending_equity), "demo"),
     metric("总收益", formatPercent(metrics.total_return), "simulated"),
+    metric("最低佣金情景", formatNumber(paper.request?.minimum_commission), "元/笔，待核实"),
     metric("最大回撤", formatPercent(metrics.max_equity_drawdown ?? metrics.max_drawdown), "simulated"),
     metric("成交笔数", paper.fills?.length ?? 0, "fills"),
     metric("保护事件", formatNumber(metrics.guard_event_count), "guard"),
   ].join("");
-  byId("paper-equity-chart").innerHTML = lineChart(paper.equity_curve || [], "equity", chartTheme.paper, "Paper equity");
+  byId("paper-equity-chart").innerHTML = paper.fixed_hold_benchmark ? multiLineChart([
+    {label:"策略账户", color:chartTheme.paper, rows:paper.equity_curve || [], yKey:"equity"},
+    {label:"固定持有账户", color:chartTheme.benchmark, rows:paper.fixed_hold_benchmark.equity_curve || [], yKey:"equity"},
+  ]) : lineChart(paper.equity_curve || [], "equity", chartTheme.paper, "Paper equity");
+  renderPaperComparison();
+  renderPaperArchive();
   byId("paper-exposure-chart").innerHTML = lineChart(paper.equity_curve || [], "gross_exposure", chartTheme.benchmark, "Gross exposure");
   byId("paper-fill-table").innerHTML = tableRows(paper.fills || [], ["signal_date", "execution_date", "asset_id", "market", "side", "quantity", "fill_price", "fee"]);
   byId("paper-guard-table").innerHTML = tableRows(paper.guard_events || [], ["date", "event_type", "drawdown", "blocked_buy_intents", "cooldown_remaining"]);
@@ -6637,6 +6744,89 @@ function renderPaper() {
   renderDailyRealWorldHandoffGate(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
 }
 
+function paperArchiveControls(ref = {}) {
+  const id = ref?.archive_id;
+  if (!['saved', 'verified'].includes(ref?.status) || !/^[0-9a-f]{64}$/.test(id || '')) {
+    return `<span>${ref?.status === 'failed' ? '完整归档保存失败' : '此记录没有完整归档'}</span>`;
+  }
+  return `<button type="button" class="secondary-button" data-paper-archive="${id}">恢复完整曲线</button>
+    <a class="secondary-button" href="/api/paper/archive?archive_id=${id}" download="paper-result-${id.slice(0, 12)}.json">下载完整记录</a>`;
+}
+
+function renderPaperArchive() {
+  const target = byId('paper-archive');
+  if (!target) return;
+  const ref = state.paper?.paper_archive;
+  const message = ref?.restored ? '历史结果已恢复；没有新增模拟运行或观察日。'
+    : ref?.status === 'saved' ? '完整结果已保存，可恢复账户曲线、持仓、成交和运行条件。'
+    : ref?.status === 'failed' ? '本次结果尚未完整保存。' : '运行完成后在本机保存完整记录。';
+  target.innerHTML = `<div class="list-row ${ref?.status === 'failed' ? 'danger' : 'muted'}">
+    <span>${escapeHtml(message)}</span>${paperArchiveControls(ref)}
+    ${ref?.error ? `<span>${escapeHtml(ref.error)}</span>` : ''}</div>`;
+}
+
+async function restorePaperArchive(archiveId, button = null) {
+  if (state.paperSimulationRunning) {
+    showToast('模拟正在运行，请在完成后恢复历史记录');
+    return;
+  }
+  const generation = (state.paperArchiveGeneration || 0) + 1;
+  state.paperArchiveGeneration = generation;
+  if (button) button.disabled = true;
+  state.paper = null;
+  try {
+    if (!/^[0-9a-f]{64}$/.test(archiveId || '')) throw new Error('归档编号无效');
+    const result = await fetchJson(`/api/paper/archive?archive_id=${archiveId}`);
+    if (generation !== state.paperArchiveGeneration) return;
+    if (result.paper_archive?.archive_id !== archiveId || result.paper_archive?.status !== 'verified'
+        || result.paper_archive?.restored !== true || !result.request || !result.metrics || !Array.isArray(result.equity_curve)) {
+      throw new Error('归档结果不完整或版本不符');
+    }
+    state.paper = result;
+    activatePage('paper');
+    showToast('已恢复历史曲线，未重新运行');
+  } catch (error) {
+    if (generation === state.paperArchiveGeneration) {
+      state.paper = null;
+      showToast(`无法恢复完整记录：${error.message}`);
+    }
+  } finally {
+    if (button) button.disabled = false;
+    if (generation === state.paperArchiveGeneration) {
+      renderPaper();
+      renderResultFreshness();
+    }
+  }
+}
+
+function renderPaperComparison() {
+  const target = byId("paper-comparison");
+  if (!target) return;
+  const paper = state.paper || {};
+  const comparison = paper.account_comparison;
+  if (!comparison) {
+    target.innerHTML = statusRows([["账户对照", paper.error || "尚未运行固定持有账户对照。", "warn"]]);
+    return;
+  }
+  const limits = comparison.risk_comparison?.strategy?.limits;
+  target.innerHTML = statusRows([
+    ["策略账户收益", formatPercent(comparison.strategy_total_return), "muted"],
+    ["固定持有账户收益", formatPercent(comparison.benchmark_total_return), "muted"],
+    ["账户收益差", formatPercent(comparison.relative_return), "muted"],
+    ["现金情景收益", formatPercent(comparison.cash_total_return), "muted"],
+    ["逐日核对条件", limits ? `资金${limits.initial_cash}元 / 单仓${limits.max_position_cny}元 / 日亏${limits.max_daily_loss_cny}元 / 回撤${formatPercent(limits.max_drawdown)}` : "未附带冻结风险条件", "muted"],
+    ["持有对照风险条件", paper.fixed_hold_benchmark?.risk?.compatible_with_declared_limits ? "未观察到越限" : "存在越限或缺少证据", "warn"],
+    ...[ ["strategy", "策略逐日金额核对"], ["benchmark", "对照逐日金额核对"] ].map(([key, label]) => {
+      const audit = comparison.risk_comparison?.[key];
+      return [label, !audit?.evidence_complete_on_supplied_calendar ? "缺少完整的当日持仓估值证据" :
+        audit.within_limits_on_supplied_marks ? "所供估值未越过金额和回撤条件；尚未认证执行约束" :
+          `发现${audit.breaches?.length || 0}条越限记录`, "warn"];
+    }),
+    ["结论限制", "两账户风险可能不同，收益差不等于风险调整后的优势，正EV未证实。期末持仓按价格估值，现金采用零利息情景。", "warn"],
+    ["文件版本", "结果对应运行时已固定的版本；再次运行会重新核对，文件版本不等于来源质量认证。", "muted"],
+  ]);
+}
+
 function renderDailyTradeAdvisory() {
   const pack = state.dailyTradeAdvisory || {};
   const summary = pack.summary || {};
@@ -6644,7 +6834,8 @@ function renderDailyTradeAdvisory() {
   const tag = byId("daily-trade-advisory-tag");
   const signalCount = Number(summary.signal_count || 0);
   const selectedCount = Number(summary.selected_factor_count || 0);
-  const status = signalCount > 0 ? "manual_advisory_ready" : "waiting_for_signals";
+  const accessDenied = pack.status === "research_access_denied";
+  const status = accessDenied ? "研究准入未完成" : pack.error ? "请求未完成" : signalCount > 0 ? "manual_advisory_ready" : "waiting_for_signals";
   if (tag) {
     tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", signalCount === 0);
@@ -6659,12 +6850,12 @@ function renderDailyTradeAdvisory() {
     metric("下单权限", summary.order_placement_allowed ? "允许" : "禁止", "manual only"),
   ].join("");
   byId("daily-trade-advisory-status").innerHTML = statusRows([
-    ["来源", pack.fallback_used ? "排行榜无可运行前三，使用可运行基线兜底" : "从 CN_ETF 排行榜取可运行前三候选", pack.fallback_used ? "warn" : "ok"],
+    ["来源", pack.error ? "本次请求未生成交易建议" : pack.fallback_used ? "排行榜无可运行前三，使用可运行基线兜底" : "从 CN_ETF 排行榜取可运行前三候选", pack.error ? "danger" : pack.fallback_used ? "warn" : "ok"],
     ["信号状态", `${signalCount} / ${selectedCount}`, signalCount > 0 ? "ok" : "warn"],
     ["当前持仓", positionValidation.plain_summary || "未填写当前持仓；将按目标仓位估算。", positionValidation.status === "error" ? "danger" : positionValidation.status === "ok" ? "ok" : "warn"],
     ["执行边界", pack.safety || "Research-to-paper only", "danger"],
-    ["下一步", summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
-    ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
+    ["下一步", pack.error || summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
+    ["错误", pack.error || (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.error || pack.signal_errors?.length ? "warn" : "ok"],
   ]);
   renderDailyOpsHandoff(pack.daily_ops_handoff || {});
   renderDailyOpsPaperExecutionRecheck(pack.daily_ops_handoff?.paper_execution_recheck || {});
@@ -6966,7 +7157,7 @@ async function runCurrentPositionAction(actionId, button = null) {
 function applyPaperFlatPositionTemplate() {
   setValue("daily-current-positions", PAPER_FLAT_POSITION_TEMPLATE);
   if (!valueOf("daily-manual-available-cash")) {
-    setValue("daily-manual-available-cash", valueOf("daily-trade-portfolio-value") || "100000");
+    setValue("daily-manual-available-cash", valueOf("daily-trade-portfolio-value") || "10000");
   }
   markManualFormOverride("paper_flat_position_template");
   dispatchDailyInputChanged("daily-current-positions");
@@ -10175,8 +10366,22 @@ function dailyPaperManualReviewRow(status = {}) {
 }
 
 function paperReceiptMatchesRequest(receipt = {}, request = {}) {
+  if (Object.keys(request).length === 0) {
+    return {matches: false, compared_keys: [], mismatch_keys: []};
+  }
   const receiptRequest = receipt.request || {};
+  const participation = (value) => normalizeReceiptNumber(value == null || value === "" ? "none" : value);
+  const sourceName = (value) => {
+    const name = String(value || "").trim().toLowerCase().replaceAll("_", "-");
+    return ["demo", "demo-fixture", "fixture"].includes(name) ? "demo_fixture" : name;
+  };
+  const stable = (value) => {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])]));
+    return value;
+  };
   const comparisons = [
+    ["source", sourceName(receiptRequest.source), sourceName(request.source)],
     ["market", normalizeReceiptText(receiptRequest.market), normalizeReceiptText(request.market)],
     ["factor", normalizeReceiptText(receiptRequest.factor_name || receiptRequest.factor), normalizeReceiptText(request.factor || request.factor_name)],
     ["factor_windows", normalizeReceiptText(receiptRequest.factor_windows), normalizeReceiptText(request.factor_windows)],
@@ -10184,6 +10389,11 @@ function paperReceiptMatchesRequest(receipt = {}, request = {}) {
     ["rebalance_interval", normalizeReceiptNumber(receiptRequest.rebalance_interval), normalizeReceiptNumber(request.rebalance_interval)],
     ["initial_cash", normalizeReceiptNumber(receiptRequest.initial_cash), normalizeReceiptNumber(request.initial_cash)],
     ["commission_bps", normalizeReceiptNumber(receiptRequest.commission_bps), normalizeReceiptNumber(request.commission_bps)],
+    ["minimum_commission", normalizeReceiptNumber(receiptRequest.minimum_commission || 0), normalizeReceiptNumber(request.minimum_commission || 0)],
+    ["market_impact_bps", normalizeReceiptNumber(receiptRequest.market_impact_bps || 0), normalizeReceiptNumber(request.market_impact_bps || 0)],
+    ["max_participation_rate", participation(receiptRequest.max_participation_rate), participation(request.max_participation_rate)],
+    ["corporate_actions_path", String(receiptRequest.corporate_actions_path || "none"), String(request.corporate_actions_path || "none")],
+    ["fixed_hold_benchmark_path", String(receiptRequest.fixed_hold_benchmark_path || "none"), String(request.fixed_hold_benchmark_path || "none")],
     ["slippage_bps", normalizeReceiptNumber(receiptRequest.slippage_bps), normalizeReceiptNumber(request.slippage_bps)],
     ["max_asset_weight", normalizeReceiptNumber(receiptRequest.max_asset_weight), normalizeReceiptNumber(request.max_asset_weight)],
     ["max_market_weight", normalizeReceiptNumber(receiptRequest.max_market_weight), normalizeReceiptNumber(request.max_market_weight)],
@@ -10195,8 +10405,17 @@ function paperReceiptMatchesRequest(receipt = {}, request = {}) {
   const mismatchKeys = comparisons
     .filter((item) => item[1] === "" || item[1] !== item[2])
     .map((item) => item[0]);
+  if (request.execution_economics != null &&
+      JSON.stringify(stable(receiptRequest.execution_economics)) !== JSON.stringify(stable(request.execution_economics))) {
+    mismatchKeys.push("execution_economics");
+  }
+  for (const [path, pin] of [["corporate_actions_path", "corporate_actions_fingerprint"],
+    ["fixed_hold_benchmark_path", "fixed_hold_benchmark_sha256"]]) {
+    if (request[path] && (!/^[0-9a-f]{64}$/.test(request[pin] || "") || receiptRequest[pin] !== request[pin])) mismatchKeys.push(pin);
+  }
   return {
-    matches: comparisons.length > 0 && mismatchKeys.length === 0,
+    matches: comparisons.some((item) => !["minimum_commission", "market_impact_bps", "max_participation_rate",
+      "corporate_actions_path", "fixed_hold_benchmark_path"].includes(item[0])) && mismatchKeys.length === 0,
     compared_keys: comparisons.map((item) => item[0]),
     mismatch_keys: mismatchKeys,
   };
@@ -13141,6 +13360,7 @@ function renderOperationLedger(ledger = {}) {
         <span>${escapeHtml(`${item.recorded_at || "--"} / ${status || "--"} / ${item.workflow_id || "--"}`)}</span>
         <span>${escapeHtml(operationLedgerText(item.request_summary || item.command || ""))}</span>
         <span>${escapeHtml(operationLedgerText(item.metric_summary || item.stage || ""))}</span>
+        ${item.workflow_id === 'paper_simulation' ? paperArchiveControls(item.paper_archive) : ''}
       </div>
     `;
   }).join("");
@@ -13785,8 +14005,8 @@ function gateThresholdValue(item = {}, paperRequest = {}) {
 function paperInitialCash(paperRequest = {}) {
   const requested = Number(paperRequest.initial_cash);
   if (Number.isFinite(requested)) return requested;
-  const inputValue = Number(valueOf("paper-initial-cash") || 100000);
-  return Number.isFinite(inputValue) ? inputValue : 100000;
+  const inputValue = Number(valueOf("paper-initial-cash") || 10000);
+  return Number.isFinite(inputValue) ? inputValue : 10000;
 }
 
 function matchedExecutionReceiptCount(item = {}, executionReceipts = [], researchRequest = {}, paperRequest = {}) {
@@ -14121,6 +14341,7 @@ function renderExecutionReceipts(spec = {}) {
         <span>${escapeHtml(`${item.time || "--"} / ${requestText || "--"}`)}</span>
         <span>${escapeHtml(metricText || item.decision || item.safety || "")}</span>
         <span>${escapeHtml(zhConsoleText(item.safety || ""))}</span>
+        ${item.workflow_id === 'paper_simulation' ? paperArchiveControls(item.paper_archive) : ''}
       </div>
     `;
   }).join("");
@@ -14198,6 +14419,14 @@ function paperReceipt(result = {}) {
       run_date: request.run_date || request.as_of_date || request.end_date,
       initial_cash: request.initial_cash,
       commission_bps: request.commission_bps,
+      minimum_commission: request.minimum_commission,
+      market_impact_bps: request.market_impact_bps,
+      max_participation_rate: request.max_participation_rate,
+      corporate_actions_path: request.corporate_actions_path,
+      corporate_actions_fingerprint: request.corporate_actions_fingerprint,
+      fixed_hold_benchmark_path: request.fixed_hold_benchmark_path,
+      fixed_hold_benchmark_sha256: request.fixed_hold_benchmark_sha256,
+      execution_economics: request.execution_economics,
       slippage_bps: request.slippage_bps,
       max_asset_weight: request.max_asset_weight,
       max_market_weight: request.max_market_weight,
@@ -14223,6 +14452,8 @@ function paperReceipt(result = {}) {
       fill_count: (result.fills || []).length,
     },
     decision: "local_simulation_only",
+    ...(result.account_comparison ? {account_comparison: result.account_comparison} : {}),
+    ...(result.paper_archive ? {paper_archive: result.paper_archive} : {}),
     safety: "local simulated fills only; no broker, account, or order side effects",
   };
 }
@@ -14243,6 +14474,14 @@ function dailyPaperRequestSignature(result = {}) {
     run_date: result.run_date || request.run_date || request.as_of_date,
     initial_cash: request.initial_cash,
     commission_bps: request.commission_bps,
+    minimum_commission: request.minimum_commission,
+    market_impact_bps: request.market_impact_bps,
+    max_participation_rate: request.max_participation_rate,
+    corporate_actions_path: request.corporate_actions_path,
+    corporate_actions_fingerprint: request.corporate_actions_fingerprint,
+    fixed_hold_benchmark_path: request.fixed_hold_benchmark_path,
+    fixed_hold_benchmark_sha256: request.fixed_hold_benchmark_sha256,
+    execution_economics: request.execution_economics,
     slippage_bps: request.slippage_bps,
     max_asset_weight: request.max_asset_weight,
     max_market_weight: request.max_market_weight,
@@ -14517,7 +14756,13 @@ async function runActionCenterWorkflow(workflowId, button = null) {
 
 async function fetchJson(url) {
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`Request failed: ${url}`);
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null);
+    const message = problem && typeof problem.error === "string" ? problem.error : `Request failed: ${url}`;
+    const error = new Error(message);
+    error.status = problem && typeof problem.status === "string" ? problem.status : "request_failed";
+    throw error;
+  }
   return response.json();
 }
 
@@ -14567,7 +14812,7 @@ function operationForButton(buttonId) {
     "run-paper": {
       workflow_id: "paper_simulation",
       label: "Run local paper simulation",
-      detail: () => `${valueOf("paper-market-select") || "ALL"} / TopN=${valueOf("paper-top-n") || "2"} / 初始资金=${valueOf("paper-initial-cash") || "100000"}`,
+      detail: () => `${valueOf("paper-market-select") || "ALL"} / TopN=${valueOf("paper-top-n") || "2"} / 初始资金=${valueOf("paper-initial-cash") || "10000"}`,
       safety: "local simulated fills only; no broker, account, or order side effects",
     },
   };

@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "status": "proposed_contract_not_admitted",
+  "proposal_id": "policy_uncertainty_monthly_median_v1",
+  "primary_market": "CN_ETF",
+  "symbol": "510300.SH",
+  "mode": "design_review_only",
+  "quote_route_status": "paused_no_qualified_source_in_reviewed_scope",
+  "source_document": "docs/research/cn_etf_policy_uncertainty_execution_contract_2026-09-14.md",
+  "signal": {
+    "vintage_cutoff_calendar_days_before_anchor": 7,
+    "observation": "latest_available_month_in_frozen_vintage",
+    "comparator": "median_of_the_preceding_12_calendar_months_in_the_same_vintage",
+    "cash_when": "latest_strictly_greater_than_comparator",
+    "holding_target_cny_otherwise": "1000",
+    "missing_input_action": "no_new_monthly_target_keep_valuation_and_risk_observations",
+    "fill_missing_input": false
+  },
+  "account": {
+    "initial_capital_cny": "10000",
+    "commission_bps_per_side_provisional": "5",
+    "minimum_commission_cny_unconfirmed_scenario": "5",
+    "cash_interest_scenario": "0",
+    "max_position_cny": "1000",
+    "max_daily_loss_cny": "60",
+    "max_drawdown": "0.08",
+    "exposure_stop_action": "reduce_only",
+    "daily_loss_basis": "previous_session_close_v1"
+  },
+  "decision": {
+    "timezone": "Asia/Shanghai",
+    "monthly_anchor": "first_qualified_CN_trading_session_of_month",
+    "first_valid_observation_window": ["09:35:00", "09:35:30"],
+    "max_quote_and_context_age_seconds": 5,
+    "max_monthly_target_attempts_per_anchor": 1,
+    "monthly_retry_after_missing_or_rejected_window": false,
+    "intent_expiry_seconds_after_decision": 120,
+    "max_slippage_bps": "10",
+    "price_limit": "BUY_floor_tick_min_ask_times_1.001_and_valid_upper_band;SELL_ceil_tick_max_bid_times_0.999_and_valid_lower_band",
+    "missing_or_unqualified_price_band_action": "reject",
+    "lot_tick_settlement_authority": "dated_instrument_evidence_required"
+  },
+  "risk_response": {
+    "exposure_only_stop": "after_pending_buys_resolved_propose_minimum_whole_lot_sale_to_target_at_most1000;no_automatic_buyback_before_next_monthly_anchor",
+    "max_reduction_target_attempts_per_session": 1,
+    "daily_loss_drawdown_unknown_or_operator_stop": "full_stop_with_continued_valuation",
+    "pending_sell_releases_exposure_before_fill": false,
+    "missing_previous_close_action": "reject_next_session_admission"
+  },
+  "paper_fill_model_proposal": {
+    "kind": "subsequent_observed_L1_opposite_quote_size_capped_assumption",
+    "same_observation_fill_allowed": false,
+    "required": ["distinct_provider_observation_identity", "receipt_time_after_submission", "quote_time_after_submission", "price_within_frozen_limit", "positive_opposite_quote_size"],
+    "reuse_same_depth_observation": false,
+    "absence_of_evidence": "unfilled",
+    "actual_fill_verified": false,
+    "implemented": false
+  },
+  "research_use": {
+    "retained_source_window": ["2020-01-02", "2024-06-28"],
+    "monthly_anchors": 54,
+    "complete_interval_upper_bound": 53,
+    "terminal_anchor": "valuation_before_any_new_target;no_new_final_anchor_trade",
+    "historical_daily_bars_can_certify_this_quote_execution": false,
+    "historical_descriptive_route": "separate_named_proxy_contract_required_before_any_admission;no_implicit_relabeling",
+    "primary_account_comparison": "monthly_net_account_change_minus_fixed_initial_holding_with_common_frozen_risk_rules_divided_by10000",
+    "absolute_account_gain_over_cash_required": true,
+    "terminal_positions": "retain_and_mark;report_unrealized_equity_and_separate_hypothetical_liquidation_cost_reserve",
+    "formal_positive_ev_inference": "not_qualified",
+    "valid_research_hypothesis_count": null,
+    "p_value_or_confidence_claim_allowed": false
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "outcome_read_allowed": false,
+    "new_market_data_collection_allowed_by_this_file": false,
+    "final_2026_holdout_allowed": false,
+    "paper_run_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "promotion_allowed": false
+  }
+}

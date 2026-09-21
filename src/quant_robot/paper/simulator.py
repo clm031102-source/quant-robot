@@ -4,11 +4,12 @@ import json
 import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
-from quant_robot.backtest.costs import capacity_limited, market_impact_cost_bps
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
+from quant_robot.backtest.costs import capacity_limited, market_impact_cost_bps, trade_commission
 from quant_robot.backtest.portfolio import select_top_n
 from quant_robot.backtest.metrics import max_drawdown, summarize_returns
 from quant_robot.data.quality import validate_market_data
@@ -16,10 +17,13 @@ from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.portfolio.constraints import PortfolioConstraints, apply_portfolio_constraints
+from quant_robot.paper.economics import VALUATION_MODEL, execution_economics_from_request
+from quant_robot.paper.corporate_actions import CorporateActionLedger
 from quant_robot.portfolio.rebalance import FORBIDDEN_REAL_ACCOUNT_COLUMNS, build_rebalance_plan
 from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
 from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
+from quant_robot.storage.input_provenance import describe_calculation_inputs
 
 
 @dataclass(frozen=True)
@@ -36,7 +40,7 @@ class PaperSimulationConfig:
     rebalance_interval: int = 1
     start_date: str | None = None
     end_date: str | None = None
-    initial_cash: float = 100000.0
+    initial_cash: float = CURRENT_RESEARCH_CAPITAL_CNY
     commission_bps: float = 5.0
     slippage_bps: float = 5.0
     market_impact_bps: float = 0.0
@@ -51,6 +55,8 @@ class PaperSimulationConfig:
     guard_cooldown_periods: int = 0
     respect_execution_constraints: bool = True
     output_dir: Path | None = None
+    minimum_commission: float = 0.0
+    corporate_actions_path: Path | None = None
 
 
 def run_paper_simulation(
@@ -58,13 +64,21 @@ def run_paper_simulation(
     config: PaperSimulationConfig,
     initial_positions: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
-    if config.initial_cash <= 0.0:
+    if not math.isfinite(config.initial_cash) or config.initial_cash <= 0.0:
         raise ValueError("initial_cash must be positive")
+    for name in ("commission_bps", "minimum_commission", "slippage_bps", "market_impact_bps"):
+        value = getattr(config, name)
+        if not math.isfinite(value) or value < 0.0:
+            raise ValueError(f"{name} must be finite and nonnegative")
     if config.rebalance_interval < 1:
         raise ValueError("rebalance_interval must be at least 1")
     positions = _initial_positions(initial_positions)
     filtered = _filter_bars(bars, config)
     validate_market_data(filtered)
+    if not filtered["close"].map(lambda value: math.isfinite(float(value)) and float(value) > 0).all():
+        raise ValueError("raw execution close prices must be finite and positive")
+    if config.slippage_bps >= 10000:
+        raise ValueError("slippage_bps must be below 10000 to preserve positive execution prices")
     factors = _compute_factors(filtered, config)
     factors = filter_signals_to_cn_etf_rotation_membership(
         factors,
@@ -84,67 +98,56 @@ def run_paper_simulation(
     guard_events: list[dict[str, Any]] = []
     execution_events: list[dict[str, Any]] = []
 
-    rebalance_counter = 0
-    baseline_recorded = False
-    peak_equity = float(config.initial_cash)
+    active_dates = [date for date in dates if not config.start_date or date >= pd.to_datetime(config.start_date).date()]
+    if not active_dates:
+        raise ValueError("No bars available within the simulation date range")
+    actions = CorporateActionLedger(config.corporate_actions_path, set(filtered["asset_id"]), active_dates, positions)
+    actions.require_post_action_prices(active_dates[0], positions, valuation_prices_by_date[active_dates[0]].set_index("asset_id")["price_date"].to_dict())
+    baseline = _equity_row(active_dates[0], cash, positions, valuation_prices_by_date[active_dates[0]])
+    equity_rows.append(baseline)
+    actions.record_close(active_dates[0], positions)
+    peak_equity = float(baseline["equity"])
     guard_remaining = 0
-    for index, signal_date in enumerate(dates[:-1]):
-        if config.start_date and signal_date < pd.to_datetime(config.start_date).date():
-            continue
-        if rebalance_counter % config.rebalance_interval != 0:
-            rebalance_counter += 1
-            continue
-        rebalance_counter += 1
-        execution_date = dates[index + 1]
-        if config.end_date and execution_date > pd.to_datetime(config.end_date).date():
-            continue
+    for index, signal_date in enumerate(active_dates[:-1]):
+        execution_date = active_dates[index + 1]
         selected = factor_slices.get(signal_date)
-        if selected is None or selected.empty:
-            continue
-
-        signal_prices = valuation_prices_by_date[signal_date]
-        execution_prices = execution_prices_by_date[execution_date]
         valuation_prices = valuation_prices_by_date[execution_date]
-        if not baseline_recorded:
-            baseline_row = _equity_row(signal_date, cash, positions, signal_prices)
-            equity_rows.append(baseline_row)
-            peak_equity = max(peak_equity, float(baseline_row["equity"]))
-            baseline_recorded = True
-        portfolio_value = _portfolio_value(cash, positions, signal_prices)
-        targets, cash_weight = _targets_from_factor_slice(selected, signal_prices, config)
-        plan = build_rebalance_plan(
-            targets,
-            _positions_frame(positions),
-            signal_prices,
-            portfolio_value=portfolio_value,
-        )
-        snapshots.append(
-            {
+        execution_prices = execution_prices_by_date[execution_date]
+        day_intents: list[dict[str, Any]] = []
+        if index % config.rebalance_interval == 0 and selected is not None and not selected.empty:
+            signal_prices = valuation_prices_by_date[signal_date]
+            portfolio_value = _portfolio_value(cash, positions, signal_prices, actions.receivable)
+            targets, cash_weight = _targets_from_factor_slice(selected, signal_prices, config)
+            plan = build_rebalance_plan(
+                targets, _positions_frame(positions), signal_prices, portfolio_value=portfolio_value,
+            )
+            snapshots.append({
                 "signal_date": str(signal_date),
                 "target_weight": float(targets["target_weight"].sum()) if not targets.empty else 0.0,
                 "cash_weight": cash_weight,
                 "target_count": int(len(targets)),
-            }
-        )
-        day_intents = _build_intents(plan, signal_date, execution_date, config.min_trade_value)
-        day_intents, guard_remaining, guard_event = _apply_drawdown_guard(day_intents, signal_date, guard_remaining)
-        if guard_event is not None:
-            guard_events.append(guard_event)
+            })
+            day_intents = _build_intents(plan, signal_date, execution_date, config.min_trade_value)
+            # Cooldown remains measured in scheduled rebalance opportunities.
+            day_intents, guard_remaining, guard_event = _apply_drawdown_guard(day_intents, signal_date, guard_remaining)
+            if guard_event is not None:
+                guard_events.append(guard_event)
+        dividend_cash, day_intents = actions.before_session(execution_date, positions, day_intents)
+        cash += dividend_cash
         day_fills, day_execution_events = _simulate_fills(
-            day_intents,
-            execution_prices,
-            config.commission_bps,
-            config.slippage_bps,
-            config.market_impact_bps,
-            config.max_participation_rate,
-            cash,
+            day_intents, execution_prices, config.commission_bps, config.slippage_bps,
+            config.market_impact_bps, config.max_participation_rate, cash,
             respect_execution_constraints=config.respect_execution_constraints,
+            minimum_commission=config.minimum_commission,
         )
         cash = _apply_fills(positions, cash, day_fills)
         intents.extend(day_intents)
         fills.extend(day_fills)
         execution_events.extend(day_execution_events)
-        equity_row = _equity_row(execution_date, cash, positions, valuation_prices)
+        cash += actions.after_session(execution_date, positions)
+        actions.require_post_action_prices(execution_date, positions, valuation_prices.set_index("asset_id")["price_date"].to_dict())
+        # Observe every session, even with no signal or no rebalance, including the last day.
+        equity_row = _equity_row(execution_date, cash, positions, valuation_prices, actions.receivable)
         equity_rows.append(equity_row)
         peak_equity, guard_remaining, trigger_event = _update_drawdown_guard(equity_row, peak_equity, guard_remaining, config)
         if trigger_event is not None:
@@ -152,10 +155,15 @@ def run_paper_simulation(
 
     equity_curve = _equity_curve(equity_rows)
     metrics = _metrics(equity_curve, cash, positions, filtered, config, guard_events, execution_events, fills)
+    metrics.update({"ending_dividend_receivable": actions.receivable, "dividend_cash_received": actions.dividend_cash_received})
     result = _sanitize(
         {
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
-            "request": _config_dict(config),
+            "request": _config_dict(config, actions.fingerprint),
+            "input_provenance": describe_calculation_inputs(filtered, factors,
+                artifact_role="historical_simulation", factor_role="membership_filtered_factor_history"),
+            "accounting": actions.evidence(),
+            "corporate_action_events": actions.journal,
             "metrics": metrics,
             "intents": intents,
             "fills": fills,
@@ -172,21 +180,47 @@ def run_paper_simulation(
 
 
 def write_paper_simulation_artifacts(result: dict[str, Any], output_dir: Path) -> None:
+    if output_dir.exists() and (
+            ("fixed_hold_benchmark" in result and any(output_dir.iterdir()))
+            or any((output_dir / name).exists() for name in
+                   ("fixed_hold_benchmark.json", "fixed_hold_benchmark_curve.csv", "account_comparison.json"))):
+        raise FileExistsError("Use a new output directory to preserve fixed-hold comparison evidence")
     output_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(result["intents"]).to_csv(output_dir / "intents.csv", index=False)
-    pd.DataFrame(result["fills"]).to_csv(output_dir / "fills.csv", index=False)
+    pd.DataFrame(result["fills"], columns=None if result["fills"] else
+        ["asset_id", "execution_date", "quantity", "price"]).to_csv(output_dir / "fills.csv", index=False)
     pd.DataFrame(result["positions"]).to_csv(output_dir / "positions.csv", index=False)
-    pd.DataFrame(result["equity_curve"]).to_csv(output_dir / "equity_curve.csv", index=False)
+    _write_equity_curve(result['equity_curve'], output_dir/'equity_curve.csv')
     pd.DataFrame(result["snapshots"]).to_csv(output_dir / "snapshots.csv", index=False)
-    pd.DataFrame(result["guard_events"]).to_csv(output_dir / "guard_events.csv", index=False)
-    pd.DataFrame(result.get("execution_events", [])).to_csv(output_dir / "execution_events.csv", index=False)
+    pd.DataFrame(result["guard_events"], columns=None if result["guard_events"] else
+        ["signal_date", "event"]).to_csv(output_dir / "guard_events.csv", index=False)
+    pd.DataFrame(result.get("execution_events", []), columns=None if result.get("execution_events") else
+        ["execution_date", "event"]).to_csv(output_dir / "execution_events.csv", index=False)
+    pd.DataFrame(result.get("corporate_action_events", [])).to_csv(output_dir / "corporate_action_events.csv", index=False)
+    if "fixed_hold_benchmark" in result:
+        (output_dir / "fixed_hold_benchmark.json").write_text(
+            json.dumps(result["fixed_hold_benchmark"], indent=2, ensure_ascii=False), encoding="utf-8")
+        _write_equity_curve(result['fixed_hold_benchmark']['equity_curve'], output_dir/'fixed_hold_benchmark_curve.csv')
+        (output_dir / "account_comparison.json").write_text(
+            json.dumps(result["account_comparison"], indent=2, ensure_ascii=False), encoding="utf-8")
     manifest = {
         "data_mode": result["data_mode"],
         "request": result["request"],
         "metrics": result["metrics"],
+        "accounting": result.get("accounting", {}),
+        **({"account_comparison": result["account_comparison"]} if "account_comparison" in result else {}),
+        **({"input_provenance": result["input_provenance"]} if "input_provenance" in result else {}),
         "safety": "Local paper simulation only. No broker connection, no order placement, no live trading.",
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _write_equity_curve(rows, path):
+    curve = pd.DataFrame(rows)
+    if 'position_values' in curve:
+        curve['position_values'] = curve['position_values'].map(
+            lambda value: json.dumps(value, sort_keys=True, allow_nan=False))
+    curve.to_csv(path, index=False)
 
 
 def _filter_bars(bars: pd.DataFrame, config: PaperSimulationConfig) -> pd.DataFrame:
@@ -263,8 +297,8 @@ def _latest_prices(bars: pd.DataFrame, as_of_date: Any) -> pd.DataFrame:
     available = bars[pd.to_datetime(bars["date"]).dt.date <= as_of_date].sort_values(["asset_id", "date"])
     return (
         available.groupby("asset_id", as_index=False, group_keys=False)
-        .tail(1)[["asset_id", "market", "adj_close"]]
-        .rename(columns={"adj_close": "latest_price"})
+        .tail(1)[["asset_id", "market", "close"]]
+        .rename(columns={"close": "latest_price"})
         .reset_index(drop=True)
     )
 
@@ -295,9 +329,10 @@ def _latest_prices_by_date(bars: pd.DataFrame, dates: list[Any]) -> dict[Any, pd
             latest[str(row.asset_id)] = {
                 "asset_id": str(row.asset_id),
                 "market": str(row.market),
-                "latest_price": float(row.adj_close),
+                "latest_price": float(row.close),
+                "price_date": str(date),
             }
-        prices[date] = pd.DataFrame(latest.values(), columns=["asset_id", "market", "latest_price"])
+        prices[date] = pd.DataFrame(latest.values(), columns=["asset_id", "market", "latest_price", "price_date"])
     return prices
 
 
@@ -306,10 +341,10 @@ def _current_prices_by_date(bars: pd.DataFrame, dates: list[Any]) -> dict[Any, p
     frame["_date_key"] = pd.to_datetime(frame["date"]).dt.date
     prices: dict[Any, pd.DataFrame] = {}
     optional = [column for column in ("amount", "suspended", "limit_up", "limit_down") if column in frame.columns]
-    columns = ["asset_id", "market", "adj_close", "volume", *optional]
+    columns = ["asset_id", "market", "close", "volume", *optional]
     empty = pd.DataFrame(columns=["asset_id", "market", "latest_price", "volume", *optional])
     for date, group in frame.groupby("_date_key"):
-        prices[date] = group[columns].rename(columns={"adj_close": "latest_price"}).reset_index(drop=True)
+        prices[date] = group[columns].rename(columns={"close": "latest_price"}).reset_index(drop=True)
     return {date: prices.get(date, empty) for date in dates}
 
 
@@ -342,9 +377,11 @@ def _portfolio_scope(config: PaperSimulationConfig) -> str:
     return "global" if config.market.upper() == "ALL" else "market"
 
 
-def _portfolio_value(cash: float, positions: dict[str, float], prices: pd.DataFrame) -> float:
+def _portfolio_value(cash: float, positions: dict[str, float], prices: pd.DataFrame, dividend_receivable: float = 0.0) -> float:
     price_lookup = prices.set_index("asset_id")["latest_price"].to_dict()
-    return cash + sum(quantity * float(price_lookup.get(asset_id, 0.0)) for asset_id, quantity in positions.items())
+    if any(asset_id not in price_lookup for asset_id in positions):
+        raise ValueError("held asset has no known valuation price")
+    return cash + dividend_receivable + sum(quantity * float(price_lookup[asset_id]) for asset_id, quantity in positions.items())
 
 
 def _positions_frame(positions: dict[str, float]) -> pd.DataFrame:
@@ -392,6 +429,7 @@ def _simulate_fills(
     max_participation_rate: float | None,
     available_cash: float,
     respect_execution_constraints: bool = True,
+    minimum_commission: float = 0.0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     price_lookup = execution_prices.set_index("asset_id").to_dict(orient="index")
     fills: list[dict[str, Any]] = []
@@ -420,16 +458,8 @@ def _simulate_fills(
         signed_quantity = float(intent["signed_quantity"])
         fill_price = _fill_price(base_price, signed_quantity, slippage_bps)
         lot_size = _lot_size_for_market(str(price_row.get("market", intent["market"])))
-        signed_quantity = _round_signed_quantity_to_lot(signed_quantity, lot_size)
+        signed_quantity = _round_signed_quantity_to_lot(signed_quantity, lot_size, intent.get("available_sell_quantity"))
         quantity = abs(signed_quantity)
-        notional = quantity * fill_price
-        commission_fee = notional * commission_bps / 10000.0
-        if signed_quantity > 0.0 and notional + commission_fee > cash and notional > 0.0:
-            scale = max(cash, 0.0) / (notional + commission_fee)
-            signed_quantity = _round_signed_quantity_to_lot(quantity * scale, lot_size)
-            quantity = abs(signed_quantity)
-            notional = quantity * fill_price
-            commission_fee = notional * commission_bps / 10000.0
         if quantity <= 1e-12:
             continue
         amount = _available_amount(price_row)
@@ -445,6 +475,19 @@ def _simulate_fills(
                 )
             )
             continue
+        def purchase_cost(fill_quantity: float) -> float:
+            value = fill_quantity * fill_price
+            participation = _participation_rate(fill_quantity, fill_price, price_row)
+            impact = market_impact_cost_bps(market_impact_bps, participation, max_participation_rate)
+            return value + trade_commission(value, commission_bps, minimum_commission) + value * impact / 10000.0
+
+        if signed_quantity > 0.0:
+            quantity = _affordable_quantity(quantity, lot_size, cash, purchase_cost)
+            signed_quantity = quantity
+        if quantity <= 1e-12:
+            continue
+        notional = quantity * fill_price
+        commission_fee = trade_commission(notional, commission_bps, minimum_commission)
         participation_rate = _participation_rate(quantity, fill_price, price_row)
         if capacity_limited(participation_rate, max_participation_rate):
             execution_events.append(
@@ -461,19 +504,16 @@ def _simulate_fills(
         impact_bps = market_impact_cost_bps(market_impact_bps, participation_rate, max_participation_rate)
         market_impact_fee = notional * impact_bps / 10000.0
         fee = commission_fee + market_impact_fee
-        if signed_quantity > 0.0 and notional + fee > cash:
-            scale = max(cash, 0.0) / (notional + fee)
-            signed_quantity = _round_signed_quantity_to_lot(quantity * scale, lot_size)
-            quantity = abs(signed_quantity)
-            if quantity <= 1e-12:
-                continue
-            notional = quantity * fill_price
-            commission_fee = notional * commission_bps / 10000.0
-            participation_rate = _participation_rate(quantity, fill_price, price_row)
-            impact_bps = market_impact_cost_bps(market_impact_bps, participation_rate, max_participation_rate)
-            market_impact_fee = notional * impact_bps / 10000.0
-            fee = commission_fee + market_impact_fee
         if signed_quantity > 0.0 and notional + fee > cash + 1e-9:
+            continue
+        if signed_quantity < 0.0 and cash + notional < fee:
+            execution_events.append({
+                "event_type": "cash_rejected_fill", "reason": "insufficient_cash_for_fees",
+                "intent_id": intent["intent_id"], "signal_date": intent["signal_date"],
+                "execution_date": intent["execution_date"], "asset_id": intent["asset_id"],
+                "market": intent["market"], "side": intent["side"],
+                "available_cash": cash, "notional": notional, "fee": fee,
+            })
             continue
         cash += notional - fee if signed_quantity < 0.0 else -(notional + fee)
         fills.append(
@@ -614,15 +654,47 @@ def _fill_price(base_price: float, signed_quantity: float, slippage_bps: float) 
     return base_price * (1.0 + direction * slippage_bps / 10000.0)
 
 
+def _affordable_quantity(quantity: float, lot_size: float, cash: float, cost: Callable[[float], float]) -> float:
+    if cost(quantity) <= cash:
+        return quantity
+    if cash <= 0.0:
+        return 0.0
+    if lot_size > 1.0:
+        low, high = 0, math.floor(quantity / lot_size)
+        while low < high:
+            middle = (low + high + 1) // 2
+            if cost(middle * lot_size) <= cash:
+                low = middle
+            else:
+                high = middle - 1
+        return low * lot_size
+    # Preserve the simulator's existing fractional-quantity behavior outside CN.
+    low, high = 0.0, quantity
+    for _ in range(80):
+        middle = (low + high) / 2.0
+        if cost(middle) <= cash:
+            low = middle
+        else:
+            high = middle
+    return low
+
+
 def _lot_size_for_market(market: str) -> float:
     return 100.0 if market.upper() in {"CN", "CN_ETF"} else 1.0
 
 
-def _round_signed_quantity_to_lot(signed_quantity: float, lot_size: float) -> float:
+def _round_signed_quantity_to_lot(signed_quantity: float, lot_size: float, available_sell_quantity: float | None = None) -> float:
     if lot_size <= 1.0:
         return signed_quantity
     direction = 1.0 if signed_quantity > 0.0 else -1.0
     lots = math.floor(abs(signed_quantity) / lot_size)
+    if signed_quantity < 0 and available_sell_quantity is not None:
+        requested = min(abs(signed_quantity), available_sell_quantity)
+        lots = math.floor(requested / lot_size)
+        remainder = available_sell_quantity % lot_size
+        if 0 < remainder <= requested:
+            with_odd_lot = math.floor((requested - remainder) / lot_size) * lot_size + remainder
+            return -max(lots * lot_size, with_odd_lot)
     return direction * lots * lot_size
 
 
@@ -637,15 +709,22 @@ def _apply_fills(positions: dict[str, float], cash: float, fills: list[dict[str,
     return cash
 
 
-def _equity_row(date: Any, cash: float, positions: dict[str, float], prices: pd.DataFrame) -> dict[str, Any]:
-    equity = _portfolio_value(cash, positions, prices)
-    gross_exposure = 0.0 if equity <= 0.0 else (equity - cash) / equity
+def _equity_row(date: Any, cash: float, positions: dict[str, float], prices: pd.DataFrame, dividend_receivable: float = 0.0) -> dict[str, Any]:
+    equity = _portfolio_value(cash, positions, prices, dividend_receivable)
+    gross_exposure = 0.0 if equity <= 0.0 else (equity - cash - dividend_receivable) / equity
+    lookup = prices.set_index('asset_id').to_dict(orient='index')
+    marked = {asset: {'quantity':quantity, 'price':float(lookup[asset]['latest_price']),
+        'price_date':str(lookup[asset]['price_date']) if lookup[asset].get('price_date') is not None else None,
+        'market_value':quantity*float(lookup[asset]['latest_price'])}
+        for asset, quantity in positions.items() if quantity != 0}
     return {
         "date": date,
         "cash": cash,
+        "dividend_receivable": dividend_receivable,
         "equity": equity,
         "gross_exposure": gross_exposure,
         "position_count": len(positions),
+        "position_values": marked,
     }
 
 
@@ -668,7 +747,8 @@ def _metrics(
     fills: list[dict[str, Any]],
 ) -> dict[str, float]:
     periods = _resolve_periods_per_year(config)
-    summary = summarize_returns(equity_curve["period_return"] if not equity_curve.empty else pd.Series(dtype=float), periods_per_year=periods)
+    daily_returns = equity_curve["period_return"].iloc[1:] if not equity_curve.empty else pd.Series(dtype=float)
+    summary = summarize_returns(daily_returns, periods_per_year=periods)
     starting_equity = float(equity_curve.iloc[0]["equity"]) if not equity_curve.empty else float(config.initial_cash)
     ending_equity = float(equity_curve.iloc[-1]["equity"]) if not equity_curve.empty else float(config.initial_cash)
     total_return = 0.0 if starting_equity <= 0.0 else ending_equity / starting_equity - 1.0
@@ -681,6 +761,7 @@ def _metrics(
             "total_return": total_return,
             "cash_return": total_return,
             "open_positions": float(len(positions)),
+            "max_drawdown": max_drawdown(equity_curve["equity"]) if not equity_curve.empty else 0.0,
             "max_equity_drawdown": max_drawdown(equity_curve["equity"]) if not equity_curve.empty else 0.0,
             "guard_event_count": float(len(guard_events)),
             "execution_block_event_count": float(len(execution_events)),
@@ -702,8 +783,12 @@ def _metrics(
     return summary
 
 
-def _config_dict(config: PaperSimulationConfig) -> dict[str, Any]:
+def _config_dict(config: PaperSimulationConfig, corporate_actions_fingerprint: str | None = None) -> dict[str, Any]:
     data = asdict(config)
+    data["valuation_model"] = VALUATION_MODEL
+    data["corporate_actions_fingerprint"] = corporate_actions_fingerprint
+    data["corporate_actions_path"] = str(config.corporate_actions_path) if config.corporate_actions_path is not None else None
+    data["execution_economics"] = execution_economics_from_request(data)
     data["factor_windows"] = list(config.factor_windows)
     data["rotation_membership_root"] = (
         str(config.rotation_membership_root) if config.rotation_membership_root is not None else None
@@ -716,8 +801,7 @@ def _config_dict(config: PaperSimulationConfig) -> dict[str, Any]:
 def _resolve_periods_per_year(config: PaperSimulationConfig) -> float:
     if config.periods_per_year is not None:
         return config.periods_per_year
-    base_periods = 365 if config.market.upper() == "CRYPTO" else 252
-    return base_periods / float(max(config.rebalance_interval, 1))
+    return 365 if config.market.upper() == "CRYPTO" else 252
 
 
 def _records(frame: pd.DataFrame) -> list[dict[str, Any]]:

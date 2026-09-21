@@ -7,8 +7,13 @@ from quant_robot.ops.daily_ops import build_daily_ops_pack, write_daily_ops_pack
 
 class DailyOpsTests(unittest.TestCase):
     def test_pack_builds_paper_ready_decision_from_current_artifacts(self):
+        recipe = {"market": "CN_ETF", "factor_source": "technical", "factor_name": "liquidity_10",
+                  "factor_windows": [10], "top_n": 1, "rebalance_interval": 5}
+        weights = {"max_asset_weight": 1.0, "max_market_weight": 1.0,
+                   "max_gross_exposure": 1.0, "min_cash_weight": 0.0}
         promotion = {
             "selected_candidate": {
+                **recipe,
                 "case_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
                 "market": "CN_ETF",
                 "factor_name": "liquidity_10",
@@ -27,6 +32,7 @@ class DailyOpsTests(unittest.TestCase):
             "blocker_register": [{"blocker_id": "manual_live_review_not_enabled", "track_id": "manual_review_gate"}],
         }
         signal = {
+            "request": {**recipe, **weights},
             "as_of_date": "2026-06-12",
             "signal_date": "2026-06-12",
             "targets": [{"asset_id": "CN_ETF_XSHG_510300", "target_weight": 1.0}],
@@ -41,6 +47,7 @@ class DailyOpsTests(unittest.TestCase):
             ],
         }
         simulation = {
+            "request": {**recipe, **weights},
             "metrics": {"total_return": 0.12, "max_equity_drawdown": -0.08, "ending_equity": 112000.0},
             "fills": [{"asset_id": "CN_ETF_XSHG_510300", "side": "buy"}],
             "guard_events": [],
@@ -73,7 +80,10 @@ class DailyOpsTests(unittest.TestCase):
         )
 
         self.assertEqual(pack["decision"]["status"], "blocked")
-        self.assertEqual(pack["decision"]["blocking_reasons"], ["provider_readiness_not_ready"])
+        self.assertEqual(
+            pack["decision"]["blocking_reasons"],
+            ["provider_readiness_not_ready", "risk_drawdown_evidence_missing", "daily_artifact_identity_invalid"],
+        )
         self.assertEqual(pack["advisory_tickets"], [])
 
     def test_stale_signal_blocks_daily_ops_tickets(self):
@@ -219,7 +229,10 @@ class DailyOpsTests(unittest.TestCase):
 
         self.assertEqual(pack["decision"]["status"], "blocked")
         self.assertIn("risk_max_drawdown_breach", pack["decision"]["blocking_reasons"])
-        self.assertEqual(pack["decision"]["non_manual_blocking_reasons"], ["risk_max_drawdown_breach"])
+        self.assertEqual(
+            pack["decision"]["non_manual_blocking_reasons"],
+            ["risk_max_drawdown_breach", "daily_artifact_identity_invalid"],
+        )
         self.assertFalse(pack["decision"]["paper_trading_allowed"])
         self.assertEqual(pack["advisory_tickets"], [])
         self.assertEqual(pack["risk_policy"]["max_drawdown_limit"], -0.2)

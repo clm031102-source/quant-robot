@@ -7,6 +7,10 @@ import pandas as pd
 from quant_robot.storage.dataset_store import DatasetStore
 
 
+class UnverifiedEtfMoneyflowBaskets(ValueError):
+    """Stored observations lack the historical source contract required for research."""
+
+
 def load_etf_moneyflow_baskets(root: str | Path, market: str) -> pd.DataFrame:
     root_path = Path(root)
     if market.upper() == "ALL":
@@ -15,7 +19,14 @@ def load_etf_moneyflow_baskets(root: str | Path, market: str) -> pd.DataFrame:
     frames = []
     for store_root in discover_etf_moneyflow_basket_store_roots(root_path, market):
         store = DatasetStore(store_root)
-        frames.append(store.read_frame("metadata/etf_moneyflow_baskets", {"market": market}))
+        frame = store.read_frame("metadata/etf_moneyflow_baskets", {"market": market})
+        # The legacy producer cannot prove full scope, snapshot identity or publication timing.
+        # A row-level boolean is not an independently audited source certificate.
+        if "source" in frame and frame["source"].astype("string").str.strip().str.lower().eq("tushare_fund_portfolio").any():
+            raise UnverifiedEtfMoneyflowBaskets(
+                "unverified Tushare reported holdings require an audited historical source contract"
+            )
+        frames.append(frame)
     if not frames:
         raise FileNotFoundError(f"No ETF moneyflow baskets found under {root_path}")
     return pd.concat(frames, ignore_index=True)

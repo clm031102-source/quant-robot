@@ -13,8 +13,8 @@ from urllib.parse import urlencode
 
 import pandas as pd
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.portfolio.rebalance import FORBIDDEN_REAL_ACCOUNT_COLUMNS, build_rebalance_plan
-
 
 STAGE = "phase_6_0_daily_trade_advisory"
 PRETRADE_WORKFLOW_STAGE = "phase_6_1_daily_pretrade_workflow"
@@ -368,7 +368,7 @@ def build_daily_trade_advisory_pack(
     candidates: list[dict[str, Any]],
     signal_snapshots: list[dict[str, Any]],
     run_date: str | None = None,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
     max_gross_exposure: float = 1.0,
     risk_profile_id: str | None = None,
     current_positions: list[dict[str, Any]] | None = None,
@@ -2923,7 +2923,7 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any], summary: dict[str, A
     )
     risk_budget = _manual_ticket_risk_budget(
         row,
-        portfolio_value=_float((summary or {}).get("portfolio_value"), 100000.0),
+        portfolio_value=_float((summary or {}).get("portfolio_value"), CURRENT_RESEARCH_CAPITAL_CNY),
         risk_profile=_risk_profile_by_id(str((summary or {}).get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID)),
     )
     execution_guardrails = _manual_ticket_execution_guardrails(
@@ -3004,7 +3004,7 @@ def _manual_ticket_risk_budget(
     profile = risk_profile or _risk_profile_by_id(DEFAULT_RISK_PROFILE_ID) or {}
     profile_id = str(profile.get("profile_id") or DEFAULT_RISK_PROFILE_ID)
     profile_label = profile.get("label") or profile_id
-    portfolio = max(0.0, _float(portfolio_value, 100000.0))
+    portfolio = max(0.0, _float(portfolio_value, CURRENT_RESEARCH_CAPITAL_CNY))
     rounded_value = max(0.0, _float(row.get("rounded_value"), 0.0))
     target_weight = max(0.0, _float(row.get("target_weight"), 0.0))
     max_single = max(0.0, _float(profile.get("max_single_etf_weight"), 0.30))
@@ -5460,7 +5460,7 @@ def build_daily_signal_execution_bridge(pack: dict[str, Any]) -> dict[str, Any]:
     paper_simulation_handoff = _build_signal_execution_paper_handoff(
         factors=factors,
         market=market,
-        portfolio_value=_float(summary.get("requested_portfolio_value"), _float(summary.get("portfolio_value"), 100000.0)),
+        portfolio_value=_float(summary.get("requested_portfolio_value"), _float(summary.get("portfolio_value"), CURRENT_RESEARCH_CAPITAL_CNY)),
         summary=summary,
     )
 
@@ -7927,7 +7927,7 @@ def build_daily_paper_allocation_playbook(pack: dict[str, Any]) -> dict[str, Any
     health_summary = health.get("summary") if isinstance(health.get("summary"), dict) else {}
     readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
     manual_tickets = _paper_allocation_ticket_source(pack, session, transition)
-    portfolio_value = _float(summary.get("portfolio_value"), 100000.0)
+    portfolio_value = _float(summary.get("portfolio_value"), CURRENT_RESEARCH_CAPITAL_CNY)
     risk_profile = _risk_profile_by_id(str(summary.get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID))
     session_status = str(session_summary.get("session_status") or "paper_rehearsal_required")
     next_session_required_count = _int(health_summary.get("same_parameter_top3_required_requests"), 0)
@@ -9017,7 +9017,7 @@ def build_daily_same_parameter_paper_rehearsal(pack: dict[str, Any]) -> dict[str
     playbook_summary = playbook.get("summary") if isinstance(playbook.get("summary"), dict) else {}
     allocation_rows = [row for row in playbook.get("allocation_rows", []) if isinstance(row, dict)]
     market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
-    portfolio_value = _float(summary.get("portfolio_value"), 100000.0)
+    portfolio_value = _float(summary.get("portfolio_value"), CURRENT_RESEARCH_CAPITAL_CNY)
     risk_profile_id = str(summary.get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID)
     risk_profile = _risk_profile_by_id(risk_profile_id)
     signal_as_of = _same_parameter_signal_as_of(pack, signal_cards, pre_summary)
@@ -10603,7 +10603,7 @@ def _real_money_transition_ticket_preview(
     summary: dict[str, Any],
 ) -> list[dict[str, Any]]:
     risk_profile = _risk_profile_by_id(str(summary.get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID))
-    portfolio_value = _float(summary.get("portfolio_value"), 100000.0)
+    portfolio_value = _float(summary.get("portfolio_value"), CURRENT_RESEARCH_CAPITAL_CNY)
     rows: list[dict[str, Any]] = []
     for index, ticket in enumerate(tickets[:20], start=1):
         risk_budget = (
@@ -13578,7 +13578,7 @@ def _combined_targets(
 def _manual_trade_plan(
     combined_targets: list[dict[str, Any]],
     current_positions: list[dict[str, Any]] | None = None,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
     risk_profile: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     positions = current_positions or []

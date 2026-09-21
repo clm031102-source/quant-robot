@@ -6,7 +6,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.gui.control_center import build_control_center_snapshot, run_verification_gate
+from quant_robot.gui.research_access import GuiResearchAccessDenied
+from quant_robot.gui.paper_inputs import prepare_gui_paper_inputs
+from quant_robot.gui.paper_result_archive import load_paper_result, retain_paper_result
 from quant_robot.gui.operation_ledger import append_operation_ledger_entry, build_operation_ledger_snapshot
 from quant_robot.gui.research_service import (
     build_constrained_search_snapshot,
@@ -50,12 +54,27 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
 
     class GuiRequestHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
+            try:
+                self._do_GET()
+            except GuiResearchAccessDenied as exc:
+                self._send_json(exc.payload(), status=403)
+            except (ValueError, OSError) as exc:
+                if urlparse(self.path).path not in {'/api/paper', '/api/paper/demo', '/api/paper/inputs', '/api/paper/archive'}:
+                    raise
+                self._send_json({'status':'paper_input_error', 'error':str(exc),
+                                 'executable':False}, status=400)
+
+        def _do_GET(self) -> None:
             parsed = urlparse(self.path)
             if parsed.path == "/api/control/status":
                 self._send_json(build_control_center_snapshot())
                 return
             if parsed.path == "/api/control/operation-ledger":
                 self._send_json(build_operation_ledger_snapshot(Path.cwd()))
+                return
+            if parsed.path == '/api/paper/archive':
+                query = parse_qs(parsed.query)
+                self._send_json(load_paper_result(Path.cwd(), _first(query, 'archive_id', '')))
                 return
             if parsed.path == "/api/control/verification":
                 query = parse_qs(parsed.query)
@@ -109,7 +128,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     market=_first(query, "market", "CN_ETF"),
                     limit=int(_first(query, "limit", "3")),
                     as_of_date=_optional(query, "as_of_date"),
-                    portfolio_value=float(_first(query, "portfolio_value", "100000")),
+                    portfolio_value=float(_first(query, "portfolio_value", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                     default_top_n=int(_first(query, "top_n", "2")),
                     max_asset_weight=float(_first(query, "max_asset_weight", "0.4")),
                     max_market_weight=float(_first(query, "max_market_weight", "1")),
@@ -273,7 +292,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         max_market_weight=float(_first(query, "max_market_weight", "1")),
                         max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
                         min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                        portfolio_value=float(_first(query, "portfolio_value", "100000")),
+                        portfolio_value=float(_first(query, "portfolio_value", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                     )
                 )
                 return
@@ -291,7 +310,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     max_market_weight=float(_first(query, "max_market_weight", "1")),
                     max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
                     min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                    portfolio_value=float(_first(query, "portfolio_value", "100000")),
+                    portfolio_value=float(_first(query, "portfolio_value", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                 )
                 _record_operation(
                     workflow_id="signal_snapshot",
@@ -303,17 +322,25 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 )
                 self._send_json(result)
                 return
+            if parsed.path == "/api/paper/inputs":
+                query = parse_qs(parsed.query)
+                self._send_json(prepare_gui_paper_inputs(
+                    source=_first(query, "source", "demo_fixture"), market=_first(query, "market", "ALL"),
+                    corporate_actions_path=_optional(query, "corporate_actions_path"),
+                    fixed_hold_benchmark_path=_optional(query, "fixed_hold_benchmark_path")))
+                return
             if parsed.path == "/api/paper/demo":
                 query = parse_qs(parsed.query)
-                self._send_json(
-                    run_demo_paper_simulation(
+                result = run_demo_paper_simulation(
                         market=_first(query, "market", "ALL"),
                         factor_name=_first(query, "factor", "momentum_2"),
                         top_n=int(_first(query, "top_n", "2")),
                         start_date=_optional(query, "start_date"),
                         end_date=_optional(query, "end_date"),
-                        initial_cash=float(_first(query, "initial_cash", "100000")),
+                        initial_cash=float(_first(query, "initial_cash", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                         commission_bps=float(_first(query, "commission_bps", "5")),
+                        minimum_commission=float(_first(query, "minimum_commission", "0")),
+                        **_paper_execution_inputs(query),
                         slippage_bps=float(_first(query, "slippage_bps", "5")),
                         max_asset_weight=float(_first(query, "max_asset_weight", "1")),
                         max_market_weight=float(_first(query, "max_market_weight", "1")),
@@ -321,8 +348,11 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         min_cash_weight=float(_first(query, "min_cash_weight", "0")),
                         max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
                         guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
-                    )
                 )
+                _record_operation(workflow_id='paper_simulation', label='Run demo paper simulation',
+                    status='completed', command=f'GET {parsed.path}?{parsed.query}',
+                    request=result.get('request', {}), result=result, retain_paper=True)
+                self._send_json(result)
                 return
             if parsed.path == "/api/paper":
                 query = parse_qs(parsed.query)
@@ -336,8 +366,10 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     rebalance_interval=int(_first(query, "rebalance_interval", "1")),
                     start_date=_optional(query, "start_date"),
                     end_date=_optional(query, "end_date"),
-                    initial_cash=float(_first(query, "initial_cash", "100000")),
+                    initial_cash=float(_first(query, "initial_cash", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                     commission_bps=float(_first(query, "commission_bps", "5")),
+                    minimum_commission=float(_first(query, "minimum_commission", "0")),
+                    **_paper_execution_inputs(query),
                     slippage_bps=float(_first(query, "slippage_bps", "5")),
                     max_asset_weight=float(_first(query, "max_asset_weight", "1")),
                     max_market_weight=float(_first(query, "max_market_weight", "1")),
@@ -361,6 +393,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 _record_operation(
                     workflow_id="paper_simulation",
                     label="Run local paper simulation",
+                    retain_paper=True,
                     status="completed",
                     command=f"GET {parsed.path}?{parsed.query}",
                     request=operation_request,
@@ -494,7 +527,10 @@ def _record_operation(
     command: str,
     request: dict[str, object] | None,
     result: dict[str, object],
+    retain_paper: bool = False,
 ) -> None:
+    if retain_paper:
+        retain_paper_result(Path.cwd(), result)
     try:
         append_operation_ledger_entry(
             repo_root=Path.cwd(),
@@ -569,6 +605,14 @@ def _optional(query: dict[str, list[str]], key: str) -> str | None:
 def _optional_float(query: dict[str, list[str]], key: str) -> float | None:
     value = _optional(query, key)
     return float(value) if value is not None else None
+
+
+def _paper_execution_inputs(query: dict[str, list[str]]) -> dict[str, object]:
+    return {'market_impact_bps':float(_first(query, 'market_impact_bps', '0')),
+            'max_participation_rate':_optional_float(query, 'max_participation_rate'),
+            **{key:_optional(query, key) for key in (
+                'corporate_actions_path', 'corporate_actions_fingerprint',
+                'fixed_hold_benchmark_path', 'fixed_hold_benchmark_sha256')}}
 
 
 def _optional_windows(query: dict[str, list[str]], key: str) -> tuple[int, ...] | None:

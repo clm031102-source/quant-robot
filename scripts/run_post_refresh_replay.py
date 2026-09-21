@@ -12,6 +12,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.ops.post_refresh_replay import build_post_refresh_replay_pack, write_post_refresh_replay_pack
 
 try:
@@ -44,7 +45,7 @@ def run_post_refresh_replay(
         "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
     ),
     allow_review_required_data_manifest: bool = False,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
     positions_csv: str | Path | None = None,
     max_drawdown_limit: float | None = None,
     daily_ops_runner: Callable[..., dict[str, Any]] | None = None,
@@ -133,7 +134,7 @@ def main() -> None:
         default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
     )
     parser.add_argument("--allow-review-required-data-manifest", action="store_true")
-    parser.add_argument("--portfolio-value", default=100000.0, type=float)
+    parser.add_argument("--portfolio-value", default=CURRENT_RESEARCH_CAPITAL_CNY, type=float)
     parser.add_argument("--positions-csv")
     parser.add_argument("--max-drawdown-limit", default=None, type=float)
     args = parser.parse_args()

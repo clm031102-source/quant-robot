@@ -9,7 +9,7 @@ from scripts.run_daily_ops import run_daily_ops
 
 
 class DailyOpsCliTests(unittest.TestCase):
-    def test_run_daily_ops_writes_pack_from_existing_artifacts(self):
+    def test_run_daily_ops_keeps_incomplete_existing_artifacts_blocked(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             promotion = root / "promotion_review_packet.json"
@@ -24,6 +24,10 @@ class DailyOpsCliTests(unittest.TestCase):
                             "case_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
                             "market": "CN_ETF",
                             "factor_name": "liquidity_10",
+                            "factor_source": "technical",
+                            "factor_windows": [10],
+                            "top_n": 1,
+                            "rebalance_interval": 5,
                             "rank": 1,
                             "promotion_status": "paper_ready",
                         }
@@ -74,7 +78,9 @@ class DailyOpsCliTests(unittest.TestCase):
                 )
 
             self.assertEqual(pack["stage"], "phase_5_0_daily_ops")
-            self.assertEqual(pack["decision"]["status"], "paper_ready")
+            self.assertEqual(pack["decision"]["status"], "blocked")
+            self.assertIn("daily_artifact_identity_invalid", pack["decision"]["blocking_reasons"])
+            self.assertEqual(pack["advisory_tickets"], [])
             self.assertTrue((output_dir / "daily_ops_pack.json").exists())
             self.assertTrue((output_dir / "daily_ops_pack.md").exists())
             self.assertTrue((output_dir / "daily_ops_tickets.csv").exists())
@@ -126,10 +132,11 @@ class DailyOpsCliTests(unittest.TestCase):
                 )
 
             self.assertEqual(pack["decision"]["status"], "blocked")
-            self.assertEqual(pack["decision"]["non_manual_blocking_reasons"], ["risk_max_drawdown_breach"])
+            self.assertEqual(pack["decision"]["non_manual_blocking_reasons"],
+                             ["risk_max_drawdown_breach", "daily_artifact_identity_invalid"])
             self.assertEqual(pack["risk_policy"]["max_drawdown_limit"], -0.04)
 
-    def test_run_daily_ops_uses_selected_paper_profile_parameters_and_tier_limit(self):
+    def test_run_daily_ops_forwards_profile_and_tier_but_blocks_unbound_results(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             promotion = root / "promotion_review_packet.json"
@@ -146,6 +153,10 @@ class DailyOpsCliTests(unittest.TestCase):
                             "case_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
                             "market": "CN_ETF",
                             "factor_name": "liquidity_10",
+                            "factor_source": "technical",
+                            "factor_windows": [10],
+                            "top_n": 1,
+                            "rebalance_interval": 5,
                             "rank": 1,
                             "promotion_status": "paper_ready",
                         }
@@ -221,7 +232,8 @@ class DailyOpsCliTests(unittest.TestCase):
                 )
 
             self.assertEqual(pack["stage"], "phase_5_5_profile_daily_ops_activation")
-            self.assertEqual(pack["decision"]["status"], "paper_ready")
+            self.assertEqual(pack["decision"]["status"], "blocked")
+            self.assertIn("daily_artifact_identity_invalid", pack["decision"]["blocking_reasons"])
             self.assertEqual(pack["risk_policy"]["max_drawdown_limit"], -0.3)
             self.assertEqual(pack["paper_profile"]["profile_id"], "cap60_guard12_cd3")
             self.assertEqual(pack["paper_profile"]["risk_tier"], "aggressive_growth")
@@ -238,7 +250,7 @@ class DailyOpsCliTests(unittest.TestCase):
             self.assertEqual(simulation_mock.call_args.kwargs["max_drawdown_guard"], 0.12)
             self.assertEqual(simulation_mock.call_args.kwargs["guard_cooldown_periods"], 3)
 
-    def test_run_daily_ops_uses_default_paper_profile_pack_when_available(self):
+    def test_run_daily_ops_loads_default_profile_but_blocks_unbound_results(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             promotion = root / "promotion_review_packet.json"
@@ -252,6 +264,10 @@ class DailyOpsCliTests(unittest.TestCase):
                             "case_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
                             "market": "CN_ETF",
                             "factor_name": "liquidity_10",
+                            "factor_source": "technical",
+                            "factor_windows": [10],
+                            "top_n": 1,
+                            "rebalance_interval": 5,
                             "promotion_status": "paper_ready",
                         }
                     }
@@ -314,7 +330,8 @@ class DailyOpsCliTests(unittest.TestCase):
                 )
 
             self.assertEqual(pack["stage"], "phase_5_5_profile_daily_ops_activation")
-            self.assertEqual(pack["decision"]["status"], "paper_ready")
+            self.assertEqual(pack["decision"]["status"], "blocked")
+            self.assertIn("daily_artifact_identity_invalid", pack["decision"]["blocking_reasons"])
             self.assertEqual(pack["paper_profile"]["profile_id"], "cap60_guard12_cd3")
             self.assertEqual(signal_mock.call_args.kwargs["max_asset_weight"], 0.6)
 
@@ -331,6 +348,10 @@ class DailyOpsCliTests(unittest.TestCase):
                             "case_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
                             "market": "CN_ETF",
                             "factor_name": "liquidity_10",
+                            "factor_source": "technical",
+                            "factor_windows": [10],
+                            "top_n": 1,
+                            "rebalance_interval": 5,
                             "promotion_status": "paper_ready",
                         }
                     }

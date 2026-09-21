@@ -19,6 +19,7 @@ from quant_robot.experiments.runner import ExperimentGridConfig, load_experiment
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
 from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
+from quant_robot.research.cn_etf_entrypoint_access import require_registered_cn_etf_markets
 from quant_robot.storage.processed_bars import load_processed_bars
 
 
@@ -37,6 +38,7 @@ def run_grid(
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
     config = load_experiment_grid_config(config_path) if config_path is not None else ExperimentGridConfig()
+    require_registered_cn_etf_markets(source, config.markets)
     if output_dir is not None:
         config = replace(config, output_dir=Path(output_dir))
     _enforce_cn_stock_startup_gate(
@@ -135,6 +137,7 @@ def assert_grid_succeeded(result: dict[str, object]) -> None:
 
 
 def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.DataFrame:
+    require_registered_cn_etf_markets(source, markets)
     if source == "fixture":
         return load_demo_market_bars()
     if source != "processed-bars":

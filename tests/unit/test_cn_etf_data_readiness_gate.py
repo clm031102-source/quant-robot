@@ -12,10 +12,28 @@ from scripts.run_tushare_cn_etf_sync import run_tushare_cn_etf_sync_cli
 
 
 class CnEtfDataReadinessGateTests(unittest.TestCase):
+    def test_unverified_tushare_holdings_are_reported_as_a_source_blocker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_tushare_cn_etf_sync_cli(
+                source="tushare-fixture", start_date="2024-01-02", end_date="2024-01-05",
+                output_dir=root / "processed", report_dir=root / "sync_report", execute=True,
+                min_rotation_history_rows=2,
+            )
+            DatasetStore(root / "processed" / "legacy").write_frame(
+                pd.DataFrame({"source": ["tushare_fund_portfolio"], "weight": [1.0]}),
+                "metadata/etf_moneyflow_baskets", {"market": "CN_ETF"},
+            )
+            pack = build_cn_etf_data_readiness_gate(data_root=root / "processed", sync_report_dir=root / "sync_report")
+            self.assertEqual(pack["status"], "blocked")
+            self.assertIn("unverified_etf_moneyflow_baskets", pack["blockers"])
+            self.assertEqual(pack["auxiliary_datasets"]["etf_moneyflow_baskets"]["status"], "unverified")
+            self.assertTrue(any("Audit full holdings scope" in action for action in pack["next_actions"]))
+
     def test_default_data_root_matches_tushare_full_history_sync_root(self):
         self.assertEqual(DEFAULT_DATA_ROOT, Path("data/processed/tushare_etf_full"))
 
-    def test_gate_passes_after_fixture_sync_with_membership_and_auxiliary_inputs(self):
+    def test_fixture_sync_completion_does_not_approve_legacy_holdings(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             sync_pack = run_tushare_cn_etf_sync_cli(
@@ -35,8 +53,8 @@ class CnEtfDataReadinessGateTests(unittest.TestCase):
             )
 
             self.assertEqual(sync_pack["status"], "completed")
-            self.assertEqual(pack["status"], "ready")
-            self.assertEqual(pack["blockers"], [])
+            self.assertEqual(pack["status"], "blocked")
+            self.assertEqual(pack["blockers"], ["unverified_etf_moneyflow_baskets"])
             self.assertEqual(pack["primary_market"], "CN_ETF")
             self.assertGreater(pack["bars"]["rows"], 0)
             self.assertGreater(pack["rotation_membership"]["member_rows"], 0)
@@ -156,7 +174,8 @@ class CnEtfDataReadinessGateTests(unittest.TestCase):
                 output_dir=root / "readiness",
             )
 
-            self.assertEqual(pack["status"], "ready")
+            self.assertEqual(pack["status"], "blocked")
+            self.assertIn("unverified_etf_moneyflow_baskets", pack["blockers"])
             self.assertTrue((root / "readiness" / "cn_etf_data_readiness_gate.json").exists())
             self.assertTrue((root / "readiness" / "cn_etf_data_readiness_gate.md").exists())
 

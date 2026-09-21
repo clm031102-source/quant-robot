@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -14,12 +15,21 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
+from quant_robot.paper.economics import (
+    VALUATION_MODEL,
+    EXECUTION_ECONOMICS_FIELDS,
+    execution_economics_from_request,
+    normalize_execution_economics,
+)
+
 from quant_robot.ops.daily_ops import (
     DEFAULT_MAX_DRAWDOWN_LIMIT,
     DEFAULT_MAX_SIGNAL_AGE_DAYS,
     build_daily_ops_pack,
     write_daily_ops_pack,
 )
+from quant_robot.ops.daily_ops_identity import require_daily_candidate_recipe
 
 try:
     from scripts.run_paper_simulation import run_simulation
@@ -56,11 +66,13 @@ def run_daily_ops(
         "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
     ),
     allow_review_required_data_manifest: bool = False,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float | None = None,
     positions_csv: str | Path | None = None,
     max_drawdown_limit: float | None = None,
     max_signal_age_days: int = DEFAULT_MAX_SIGNAL_AGE_DAYS,
+    corporate_actions_path: str | Path | None = None,
 ) -> dict[str, Any]:
+    explicit_actions_path = Path(corporate_actions_path) if corporate_actions_path is not None else None
     promotion = _read_json(Path(promotion_review))
     readiness = _read_json(Path(readiness_board))
     profile_pack_path = Path(paper_profile_pack) if paper_profile_pack is not None else _default_paper_profile_pack()
@@ -69,11 +81,26 @@ def run_daily_ops(
     profile_params = _profile_params(paper_profile)
     effective_max_drawdown_limit = _effective_drawdown_limit(max_drawdown_limit, profile_pack, paper_profile)
     candidate = _candidate(promotion, readiness)
-    market = str(candidate.get("market") or "CN_ETF")
-    factor_name = str(candidate.get("factor_name") or "liquidity_10")
-    factor_windows = _factor_windows(candidate, factor_name)
-    top_n = _top_n(candidate)
-    rebalance_interval = _rebalance_interval(candidate)
+    execution_economics, frozen_economics = _execution_params(
+        profile_pack, paper_profile, candidate, portfolio_value,
+    )
+    portfolio_value = execution_economics["initial_cash"]
+    if corporate_actions_path is None:
+        corporate_actions_path = next((item.get("corporate_actions_path") for item in
+            (paper_profile, candidate, profile_pack.get("config", {}))
+            if isinstance(item, dict) and item.get("corporate_actions_path")), None)
+    if frozen_economics and execution_economics["corporate_actions_fingerprint"] is not None and corporate_actions_path is None and paper_simulation is None:
+        raise ValueError("frozen corporate action evidence requires corporate_actions_path for regeneration")
+    if signal_snapshot is None or paper_simulation is None:
+        recipe = require_daily_candidate_recipe(candidate)
+        if signal_snapshot is None and recipe["factor_source"] != "technical":
+            raise ValueError("Daily Ops fresh signal generation requires an explicitly technical candidate recipe")
+        market = recipe["market"]
+        factor_source = recipe["factor_source"]
+        factor_name = recipe["factor_name"]
+        factor_windows = tuple(recipe["factor_windows"])
+        top_n = recipe["top_n"]
+        rebalance_interval = recipe["rebalance_interval"]
 
     output_path = Path(output_dir)
     signal = (
@@ -110,6 +137,7 @@ def run_daily_ops(
             source=source,
             data_root=Path(data_root),
             market=market,
+            factor_source=factor_source,
             factor_name=factor_name,
             factor_windows=factor_windows,
             top_n=top_n,
@@ -123,6 +151,12 @@ def run_daily_ops(
             start_date=start_date,
             end_date=end_date,
             initial_cash=portfolio_value,
+            commission_bps=execution_economics["commission_bps"],
+            minimum_commission=execution_economics["minimum_commission"],
+            corporate_actions_path=corporate_actions_path,
+            slippage_bps=execution_economics["slippage_bps"],
+            market_impact_bps=execution_economics["market_impact_bps"],
+            max_participation_rate=execution_economics["max_participation_rate"],
             max_asset_weight=profile_params["max_asset_weight"],
             max_market_weight=profile_params["max_market_weight"],
             max_gross_exposure=profile_params["max_gross_exposure"],
@@ -133,6 +167,17 @@ def run_daily_ops(
             output_dir=output_path / "paper_simulation",
         )
     )
+    request = simulation.get("request", {})
+    if paper_simulation is not None and explicit_actions_path is not None:
+        fingerprint = hashlib.sha256(explicit_actions_path.read_bytes()).hexdigest()
+        if not isinstance(request, dict) or request.get("corporate_actions_fingerprint") != fingerprint:
+            raise ValueError("explicit corporate_actions file fingerprint does not match cached paper simulation")
+    if frozen_economics:
+        if (
+            normalize_execution_economics(request.get("execution_economics")) != execution_economics
+            or execution_economics_from_request(request) != execution_economics
+        ):
+            raise ValueError("paper simulation execution_economics does not match the selected profile")
     pack = build_daily_ops_pack(
         promotion,
         readiness,
@@ -173,7 +218,8 @@ def main() -> None:
         default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
     )
     parser.add_argument("--allow-review-required-data-manifest", action="store_true")
-    parser.add_argument("--portfolio-value", default=100000.0, type=float)
+    parser.add_argument("--portfolio-value", default=None, type=float)
+    parser.add_argument("--corporate-actions", help="Local versioned corporate-action dataset JSON")
     parser.add_argument("--positions-csv")
     parser.add_argument(
         "--max-drawdown-limit",
@@ -208,6 +254,7 @@ def main() -> None:
             ),
             allow_review_required_data_manifest=args.allow_review_required_data_manifest,
             portfolio_value=args.portfolio_value,
+            corporate_actions_path=args.corporate_actions,
             positions_csv=Path(args.positions_csv) if args.positions_csv else None,
             max_drawdown_limit=args.max_drawdown_limit,
             max_signal_age_days=args.max_signal_age_days,
@@ -246,6 +293,34 @@ def _selected_paper_profile(profile_pack: dict[str, Any]) -> dict[str, Any]:
 
 def _default_paper_profile_pack() -> Path | None:
     return DEFAULT_PAPER_PROFILE_PACK if DEFAULT_PAPER_PROFILE_PACK.exists() else None
+
+
+def _execution_params(
+    profile_pack: dict[str, Any], paper_profile: dict[str, Any],
+    candidate: dict[str, Any], portfolio_value: float | None,
+) -> tuple[dict[str, Any], bool]:
+    contracts = [normalize_execution_economics(item["execution_economics"])
+                 for item in (paper_profile, candidate) if "execution_economics" in item]
+    if contracts:
+        if any(contract != contracts[0] for contract in contracts):
+            raise ValueError("candidate and profile execution_economics do not match")
+        contract = contracts[0]
+        if portfolio_value is not None and portfolio_value != contract["initial_cash"]:
+            raise ValueError("portfolio_value differs from frozen execution_economics initial_cash")
+        return contract, True
+    # Legacy profiles remain replayable, but cannot pass the new ETF economics gate.
+    parameters = {
+        "valuation_model": VALUATION_MODEL,
+        "corporate_actions_fingerprint": None,
+        "initial_cash": CURRENT_RESEARCH_CAPITAL_CNY, "commission_bps": 5.0, "minimum_commission": 0.0,
+        "slippage_bps": 5.0, "market_impact_bps": 0.0, "max_participation_rate": None,
+    }
+    request = profile_pack.get("config", profile_pack.get("request", {}))
+    if isinstance(request, dict):
+        parameters.update({key: request[key] for key in EXECUTION_ECONOMICS_FIELDS if key in request})
+    if portfolio_value is not None:
+        parameters["initial_cash"] = portfolio_value
+    return execution_economics_from_request(parameters), False
 
 
 def _profile_params(paper_profile: dict[str, Any]) -> dict[str, Any]:
@@ -317,30 +392,6 @@ def _candidate(promotion: dict[str, Any], readiness: dict[str, Any]) -> dict[str
     if not isinstance(candidate, dict):
         candidate = readiness.get("selected_candidate")
     return candidate if isinstance(candidate, dict) else {}
-
-
-def _factor_windows(candidate: dict[str, Any], factor_name: str) -> tuple[int, ...]:
-    value = candidate.get("factor_windows")
-    if isinstance(value, list):
-        return tuple(int(item) for item in value)
-    suffix = factor_name.rsplit("_", 1)[-1]
-    return (int(suffix),) if suffix.isdigit() else (2, 3)
-
-
-def _top_n(candidate: dict[str, Any]) -> int:
-    case_id = str(candidate.get("case_id", ""))
-    for part in case_id.split("_"):
-        if part.startswith("top") and part[3:].isdigit():
-            return int(part[3:])
-    return int(candidate.get("top_n", 1) or 1)
-
-
-def _rebalance_interval(candidate: dict[str, Any]) -> int:
-    case_id = str(candidate.get("case_id", ""))
-    for part in case_id.split("_"):
-        if part.startswith("reb") and part[3:].isdigit():
-            return int(part[3:])
-    return int(candidate.get("rebalance_interval", 1) or 1)
 
 
 def _float(value: Any, default: float = 0.0) -> float:

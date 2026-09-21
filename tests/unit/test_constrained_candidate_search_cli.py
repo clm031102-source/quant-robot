@@ -126,7 +126,7 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
             self.assertTrue((output_dir / "constrained_candidate_search_pack.json").exists())
             self.assertTrue((output_dir / "constrained_candidate_search_pack.md").exists())
 
-    def test_run_constrained_candidate_search_reuses_existing_artifacts(self):
+    def test_run_constrained_candidate_search_rejects_unbound_existing_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             output_dir = root / "search"
@@ -188,18 +188,16 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
                 patch("scripts.run_constrained_candidate_search.run_promotion_report") as promotion_mock,
                 patch("scripts.run_constrained_candidate_search.run_risk_candidate_selector") as risk_mock,
             ):
-                pack = run_constrained_candidate_search(config_path)
+                with self.assertRaisesRegex(ValueError, "Unbound candidate artifact reuse"):
+                    run_constrained_candidate_search(config_path)
 
             walk_mock.assert_not_called()
             paper_mock.assert_not_called()
             promotion_mock.assert_not_called()
             risk_mock.assert_not_called()
-            self.assertEqual(pack["selection_status"], "no_risk_eligible_candidate")
-            self.assertEqual(pack["summary"]["walk_forward_accepted"], 1)
-            self.assertEqual(pack["summary"]["frontier_candidates"], 1)
-            self.assertEqual(pack["frontier_candidates"][0]["case_id"], "case_a")
+            self.assertFalse(output_dir.exists())
 
-    def test_constrained_search_keeps_risk_tier_selected_candidate_on_frontier(self):
+    def test_synthetic_summary_keeps_risk_tier_selected_candidate_on_frontier(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             output_dir = root / "search"
@@ -260,7 +258,13 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            pack = run_constrained_candidate_search(config_path)
+            pack = constrained_module.build_constrained_candidate_search_pack(
+                constrained_module.load_constrained_candidate_search_config(config_path),
+                json.loads((walk_output / "manifest.json").read_text(encoding="utf-8")),
+                json.loads((paper_output / "paper_batch_summary.json").read_text(encoding="utf-8")),
+                json.loads((promotion_output / "promotion_report.json").read_text(encoding="utf-8")),
+                json.loads((risk_output / "risk_candidate_pack.json").read_text(encoding="utf-8")),
+            )
 
         self.assertEqual(pack["selection_status"], "risk_tier_candidate_selected")
         self.assertEqual(pack["summary"]["frontier_candidates"], 1)

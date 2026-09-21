@@ -1,0 +1,28 @@
+{
+  "scope": "selected_official_document_fields_only",
+  "field_candidates_path": "data/reports/etf_monetization_20260911/official_peer_chronology/document_field_candidates.json",
+  "field_candidates_sha256": "b41d6807efe76885018b3bd03974428001dd3f55089614b44016b6b3719cfbd7",
+  "fund_identities": {
+    "510300.SH": "华泰柏瑞沪深300交易型开放式指数证券投资基金",
+    "510330.SH": "华夏沪深300交易型开放式指数证券投资基金"
+  },
+  "extra_documents": [
+    {
+      "symbol": "510330.SH",
+      "path": "data/reports/etf_monetization_20260911/official_peer_sources/510330_20190131_2.pdf",
+      "sha256": "ca8b2468ece52736a22f8053f085299ad0754d5f43714403aeac417818ad49ec",
+      "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/2019-01-30/510330_20190131_2.pdf",
+      "title": "华夏沪港通恒生交易型开放式指数证券投资基金招募说明书（更新）摘要",
+      "published_date": "2019-01-31",
+      "explicit_tracking_statements": [
+        {
+          "physical_page": 1
+        }
+      ]
+    }
+  ],
+  "fund_managers": {
+    "510300.SH": "华泰柏瑞基金管理有限公司",
+    "510330.SH": "华夏基金管理有限公司"
+  }
+}
