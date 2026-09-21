@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_equity_gold_risk_diversification_v1",
+  "purpose": "The fixed study liquidates on2024-01-02. Gold annual2023evidence stops at2023-12-31; inspect the2024interimreport only for distributions and unit changes covering the terminal day. Do not assume a zero action from an annual coverage boundary.",
+  "authority": "Existing autonomous project-lead mandate; source-only self-review",
+  "source_scope": {
+    "allowed_public_hosts": ["query.sse.com.cn", "www.sse.com.cn"],
+    "maximum_new_requests": 2,
+    "catalog": {"fund":"518880","title":"中期报告","start":"2024-07-01","end":"2024-09-01","page_size":100,"maximum_pages":1},
+    "PDF": "Exactly one original2024full interimreport from the returned catalogue; reject summaries,reminders,corrections,ambiguity or truncation. No guessed URLs or retries.",
+    "fields": ["fund identity", "report period", "distributions", "unit-movement table", "dated share-conversion disclosures if present"],
+    "policy": "Exclusive claim before each request;verifiedTLS;no redirects/retries;5second connect and30second read timeout;12MiBcap;preserve all responses.",
+    "market_performance_extraction_allowed": false
+  },
+  "exposure": "Daily rawsourcepaths have already been quality-checked. No strategy or account outcomes have been calculated; only synthetic account tests executed.",
+  "return_calculation_allowed": false,
+  "account_execution_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}
