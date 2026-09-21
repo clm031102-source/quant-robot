@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "review_id": "disclosed_equity_flow_partial_identification_review_v1",
+  "original_hypothesis_id": "disclosed_equity_flow_monthly_breadth_v1",
+  "original_proposal": "configs/cn_etf_disclosed_flow_source_proposal_20260914.json",
+  "status": "source_and_method_review_only",
+  "reason_for_review": "The unused original proposal was paused for missing stock-session cells and unverified historical vintage. Exact worst/best bounds can preserve its complete-weight target without assuming missing observations are zero. This review does not repair vintage evidence or grant a return test.",
+  "unchanged": ["510300.SH ETF only; stocks auxiliary", "complete disclosed-stock fair-value weights", "strict greater-than-zero net_mf_amount indicator", "full previous-month exchange calendar denominator", "positive direction and strictly greater than 0.5 threshold", "first-session 09:15 decision and open-to-next-month-open horizon", "9-calendar-month snapshot age ceiling with month-end preservation", "newer unreviewed report or correction blocks the snapshot", "CNY10000 account and CNY1000 position cap", "2026 ETF outcome seal"],
+  "mathematical_contract": {
+    "denominator": "D = full_report_value_in_cents * previous_month_session_count",
+    "lower_numerator": "sum(fair_value_cents_i * observed_strictly_positive_days_i)",
+    "unknown_numerator": "sum(fair_value_cents_i * missing_or_nonfinite_days_i)",
+    "lower": "L = lower_numerator / D",
+    "upper": "H = (lower_numerator + unknown_numerator) / D",
+    "identified_positive": "2 * lower_numerator > D",
+    "identified_nonpositive": "2 * (lower_numerator + unknown_numerator) <= D",
+    "otherwise": "unidentified; never silently map to zero, cash return or an excluded winner",
+    "all_report_weights_and_sessions_retained": true,
+    "bounds_cover_stale_holdings_or_revisions": false,
+    "arithmetic": "integer cents and rational endpoints; no floating tolerance near threshold"
+  },
+  "source_use_decision": "Mapped historical moneyflow values may be reviewed for an explicitly conditional retrospective study, with API identity and local lineage assumptions retained. No PIT certification or promotion. Expand only the three previously located interim PDFs and date/coverage-only local projections; no new stock API requests.",
+  "future_diagnostic_precondition": "Freeze a whole-calendar treatment of unidentified months and source exclusions plus statistics before generating real breadth or reading outcomes. A partial-identification result cannot claim more certainty than its bounds.",
+  "source_expansion": {"interim_periods": ["2021-06-30", "2022-06-30", "2023-06-30"], "maximum_pdf_requests": 3, "retry_count": 0, "stock_api_requests": 0, "ETF_price_projection_allowed": false, "real_breadth_computation_allowed": false},
+  "review_authority": "Project lead autonomous self-review under user's ongoing research mandate; no independent reviewer. Original unused source-only proposal remains unchanged, and consumed experiments remain closed.",
+  "general_factor_batch_allowed": false,
+  "factor_or_return_execution_allowed": false,
+  "paper_promotion_allowed": false,
+  "historical_vintage_verified": false
+}

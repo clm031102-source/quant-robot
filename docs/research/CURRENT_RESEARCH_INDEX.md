@@ -9,18 +9,31 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Mainline integration is complete through [PR #3](https://github.com/clm031102-source/quant-robot/pull/3)
-and [PR #4](https://github.com/clm031102-source/quant-robot/pull/4), at `e3204fc`.
-The CNY 10,000 account, shared source archive, response-integrity guards and isolated GUI
-demo flow passed their final six-job CI matrices. The integration branch additionally
-fixes moneyflow as-of review to use the same shared receipt and review archive.
+Latest actual test: [disclosed-holdings flow breadth](cn_etf_disclosed_flow_bounds_review_2026-09-21.md).
+Seven complete report snapshots now cover the retained 510300 timeline. The 38-month
+conditional diagnostic had three positive-signal months: two positive returns and one
+negative, with +2.7302% mean gross return. It did not qualify: too few selected months
+and the predeclared effect interval crosses zero. Its one-use authorization is consumed;
+no net account or paper promotion followed, and historical input vintages remain unverified.
+The preceding [50ETF option activity test](cn_etf_option_relative_activity_review_2026-09-21.md)
+also remains closed: 16 selected months out of 52, 43.75% positive intervals,
+and -0.1009% mean gross return.
+Neither fixed hypothesis may be rescued by changing its sign, threshold or window.
+Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
-Latest actual test: [50ETF option relative activity](cn_etf_option_relative_activity_review_2026-09-21.md).
-Official counts qualified across 1087 sessions and 54 months. The separately registered
-52-interval gross diagnostic failed: 16 selected months, 43.75% positive intervals,
--0.1009% mean selected gross return, and an insignificant rank correlation. Its one-use
-authorization is consumed; no net account or paper promotion followed. The ongoing
-project mandate remains active for economically independent hypotheses.
+Next bounded review: [labor-market source and mechanism](cn_etf_labor_market_source_review_2026-09-14.md),
+with the [fixed labor-risk proposal](../../configs/cn_etf_labor_risk_source_proposal_20260921.json).
+A later [source-only scope](../../configs/cn_etf_labor_source_scope_20260921.json) binds exactly
+60 official releases, reusing three originals with at most 57 new requests; it supersedes only
+the original proposal's no-history-collection flag for that fixed corpus. It permits no factor or
+outcome execution and does not certify historical vintages. The September 21 ChinaBond
+observation has already been received under the shared daily claim; do not collect it again.
+
+Mainline baseline `e3204fc` includes the account, shared-source integrity and GUI isolation fixes
+through PRs #3 and #4. This research branch integrates that baseline while retaining the two
+consumed studies and the newer labor-risk proposal. Mainline CI results do not certify new research results.
+The integration also retains the shared moneyflow as-of archive fix from PR #5; the source
+scope and PM gate remain bound to the code worktree, while receipts and reviews share the primary archive.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
