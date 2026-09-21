@@ -20,7 +20,14 @@ six count checks reconcile with a separately written daily oracle.35related test
 consumed and closed without parameter or sample rescue. This adds one source-cadence screen, zero return
 studies and no profit/win-rate claim; the existing ten-study count remains unchanged.
 
-Latest source review: [dry-bulk freight mechanism](cn_etf_dry_bulk_mechanism_review_2026-09-22.md).
+Latest source review: [retail investor entry](cn_etf_investor_entry_source_review_2026-09-22.md).
+Zero of the two fixedJune2017/June2023monthly pilots have qualified originals and publication dates.
+Three official annual reports establish net eligible-population change rather than gross first-time
+entrants; the2017and2023population descriptions differ. Annual totals and later catalogue dates cannot
+be substituted for the missing monthly input. Five original requests succeed; no financial signal or
+return study is added. This source-stage deferral does not establish negativeEV.
+
+Preceding source review: [dry-bulk freight mechanism](cn_etf_dry_bulk_mechanism_review_2026-09-22.md).
 The bounded review retains four valid originals and one403response. The original predictive paper's
 full method and a qualified free historical series remain unavailable; a separate China wavelet paper
 does not supply an executable, costed ETF rule. Official2018weight changes, the retainedDecember2025

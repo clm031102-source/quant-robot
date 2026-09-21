@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_investor_entry_source_review_v1",
+  "stage": "source_pilot_completed_candidate_deferred",
+  "capital_CNY": 10000,
+  "all_in_position_cap_CNY": 1000,
+  "document": "docs/research/cn_etf_investor_entry_source_review_2026-09-22.md",
+  "decision": "Suspend expansion of a gross first-time retail-entry crowding hypothesis. The fixed two monthly inputs are unavailable within this search, while annual originals define net eligible-population changes and differing populations. This does not prove negativeEV or universal absence of public data.",
+  "source_pins": {
+    "source_manifest": {
+      "path": "data/reports/positive_ev_20260922/investor_entry_pilot/source_manifest.json",
+      "sha256": "95d862b5a7b0f044b1ce263e1e1bee48ed6fb3d8aa45ca59dfb0351333ef2294"
+    },
+    "source_verification": {
+      "path": "data/reports/positive_ev_20260922/investor_entry_pilot/source_verification.json",
+      "sha256": "02bd89e0d03acce1f5ccd6b3bde88f7a0d2db2abf09b21ed31b34389b89daa9a"
+    }
+  },
+  "source_findings": {
+    "fixed_pilot_months": ["2017-06", "2023-06"],
+    "qualified_monthly_inputs": 0,
+    "annual_original_years": [2017, 2023, 2024],
+    "new_investors_definition": "current eligible end population minus previous eligible end population",
+    "gross_first_time_entry_count_identified": false,
+    "2017_population": "Uncancelled,nondormant A-share,B-share,credit or derivative-contract accounts under UAP identities",
+    "2023_and_2024_population": "Uncancelled,nondormant A-share or B-share accounts under UAP identities",
+    "definition_change_effective_month_and_magnitude_certified": false,
+    "2017_report_notes_some_2016_fields_restated": true,
+    "2017_annual_catalogue_date": "2018-05-04",
+    "2023_annual_catalogue_date": "2024-11-13",
+    "historical_original_versions_certified": false,
+    "annual_values_substituted_for_pilot_months": false
+  },
+  "verification": {
+    "web_queries": 4,
+    "web_opens": 3,
+    "web_finds": 2,
+    "raw_requests": 5,
+    "raw_HTTP200": 5,
+    "accepted_PDF": 3,
+    "accepted_HTML": 2,
+    "decoded_PDF_pages": 78,
+    "rendered_PDF_pages": 6,
+    "visually_reviewed_PDF_pages": 4,
+    "same_report_arithmetic_checks": 14,
+    "verification_pinned_files": 32,
+    "automatic_retries": 0,
+    "automatic_redirects": 0,
+    "independent_human_review": false
+  },
+  "exposure": {
+    "annual_2017_2023_2024_aggregate_statistics_seen": true,
+    "third_party_2026_investor_count_snippets_seen": true,
+    "ETF_outcome_joined": false,
+    "2026_ETF_holdout_read": false,
+    "signal_generated": false,
+    "prior_household_survey_experiment_reopened": false
+  },
+  "resumption_requirement": "New original monthly reports with observable release dates and population-change evidence. Any use of net participation instead of first-time entry needs an explicit independent hypothesis and fixed validation contract; no backdating annual totals or rescuing the consumed household experiment.",
+  "new_return_studies": 0,
+  "total_return_studies_current_mandate": 10,
+  "total_source_cadence_screens": 1,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "general_factor_batch_allowed": false,
+  "financial_execution_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "next": "Do not repeat this bounded search without new evidence. Continue a distinct, source-attainable economic mechanism under the standingCNY10000goal."
+}
