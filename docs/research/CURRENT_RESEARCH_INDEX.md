@@ -9,27 +9,20 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest source review: [money ETF primary cash subscription](cn_etf_cash_subscription_review_2026-09-21.md).
-159001 supports one-share cash subscription at100CNYper share under the retained contracts.
-The initial23response review is merged inPR11. A further3schema and28annual-source responses
-were retained and hash-checked; ten annualPCF endpoints and2658income dates have been reconciled.
-The monthly-to-daily payment change is verified effective2023-06-05. Historical publication
-vintages, available execution capacity, full quota-version semantics and investor costs remain unresolved.
-The current outer product date embedded in a historical API response was identified and excluded.
-The integration review did not decode income originals; it read retained post-claim format-failure
-records, so complete income-value blindness is no longer claimed. No new return calculation occurred.
-Five cross-year date-shape exceptions blocked the original annual method. The pre-value778a38f
-amendment requires six fixed seven-day identities before any annualPnL;01b182e also prevents
-future redemption refusal from rewriting historical entries as unfilled. These are conditional
-source and method checks. The separately admitted execution44f1352 stopped on an annotated
-incomeUnit field after its exclusive claim. It is failed_consumed with no result.json, seven-day
-check or annualPnL.189input bindings and11runtime files match the registration; two Git comparisons
-differ only in recorded CRLF/LF bytes. The old attempt is closed with no rerun. This integration
-does not import the later format-repair proposal or a fresh execution scope. Six completed
-return studies plus one source-format failure remain, with zero qualified strategies or paper days.
-Cash management is not a substitute for the mandate or a newly proven factor.
+Latest actual test: [money ETF annual primary cash carry](cn_etf_cash_subscription_review_2026-09-21.md).
+The fixed2015..2023annual study passes its conditional cash screen:9/9positive, mean7.653984CNY;
+the2020..2023subset is4/4positive, mean2.586812CNY. These are independent annual positions capped
+at1000CNYall-in within the10000CNYmandate, with5CNYflat fees per leg and0.01CNYper-day rounding stress.
+The fixed95%two-year-block mean interval is[3.697134,11.864863]CNY. With10CNYfees and the same stress,
+the mean is-2.346016CNY, and all four later years lose. Actual investor costs remain unconfirmed.
+Fifty-four original responses include2658income rows and all ten required annualPCF anchors.
+The first claimed attempt failed on literal holiday annotations before annual totals; a separately
+frozen format-only correction normalized465annotated fields with no change to economic logic.
+Six source-income identities and54scenario-year scalar checks pass.193input roles/173files and14code
+pins were verified. Seven economic studies are complete; zero strategies qualified, zero forward paper days.
+Retain this as a conditional cash benchmark only, not timing alpha or satisfaction of the profit mandate.
 
-Latest actual test: [fixed dividend-style annual exposure](cn_etf_dividend_style_review_2026-09-21.md).
+Preceding actual test: [fixed dividend-style annual exposure](cn_etf_dividend_style_review_2026-09-21.md).
 Sixteen complete2008..2023annual opportunities, each capped at1000CNYall-in, yielded+523.90CNY
 in total under the main5CNYminimum/10bpslippage model;9/16positive(56.25%),mean+32.74CNY.
 The later fouryears earned+111.80CNY,3/4positive. The fixed95%two-year-block mean interval
@@ -37,10 +30,6 @@ is[-66.36,+130.91]CNY. Its lower bound fails: the hypothesis is closed for insuf
 without claiming negative populationEV or reopening any choices. This is actual fund exposure
 under changing index rules, not a newly discovered timing factor.69input/16implementation pins
 and155scenario/benchmark arithmetic rows were verified; no account run or paper promotion.
-The integration review also matched29source-only requests,16annual share balances and16cash
-events against retained originals. The separately frozen one-price request was retained and
-fingerprinted. Annual frequency, historical vintages, complete index-revision chronology and
-payment-date cash availability remain limitations; the old510300annualstudy stays paused.
 
 Preceding actual test: [broad RMB RRR implementation events](cn_etf_rrr_effective_event_review_2026-09-21.md).
 Fifteen fixed events passed current official-source reconciliation against12annual policy reports.
@@ -51,18 +40,18 @@ hypothesis is closed. No full-account run or paper promotion followed. All86inpu
 pins and135scenario-event arithmetic rows were checked. Historical vintages remain unverified.
 
 Preceding actual test: [quarterly US variance-insurance gap](cn_etf_us_variance_risk_review_2026-09-21.md).
-The 45-quarter study selected 37 quarters, 18 positive (48.65%), mean gross +1.4039%.
-Its full matched-exposure effect is -0.3960 bp/session with a fixed 95% block interval
-[-3.1387, +2.0586] bp/session. The later effect is positive, but the full rule fails.
+The45quarter study selected37quarters,18positive(48.65%),mean gross+1.4039%.
+Its full matched-exposure effect is-0.3960bp/session with a fixed95%block interval
+[-3.1387,+2.0586]bp/session. The later effect is positive, but the full rule fails.
 The hypothesis is closed without a sign, phase or horizon rescue; no net-account run followed.
-Seven early annual reports and 1,702 earlier ETF price sessions are now conditionally reviewed.
-The 2016 annual dividend conflict was resolved with the original 0.51 CNY/10 units notice.
+Seven early annual reports and1702earlierETFprice sessions are now conditionally reviewed.
+The2016annual dividend conflict was resolved with the original0.51CNY/10units notice.
 
 Preceding actual test: [labor-risk annual contrast](cn_etf_labor_market_source_review_2026-09-14.md).
-Sixty original releases support 48 gross intervals. Twenty-two were selected, 15 positive,
-with +1.5833% mean gross interval return. The fixed block interval for the daily exposure-matched
-effect is positive, but only two selected intervals fall in 2023 onward, below the frozen minimum.
-Only two contiguous selected episodes underlie the 22 intervals. The fixed hypothesis is closed
+Sixty original releases support48 gross intervals. Twenty-two were selected,15 positive,
+with+1.5833% mean gross interval return. The fixed block interval for the daily exposure-matched
+effect is positive, but only two selected intervals fall in2023onward, below the frozen minimum.
+Only two contiguous selected episodes underlie the22 intervals. The fixed hypothesis is closed
 for insufficient evidence; it was not a net account run or a proof of negative EV.
 
 Preceding test: [disclosed-holdings flow breadth](cn_etf_disclosed_flow_bounds_review_2026-09-21.md).
@@ -84,26 +73,20 @@ The RRR annual reconciliation and endpoint diagnostic are complete, not pending 
 The labor source corpus and method paper remain reusable evidence; its failed or completed scopes
 cannot be reopened. Original official definitions and releases were recovered using a separately
 frozen direct HTTPS scope, without changing global proxy or TLS verification. Historical vintages
-and full definition continuity remain assumptions. The September 21 ChinaBond observation has
+and full definition continuity remain assumptions. The September21 ChinaBond observation has
 already been received under the shared daily claim; do not collect it again.
 
-Mainline baseline `e4a775d` includes the account, shared-source integrity, GUI isolation,
-shared as-of review and the first five study closeouts through PRs #3 to #9. This integration retains all six
+Mainline baseline `e3204fc` includes the account, shared-source integrity and GUI isolation fixes
+through PRs #3 and #4. This research branch integrates that baseline while retaining the six
 consumed studies. Mainline CI results do not certify new research results.
-The source scope and PM gate remain bound to the code worktree, while receipts and reviews
-share the primary archive. PR #9 passed all six CI jobs; Windows 3.11 logged 3,833 passing tests.
-The first future v2 moneyflow receipt was captured once on September 21 at 19:05.
-Its frozen 19:00 cutoff returns two unknown cells; the first post-capture cutoff returns two
-observed cells. Both permitted reader invocations are consumed. Source and code hashes match,
-but this grants no research admission or paper days; September 14 v1 remains rejected.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue
 
 - Review and ordered acceptance criteria: [project progress review](project_progress_review_2026-09-21.md).
-- Assessment starting baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation; mainline has since advanced to `a4a558b` through PRs #3 to #7.
-- Imported topic baseline: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c`; 141 commits and 423 changed files beyond the starting baseline. Its offline accounting/execution and prospective source-receipt work is now integrated into `main`.
+- Source baseline: `main` at `e3204fc`, including the prior NAV invalidation, September account/source implementation and GUI isolation fix.
+- Historical topic baseline `0b8984c` is now in main via PR #3. The earlier comparison of 141 commits and 423 files was against the pre-integration main and is no longer the current main gap.
 - Topic branch continuation authority: `docs/research/etf_monetization_execution_plan_2026-09-11.md` on that branch, plus the local `data/reports/etf_monetization_20260911/progress.json`. Its consumed monthly, household, month-start, and fiscal study authorizations remain consumed; the earlier mainline entries below cannot reopen them.
 - Current research authority: `configs/research_family_scheduler_cn_etf.json`, especially `last_decision`; earlier sections below preserve dated evidence and do not independently authorize another run.
 - Current mode: `family_rotation_review_only`; zero active primary families and zero allocated primary budget. The Quant PM gate is ready for `factor_review`, while factor batches remain blocked.
@@ -122,7 +105,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 ## Retained Deployment And Source Evidence
 
-- Original topic branch: `codex/factor-review-etf-monetization-20260911`; its pinned `0b8984c` evidence and implementation were integrated through PR #3. Later topic changes, if any, require a separate review.
+- Current task branch: `codex/factor-review-etf-monetization-20260911`; office desktop, commits and pushes authorized. This entry does not claim that the branch has been merged into `main`.
 - Authoritative execution plan: [CN_ETF deployment plan](etf_monetization_execution_plan_2026-09-11.md), including acceptance gates, stall diagnosis, direction changes, and hourly reporting.
 - Research status: follow `configs/research_family_scheduler_cn_etf.json`. Its latest decision closes the invalidated delayed-NAV family; no primary family is active. Do not rerun closed candidates or interpret earlier paper-ready records as current profitability evidence.
 - Current deliverable: offline minimum commission, daily risk observation, raw-price execution and a synthetic-tested dividend/share-conversion ledger, with frozen evidence through promotion and Daily Ops. See [accounting scope and next source audit](cn_etf_paper_execution_accounting_2026-09-11.md). Real-source completeness remains unverified and blocks strict ETF promotion.
