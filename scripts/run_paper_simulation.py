@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
 from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
@@ -40,7 +41,7 @@ def run_simulation(
     rebalance_interval: int = 1,
     start_date: str | None = None,
     end_date: str | None = None,
-    initial_cash: float = 100000.0,
+    initial_cash: float = CURRENT_RESEARCH_CAPITAL_CNY,
     commission_bps: float = 5.0,
     slippage_bps: float = 5.0,
     market_impact_bps: float = 0.0,
@@ -138,7 +139,7 @@ def main() -> None:
     parser.add_argument("--rebalance-interval", default=1, type=int)
     parser.add_argument("--start-date")
     parser.add_argument("--end-date")
-    parser.add_argument("--initial-cash", default=100000.0, type=float)
+    parser.add_argument("--initial-cash", default=CURRENT_RESEARCH_CAPITAL_CNY, type=float)
     parser.add_argument("--commission-bps", default=5.0, type=float)
     parser.add_argument("--minimum-commission", default=0.0, type=float)
     parser.add_argument("--corporate-actions", help="Local versioned corporate-action dataset JSON")

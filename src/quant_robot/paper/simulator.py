@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.backtest.costs import capacity_limited, market_impact_cost_bps, trade_commission
 from quant_robot.backtest.portfolio import select_top_n
 from quant_robot.backtest.metrics import max_drawdown, summarize_returns
@@ -39,7 +40,7 @@ class PaperSimulationConfig:
     rebalance_interval: int = 1
     start_date: str | None = None
     end_date: str | None = None
-    initial_cash: float = 100000.0
+    initial_cash: float = CURRENT_RESEARCH_CAPITAL_CNY
     commission_bps: float = 5.0
     slippage_bps: float = 5.0
     market_impact_bps: float = 0.0

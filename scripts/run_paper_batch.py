@@ -17,6 +17,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
 from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
@@ -42,7 +43,7 @@ class PaperBatchConfig:
     allow_review_required_data_manifest: bool = False
     output_dir: Path = Path("data/reports/paper_batch")
     max_candidates: int | None = None
-    initial_cash: float = 100000.0
+    initial_cash: float = CURRENT_RESEARCH_CAPITAL_CNY
     commission_bps: float | None = None
     minimum_commission: float = 0.0
     corporate_actions_path: Path | None = None

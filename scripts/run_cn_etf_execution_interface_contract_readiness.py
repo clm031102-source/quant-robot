@@ -18,9 +18,9 @@ from quant_robot.ops.cn_etf_execution_interface_contract import (  # noqa: E402
 from quant_robot.storage.atomic import atomic_write_json, atomic_write_text  # noqa: E402
 
 
-DEFAULT_CONFIG = Path("configs/cn_etf_execution_interface_contract_20260729.json")
+DEFAULT_CONFIG = Path("configs/cn_etf_execution_interface_contract_current.json")
 DEFAULT_OUTPUT_DIR = Path(
-    "data/reports/cn_etf_execution_interface_contract_readiness_20260729"
+    "data/reports/cn_etf_execution_interface_contract_readiness_current"
 )
 
 

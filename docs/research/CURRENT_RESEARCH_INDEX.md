@@ -2,6 +2,18 @@
 
 Last updated: 2026-09-21
 
+Current continuation: [CNY 10,000 research mandate](positive_ev_mandate_2026-09-21.md),
+branch `codex/factor-review-positive-ev-20260921`. This working branch combines the
+September implementation and progress review. Current account defaults are CNY 10,000;
+historical frozen evidence remains unchanged. The existing shared hourly task retains its
+original owner and now includes this continuation index; later results must be assessed
+against the mandate's evidence criteria.
+
+Integration branch `codex/factor-review-project-progress-20260921` now also includes
+the account change at `2e45dd0`, alongside the shared source-archive and response-integrity
+fixes at `be5cf0f`. [PR #3](https://github.com/clm031102-source/quant-robot/pull/3)
+is the mainline integration entry; read its actual head and checks before merging.
+
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue
@@ -25,7 +37,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Metrics are non-governing; the family remains closed at zero budget without a valid pass-or-reject conclusion. No corrected rerun or holdout rescue is allowed.
 - Any future independent hypothesis must bind all input authorities and freeze the actual neutralization formula before labels are read.
 
-## Current ETF Deployment Work
+## Retained Deployment And Source Evidence
 
 - Current task branch: `codex/factor-review-etf-monetization-20260911`; office desktop, commits and pushes authorized. This entry does not claim that the branch has been merged into `main`.
 - Authoritative execution plan: [CN_ETF deployment plan](etf_monetization_execution_plan_2026-09-11.md), including acceptance gates, stall diagnosis, direction changes, and hourly reporting.

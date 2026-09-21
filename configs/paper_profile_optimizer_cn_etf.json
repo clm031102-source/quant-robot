@@ -5,7 +5,7 @@
   "output_dir": "data/reports/paper_profile_optimizer",
   "max_frontier_candidates": 1,
   "factor_windows": [5, 10, 20, 60, 120],
-  "initial_cash": 100000,
+  "initial_cash": 10000,
   "commission_bps": 5,
   "slippage_bps": 5,
   "market_impact_bps": 2,

@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Any, Mapping
+
+
+CURRENT_RESEARCH_CAPITAL_CNY = 10000.0
+CURRENT_ACCOUNT_SCHEMA_VERSION = 2
+CURRENT_ACCOUNT_DATE = "2026-09-21"
 
 
 EXTERNAL_BOUNDARY_KEYS = (
@@ -31,17 +37,22 @@ class SmallCapitalInputs:
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> "SmallCapitalInputs":
-        if payload.get("schema_version") != 1:
-            raise ValueError("schema_version must be 1")
-        if payload.get("as_of_date") != "2026-07-29":
-            raise ValueError("as_of_date must be frozen as 2026-07-29")
+        version = payload.get("schema_version")
+        if type(version) is not int or version not in (1, CURRENT_ACCOUNT_SCHEMA_VERSION):
+            raise ValueError("schema_version must be 1 or 2")
+        expected_date = "2026-07-29" if version == 1 else CURRENT_ACCOUNT_DATE
+        if payload.get("as_of_date") != expected_date:
+            raise ValueError(f"as_of_date must be frozen as {expected_date}")
         capital = payload.get("capital_cny")
         if not isinstance(capital, Mapping):
             raise ValueError("capital_cny must be an object")
         minimum_capital = _number(capital.get("minimum"), "capital_cny.minimum")
         maximum_capital = _number(capital.get("maximum"), "capital_cny.maximum")
-        if minimum_capital != 1000.0 or maximum_capital != 3000.0:
-            raise ValueError("capital_cny must remain frozen at CNY 1,000-3,000")
+        expected_capital = (1000.0, 3000.0) if version == 1 else (
+            CURRENT_RESEARCH_CAPITAL_CNY, CURRENT_RESEARCH_CAPITAL_CNY
+        )
+        if (minimum_capital, maximum_capital) != expected_capital:
+            raise ValueError(f"capital_cny must match the versioned contract {expected_capital}")
 
         commission = _nonnegative(
             payload.get("commission_bps_per_side"),
@@ -145,7 +156,10 @@ class SmallCapitalInputs:
 def _number(value: Any, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{label} must be numeric")
-    return float(value)
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{label} must be finite")
+    return number
 
 
 def _integer(value: Any, label: str) -> int:

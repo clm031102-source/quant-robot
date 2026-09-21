@@ -6,6 +6,7 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 
 ## Current Status
 
+- Current mandate (2026-09-21): [CNY 10,000 positive-expectancy research](docs/research/positive_ev_mandate_2026-09-21.md). New account defaults use CNY 10,000; archived experiments retain their original capital and consumed authorizations. No net-positive strategy has yet been established.
 - Current assessment and ordered worklist (2026-09-21): [project progress review](docs/research/project_progress_review_2026-09-21.md).
 - Detailed ETF deployment plan: [execution plan and acceptance criteria](docs/research/etf_monetization_execution_plan_2026-09-11.md). The research-family scheduler has no active primary family; the delayed-NAV result was invalidated and its family is closed. No current candidate has established deployable net positive expectancy. The historical `paper_ready` and activation records below are workflow history, not current strategy or live-profit qualification.
 - Minimum commission, daily valuation, raw-price execution and a synthetic-tested dividend/share-conversion ledger now run through offline paper workflows. [Accounting scope and remaining source audit](docs/research/cn_etf_paper_execution_accounting_2026-09-11.md). Actual broker fees, real price/action source qualification, forward observation, and broker integration still require their own acceptance evidence.
