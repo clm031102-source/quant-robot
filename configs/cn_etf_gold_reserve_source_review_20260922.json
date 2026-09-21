@@ -111,6 +111,7 @@
     "decision": "The general historical release schedule is now sourced. The partial archive confirms the June value agrees with the retained later table, but its public carrier date and applicable revision policy remain unresolved. A verified conservative public version before a frozen decision can suffice; absolute first publication is not required. This finding does not itself admit a financial test or justify further repeated searches."
   },
   "total_economic_experiments": 10,
+  "information_budget_review": "configs/cn_etf_gold_reserve_information_budget_20260922.json",
   "qualified_strategies": 0,
   "authorization": {
     "history_collection_allowed": false,

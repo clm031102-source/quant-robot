@@ -40,6 +40,16 @@ date/version sequence or a revision ban. The same Q&A describes multi-year, mult
 accumulation. A definite version demonstrably public before a frozen decision can suffice, including
 a verified later carrier; absolute first publication is unnecessary. No financial admission was granted.
 
+The [information and cost budget](cn_etf_gold_reserve_information_budget_2026-09-22.md) then
+deprioritized full-history gold-reserve expansion pending an economically justified design and new
+version evidence. Independent exact arithmetic matches all4500hypothetical power cells,270reported
+cells,nine first crossings,eight calendar bounds and the cost/counterexamples. Under hypothetical
+IID65%net-win probability,a single5%test first reaches80%power atN69,then falls below it atN70.
+This is not a universal minimum,empirical power or a new admission rule. Calendar slots are not
+independent trades; high net-win probability does not establish positive expected PnL. Twelve flat
+price roundtrips with a restored1000CNYall-in allocation cost143.86CNY in the existing main fee
+scenario,without lot/tick or real-tariff certification. No eleventh economic study was added.
+
 Preceding source review: [export demand](cn_etf_export_demand_source_review_2026-09-22.md).
 The retained2023Jan-Feb announcement reports CNY export growth+0.9% and USD-6.8%; different
 release amounts imply-7.049752%, so currency, published growth and vintages cannot be substituted.
