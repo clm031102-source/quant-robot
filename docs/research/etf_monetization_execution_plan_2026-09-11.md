@@ -1,5 +1,7 @@
 # CN_ETF 持续落地推进方案
 
+2026-09-21接续：当前缺口、解决动作、必要外部输入与报告规则以[落地缺口与解决决定](cn_etf_blocker_resolution_2026-09-21.md)为准。下文保留原验证门槛和历史证据；旧30%估计及逐小时无成果汇报不再作为当前进度口径，前向取件也不再代替历史资格和正EV主线。
+
 本文件是本任务的当前执行入口，更新于2026-09-14。机器为office_desktop，任务为factor_review，分支为`codex/factor-review-etf-monetization-20260911`；用户已授权项目内修改、提交及推送。保留main稳定，不自动合并。逐轮本地证据及最新状态见`data/reports/etf_monetization_20260911/progress.json`。
 
 ## 目标和成功标准
