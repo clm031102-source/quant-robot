@@ -21,7 +21,18 @@ quarters remain included. Historical curve availability and original vintages ar
 Ten economic studies are complete, zero strategies qualify and zero real forward days were added.
 General batches, net account for this rejected hypothesis, promotion and2026holdout stay closed.
 
-Latest source review: [IPO activity](cn_etf_ipo_activity_source_review_2026-09-22.md).
+Latest source review: [export demand](cn_etf_export_demand_source_review_2026-09-22.md).
+The retained2023Jan-Feb announcement reports CNY export growth+0.9% and USD-6.8%; different
+release amounts imply-7.049752%, so currency, published growth and vintages cannot be substituted.
+Six IMFmethod sections distinguish FOBvaluation, customs clearance, publication lags and revisions.
+Eight retained attempts include six originals(138841bytes) and twoTLSfailures; government releases
+are retained web text, not local originalHTML. Fifteen support pins, seven protocols, eight release
+fields and three nonmarket cost cashflow identities were independently checked. Historical versions
+and first publication times remain uncertified. No trading hypothesis or financial test is registered.
+The no-distribution ideal roundtrip price hurdle under the existing main fee scenario is1.207237%;
+it does not set an annualized, whole-account, or dividend-inclusive trading requirement.
+
+Preceding source review: [IPO activity](cn_etf_ipo_activity_source_review_2026-09-22.md).
 The old subscription-prefunding channel changed in2016. FRBSF appendix regressions explain IPO
 counts rather than future ETF returns; the Fang draft joins event-month returns to a complete
 monthly issuance measure. This does not establish an available-at-entry predictor. Table4PanelA
