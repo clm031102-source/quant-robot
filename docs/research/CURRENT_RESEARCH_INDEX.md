@@ -9,16 +9,20 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest source review: [money ETF primary cash subscription](cn_etf_cash_subscription_review_2026-09-21.md).
-159001 supports one-share cash subscription at100CNYper share under the retained contracts.
-Twenty-three official responses were retained and hash-checked. Four historicalPCF originals
-span2015..2024and two formats; the monthly-to-daily payment change is verified effective2023-06-05.
-Full date coverage, quota-version semantics, available execution capacity and investor costs remain unresolved.
-The current outer product date embedded in a historical API response was identified and excluded.
-No income-series request or new return calculation occurred: six actual studies and zero qualified
-strategies remain. Cash management is not a substitute for the mandate or a newly proven factor.
+Latest actual test: [money ETF annual primary cash carry](cn_etf_cash_subscription_review_2026-09-21.md).
+The fixed2015..2023annual study passes its conditional cash screen:9/9positive, mean7.653984CNY;
+the2020..2023subset is4/4positive, mean2.586812CNY. These are independent annual positions capped
+at1000CNYall-in within the10000CNYmandate, with5CNYflat fees per leg and0.01CNYper-day rounding stress.
+The fixed95%two-year-block mean interval is[3.697134,11.864863]CNY. With10CNYfees and the same stress,
+the mean is-2.346016CNY, and all four later years lose. Actual investor costs remain unconfirmed.
+Fifty-four original responses include2658income rows and all ten required annualPCF anchors.
+The first claimed attempt failed on literal holiday annotations before annual totals; a separately
+frozen format-only correction normalized465annotated fields with no change to economic logic.
+Six source-income identities and54scenario-year scalar checks pass.193input roles/173files and14code
+pins were verified. Seven economic studies are complete; zero strategies qualified, zero forward paper days.
+Retain this as a conditional cash benchmark only, not timing alpha or satisfaction of the profit mandate.
 
-Latest actual test: [fixed dividend-style annual exposure](cn_etf_dividend_style_review_2026-09-21.md).
+Preceding actual test: [fixed dividend-style annual exposure](cn_etf_dividend_style_review_2026-09-21.md).
 Sixteen complete2008..2023annual opportunities, each capped at1000CNYall-in, yielded+523.90CNY
 in total under the main5CNYminimum/10bpslippage model;9/16positive(56.25%),mean+32.74CNY.
 The later fouryears earned+111.80CNY,3/4positive. The fixed95%two-year-block mean interval
