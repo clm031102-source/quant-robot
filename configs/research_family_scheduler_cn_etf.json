@@ -2125,20 +2125,86 @@
     "next": "Close the fixed annual-improvement/124day enterprise survey hypothesis at insufficient episode counts. No outcome join or rescue by sign, quarter comparator, expiry, sample, minimum count, fees or risk. Review a genuinely different cost-compatible economic mechanism; do not subdivide persistent states into supposedly independent trades."
   },
   "credit_premium_cadence_decision": {
-    "status": "authorized_once",
+    "status": "consumed_fixed_credit_premium_cadence_closed",
     "registration_id": "8c380c3ca7eb7469ef34977287bbebfff15bd07748d80b3ed1db826ae57adcb2",
     "registration_path": "data/reports/positive_ev_20260922/credit_premium_cadence/registration.json",
     "registration_sha256": "e1329677df76cd84f955716f5185d0d6a022338350373f694e2cb2932960532f",
     "max_executions": 1,
-    "execution_count": 0,
+    "execution_count": 1,
     "allowed_stage": "single_credit_premium_cadence_screen",
     "ledger_path": "data/reports/positive_ev_20260922/credit_premium_cadence/attempt_claim.json",
-    "source_cadence_only": true,
+    "source_cadence_only": false,
     "returns_allowed": false,
     "general_factor_batch_allowed": false,
     "net_account_allowed": false,
     "promotion_allowed": false,
     "final_holdout_allowed": false,
-    "live_boundary_allowed": false
+    "live_boundary_allowed": false,
+    "cadence_screen_passed": false,
+    "rerun_allowed": false,
+    "financial_execution_allowed": false,
+    "net_positive_EV_verified": false,
+    "qualified_strategies": 0,
+    "new_forward_paper_days": 0,
+    "new_return_studies": 0,
+    "total_return_studies_current_mandate": 10,
+    "total_source_cadence_screens": 2,
+    "result": {
+      "path": "data/reports/positive_ev_20260922/credit_premium_cadence/result.json",
+      "sha256": "eb9ba81aac2c5b296da4aab4aabcb5c6432a65482bea4dc1ba86a646fa8302d5"
+    },
+    "outcome": {
+      "path": "data/reports/positive_ev_20260922/credit_premium_cadence/outcome.json",
+      "sha256": "9b078cee6f79174eaa0fc0f3add8df20f22bcabca7d695e30d5de38315939cfd"
+    },
+    "independent_verification": {
+      "path": "data/reports/positive_ev_20260922/credit_premium_cadence/verification.json",
+      "sha256": "95ead23068f010d9d89da6db7f6cbcc58bf0abfe459694ae284ac3121d595d8a"
+    },
+    "screen": {
+      "checks": {
+        "full_known_cash": true,
+        "full_selected_episodes": true,
+        "full_selected_intervals": true,
+        "later_known_cash": true,
+        "later_new_selected_episodes": true,
+        "later_selected_intervals": false
+      },
+      "full": {
+        "carry_in_episodes": 0,
+        "interval_session_max": 66,
+        "interval_session_min": 56,
+        "intervals": 44,
+        "known_cash_intervals": 22,
+        "known_cash_sessions": 1349,
+        "new_selected_episodes": 8,
+        "selected_episodes": 8,
+        "selected_intervals": 18,
+        "selected_sessions": 1080,
+        "total_sessions": 2672,
+        "unknown_intervals": 4,
+        "unknown_sessions": 243
+      },
+      "later": {
+        "carry_in_episodes": 0,
+        "interval_session_max": 66,
+        "interval_session_min": 58,
+        "intervals": 16,
+        "known_cash_intervals": 7,
+        "known_cash_sessions": 428,
+        "new_selected_episodes": 3,
+        "selected_episodes": 3,
+        "selected_intervals": 5,
+        "selected_sessions": 299,
+        "total_sessions": 970,
+        "unknown_intervals": 4,
+        "unknown_sessions": 243
+      },
+      "passed": false
+    },
+    "failed_checks": [
+      "later_selected_intervals"
+    ],
+    "next": "Close this fixed AAA1Yminusgovernment1Y hypothesis: five later selected quarters fail the frozen minimum of six. No ETF outcome join, parameter/sample/threshold/unknown-month/fee/risk rescue or rerun. Continue a distinct economically justified mechanism under the standingCNY10000mandate; general batches, promotion, holdout and live execution stay disabled."
   }
 }

@@ -9,10 +9,19 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Current result count: ten economic studies in the CNY10000continuation, zero qualified net-positive-EV
-strategies and zero new real forward days. Earlier archived studies remain separate consumed evidence.
+Current result count: ten return studies and two source-cadence screens in the CNY10000continuation,
+zero qualified net-positive-EV strategies and zero new real forward days. Earlier archived studies remain
+separate consumed evidence.
 
-Latest candidate decision: [enterprise liquidity cadence](cn_etf_enterprise_liquidity_cadence_2026-09-22.md)
+Latest candidate decision: [credit premium cadence](cn_etf_credit_premium_cadence_2026-09-22.md).
+The fixed44-quarter screen has18selected quarters and8continuous episodes; the later16quarters have
+5selected quarters and3new episodes. Five later selected quarters miss the preregistered minimum of6.
+Four unknown quarters remain in both denominators. The hypothesis is consumed and closed before any
+ETFoutcome join.50related synthetic tests and a separate Fraction/calendar implementation reconcile
+all2672daily states,44full/16later intervals,95input/code fingerprints and7frozen protocols. No financial
+study, win rate, netEV finding or forward day is added. No direction/window/sample/count/fee rescue follows.
+
+Preceding candidate decision: [enterprise liquidity cadence](cn_etf_enterprise_liquidity_cadence_2026-09-22.md)
 fails the fixed minimum-episode screen before anyETFoutcome join. Across46intervals,17selected intervals
 form only4continuous selected episodes(minimum6). From2020,7selected intervals include3segments but
 only2new entries(minimum3); the2019carry-in is excluded. All2672daily states,46full/17later intervals and
@@ -25,8 +34,8 @@ The independent economic rule and exact source scope were frozen at8db2b6fbefore
 Thirteen requests succeed; paired government andAAA-note histories each contain2961rows across142months.
 141months meet the conditional date/tenor rule;January2020stays unknown under the unchanged7day limit.
 A separately written parser reconciles every raw value and month;26related tests pass. Historical release
-versions remain uncertified. No spread, signal, outcome or new cadence screen was calculated. The next
-step is a separately registered one-use count screen; general batches and financial execution stay closed.
+versions remain uncertified. That source stage calculated no spread, signal or outcome. The subsequent
+one-use cadence screen is now closed as above; general batches and financial execution stay closed.
 
 Preceding source review: [retail investor entry](cn_etf_investor_entry_source_review_2026-09-22.md).
 Zero of the two fixedJune2017/June2023monthly pilots have qualified originals and publication dates.
