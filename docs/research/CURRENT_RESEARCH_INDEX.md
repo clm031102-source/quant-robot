@@ -9,7 +9,14 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest actual test: [disclosed-holdings flow breadth](cn_etf_disclosed_flow_bounds_review_2026-09-21.md).
+Latest actual test: [labor-risk annual contrast](cn_etf_labor_market_source_review_2026-09-14.md).
+Sixty original releases support 48 gross intervals. Twenty-two were selected, 15 positive,
+with +1.5833% mean gross interval return. The fixed block interval for the daily exposure-matched
+effect is positive, but only two selected intervals fall in 2023 onward, below the frozen minimum.
+Only two contiguous selected episodes underlie the 22 intervals. The fixed hypothesis is closed
+for insufficient evidence; it was not a net account run or a proof of negative EV.
+
+Preceding test: [disclosed-holdings flow breadth](cn_etf_disclosed_flow_bounds_review_2026-09-21.md).
 Seven complete report snapshots now cover the retained 510300 timeline. The 38-month
 conditional diagnostic had three positive-signal months: two positive returns and one
 negative, with +2.7302% mean gross return. It did not qualify: too few selected months
@@ -18,29 +25,32 @@ no net account or paper promotion followed, and historical input vintages remain
 The preceding [50ETF option activity test](cn_etf_option_relative_activity_review_2026-09-21.md)
 also remains closed: 16 selected months out of 52, 43.75% positive intervals,
 and -0.1009% mean gross return.
-Neither fixed hypothesis may be rescued by changing its sign, threshold or window.
+None of these fixed hypotheses may be rescued by changing its sign, threshold or window.
 Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
-Next bounded review: [labor-market source and mechanism](cn_etf_labor_market_source_review_2026-09-14.md),
-with the [fixed labor-risk proposal](../../configs/cn_etf_labor_risk_source_proposal_20260921.json).
-A later [source-only scope](../../configs/cn_etf_labor_source_scope_20260921.json) binds exactly
-60 official releases, reusing three originals with at most 57 new requests; it supersedes only
-the original proposal's no-history-collection flag for that fixed corpus. It permits no factor or
-outcome execution and does not certify historical vintages. The September 21 ChinaBond
-observation has already been received under the shared daily claim; do not collect it again.
+Next review should target a different economic mechanism with more independent observations.
+The labor source corpus and method paper remain reusable evidence; its failed or completed scopes
+cannot be reopened. Original official definitions and releases were recovered using a separately
+frozen direct HTTPS scope, without changing global proxy or TLS verification. Historical vintages
+and full definition continuity remain assumptions. The September 21 ChinaBond observation has
+already been received under the shared daily claim; do not collect it again.
 
-Mainline baseline `e3204fc` includes the account, shared-source integrity and GUI isolation fixes
-through PRs #3 and #4. This research branch integrates that baseline while retaining the two
-consumed studies and the newer labor-risk proposal. Mainline CI results do not certify new research results.
-The integration also retains the shared moneyflow as-of archive fix from PR #5; the source
-scope and PM gate remain bound to the code worktree, while receipts and reviews share the primary archive.
+Mainline baseline `0a99993` includes the account, shared-source integrity, GUI isolation,
+shared as-of review and disclosed-flow closeout through PRs #3, #4, #5 and #6. This integration retains the three
+consumed studies. Mainline CI results do not certify new research results.
+The source scope and PM gate remain bound to the code worktree, while receipts and reviews
+share the primary archive. PR #6 passed all six CI jobs; Windows 3.12 logged 3,790 passing tests.
+The first future v2 moneyflow receipt was captured once on September 21 at 19:05.
+Its frozen 19:00 cutoff returns two unknown cells; the first post-capture cutoff returns two
+observed cells. Both permitted reader invocations are consumed. Source and code hashes match,
+but this grants no research admission or paper days; September 14 v1 remains rejected.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue
 
 - Review and ordered acceptance criteria: [project progress review](project_progress_review_2026-09-21.md).
-- Assessment starting baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation; mainline has since advanced to `e3204fc` through PR #3 and PR #4.
+- Assessment starting baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation; mainline has since advanced to `0a99993` through PRs #3, #4, #5 and #6.
 - Imported topic baseline: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c`; 141 commits and 423 changed files beyond the starting baseline. Its offline accounting/execution and prospective source-receipt work is now integrated into `main`.
 - Topic branch continuation authority: `docs/research/etf_monetization_execution_plan_2026-09-11.md` on that branch, plus the local `data/reports/etf_monetization_20260911/progress.json`. Its consumed monthly, household, month-start, and fiscal study authorizations remain consumed; the earlier mainline entries below cannot reopen them.
 - Current research authority: `configs/research_family_scheduler_cn_etf.json`, especially `last_decision`; earlier sections below preserve dated evidence and do not independently authorize another run.
