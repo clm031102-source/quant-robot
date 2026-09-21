@@ -9,7 +9,15 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest actual test: [labor-risk annual contrast](cn_etf_labor_market_source_review_2026-09-14.md).
+Latest actual test: [quarterly US variance-insurance gap](cn_etf_us_variance_risk_review_2026-09-21.md).
+The45quarter study selected37quarters,18positive(48.65%),mean gross+1.4039%.
+Its full matched-exposure effect is-0.3960bp/session with a fixed95%block interval
+[-3.1387,+2.0586]bp/session. The later effect is positive, but the full rule fails.
+The hypothesis is closed without a sign, phase or horizon rescue; no net-account run followed.
+Seven early annual reports and1702earlierETFprice sessions are now conditionally reviewed.
+The2016annual dividend conflict was resolved with the original0.51CNY/10units notice.
+
+Preceding actual test: [labor-risk annual contrast](cn_etf_labor_market_source_review_2026-09-14.md).
 Sixty original releases support48 gross intervals. Twenty-two were selected,15 positive,
 with+1.5833% mean gross interval return. The fixed block interval for the daily exposure-matched
 effect is positive, but only two selected intervals fall in2023onward, below the frozen minimum.
@@ -36,7 +44,7 @@ and full definition continuity remain assumptions. The September21 ChinaBond obs
 already been received under the shared daily claim; do not collect it again.
 
 Mainline baseline `e3204fc` includes the account, shared-source integrity and GUI isolation fixes
-through PRs #3 and #4. This research branch integrates that baseline while retaining the three
+through PRs #3 and #4. This research branch integrates that baseline while retaining the four
 consumed studies. Mainline CI results do not certify new research results.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
