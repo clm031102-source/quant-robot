@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "study_id": "sse50_option_relative_activity_monthly_v1",
+  "review_date": "2026-09-21",
+  "stage": "mechanism_and_source_probe_only",
+  "asset": "510050.SH",
+  "capital_config": "configs/cn_etf_research_account.json",
+  "hypothesis": "Persistently higher call trading activity per outstanding contract than put activity contains a bullish information component beyond underlying price momentum. This is an untested directional hypothesis; gross activity does not identify buyer-initiated flow and may instead reflect hedging or writing.",
+  "proposed_definition": {
+    "inputs": [
+      "call_volume_contracts",
+      "put_volume_contracts",
+      "call_open_interest_contracts",
+      "put_open_interest_contracts"
+    ],
+    "window": "previous complete calendar month",
+    "score": "log((sum(call_volume)/sum(call_open_interest))/(sum(put_volume)/sum(put_open_interest)))",
+    "positive_direction": "higher score predicts higher next-month total ETF return",
+    "signal_rule": "score > 0",
+    "zero_or_missing_denominator": "unknown; no signal",
+    "decision_frequency": "monthly",
+    "information_delay": "historical timing subject to source qualification; never same-close execution",
+    "position_policy": "long or cash, existing CNY 1000 cap; maintain position while eligible, no forced monthly round trip",
+    "costs": "0/5/10 CNY minimum commission and 0/10/30bp per-side slippage; 5 CNY and 10bp principal unconfirmed case",
+    "comparison": "cash and same-cap buy-and-hold, later exposure analysis; net EV not inferred from correlation"
+  },
+  "independence": {
+    "closed_family_retry": false,
+    "old_cross_sectional_30_underlying_requirement_unchanged": true,
+    "not_replication_of_unavailable_paper": true,
+    "primary_information": "derivative call/put activity relative to each side's outstanding contracts",
+    "known_confounders": [
+      "ETF price momentum",
+      "realized volatility",
+      "option expiry cycle",
+      "covered-call writing",
+      "protective puts",
+      "contract adjustment"
+    ],
+    "method_limits": "No equity return, signal, historical feature or parameter fitting in this source-only scope."
+  },
+  "probe": {
+    "existing_input_dir": "F:/lhjqr/data/reports/cn_etf_option_sentiment_source_readiness_20260728",
+    "official_page": "https://www.sse.com.cn/assortment/options/date/",
+    "dates": [
+      "2020-01-02",
+      "2022-01-04",
+      "2024-06-28"
+    ],
+    "maximum_official_data_requests": 3,
+    "maximum_page_and_script_requests": 3,
+    "maximum_response_bytes": 2000000,
+    "retries": 0,
+    "redirects": false,
+    "credentialled_requests": 0,
+    "purpose": "Verify exchange historical underlying identity and aggregate call/put volume and open interest against retained provider rows; inspect calendar/publication semantics before broader data collection.",
+    "stop_conditions": [
+      "HTTP or access denial",
+      "wrong requested date",
+      "absent 510050 underlying",
+      "aggregate mismatch unexplained",
+      "unknown historical availability or revision semantics require explicitly conditional evidence; do not certify PIT"
+    ]
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "etf_return_read_allowed": false,
+    "full_history_download_allowed": false,
+    "final_holdout_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false
+  }
+}
