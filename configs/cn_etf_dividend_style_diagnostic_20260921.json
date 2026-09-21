@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_dividend_style_annual_cash_return_v1",
+  "status": "fixed_before_outcome_access",
+  "authority": "ProjectleadunderexistingautonomousCNY10000researchmandate;selfreviewnotindependentapproval",
+  "original_proposal": {
+    "path": "configs/cn_etf_dividend_style_source_proposal_20260921.json",
+    "sha256": "19bf84a34a1bb4a93f59d43c78d3deb544874cab29817780b38400d3ac72fe43"
+  },
+  "source_ledger": {
+    "path": "data/reports/positive_ev_20260921/dividend_style_review/source_ledger.json",
+    "sha256": "2977d83cff1252911d72d79fe9c8b9c30cae821798b38eb0caf4ff02f38b28ec"
+  },
+  "primary_asset": "CN_ETF_XSHG_510880",
+  "entry_years": [
+    2008,
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "later_entry_years": [
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "definition": "FirstCNsessionopenofeachyear to firstCNsessionopennextyear;16independentCNY1000allinannualendpointopportunities;noreset-accountsimulation.",
+  "capital_CNY": 10000,
+  "entry_debit_cap_CNY": 1000,
+  "lot_shares": 100,
+  "maximum_holding_sessions": 252,
+  "costs": {
+    "commission_rate_per_side": 0.0005,
+    "minimum_commissions_CNY": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bp_per_side": [
+      0,
+      10,
+      30
+    ],
+    "primary": {
+      "minimum_commission_CNY": 5,
+      "slippage_bp": 10
+    },
+    "rounding": "Buyceil/sellfloor0.001;commissionhalfup0.01;zerolotszeroPnLretained"
+  },
+  "cash": "Recorddateentitlement:entry<=record<exit;grosscashnoreinvestment;noaccountpaydatecashavailabilityclaim",
+  "criteria": {
+    "executed_full_min": 12,
+    "executed_later_min": 4,
+    "full_win_frequency_min": 0.55,
+    "full_and_later_mean_PnL_positive": true,
+    "bootstrap_lower_2_5pct_positive": true
+  },
+  "uncertainty": {
+    "replications": 5000,
+    "seed": 20260921,
+    "method": "Circular2consecutiveannualopportunityblocks;8startsfrom16withreplacement;16observationsperdraw;meanPnL;NumPylinear2.5/97.5quantiles"
+  },
+  "comparisons": "Cash0and510300onlycommon2013..2023entryyears,samecapital/lots/maincosts/dividendconvention;descriptive,notalphagate",
+  "source_scope": {
+    "maximum_new_requests": 1,
+    "url": "https://yunhq.sse.com.cn:32042/v1/sh1/dayk/510880",
+    "params": {
+      "begin": 232,
+      "end": 4124,
+      "period": "day",
+      "select": "date,open"
+    },
+    "expected_first_date": "2008-01-02",
+    "expected_last_date": "2024-01-02",
+    "expected_rows": 3892,
+    "anchor_opens_used": 17,
+    "allowed_public_hosts": [
+      "yunhq.sse.com.cn"
+    ],
+    "policy": "HTTPS,TLSverified,noautomaticredirect/retry,exclusiveclaimbeforeHTTP,30secondtimeout,12MiBcap;retainbytesandhashwithoutJSONpricedecodebeforeone-useadmission",
+    "retained_raw_crosschecks": [
+      {
+        "source": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/raw/tushare/fund_daily/trade_date=20200102/part-00000.parquet",
+        "snapshot": {
+          "path": "data/reports/positive_ev_20260921/dividend_style_review/price_inputs/raw_20200102.parquet",
+          "sha256": "8453baed0d36aa6884613404377b3505e1de28fddb71f273e39de843b95a4e35"
+        },
+        "date": "20200102",
+        "symbol": "510880.SH",
+        "columns": [
+          "symbol",
+          "date",
+          "open"
+        ]
+      },
+      {
+        "source": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/raw/tushare/fund_daily/trade_date=20210104/part-00000.parquet",
+        "snapshot": {
+          "path": "data/reports/positive_ev_20260921/dividend_style_review/price_inputs/raw_20210104.parquet",
+          "sha256": "5801805d040f274a1161851038523c8fb9c06f7e28732b20dc6e7901fbb4b485"
+        },
+        "date": "20210104",
+        "symbol": "510880.SH",
+        "columns": [
+          "symbol",
+          "date",
+          "open"
+        ]
+      },
+      {
+        "source": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/raw/tushare/fund_daily/trade_date=20220104/part-00000.parquet",
+        "snapshot": {
+          "path": "data/reports/positive_ev_20260921/dividend_style_review/price_inputs/raw_20220104.parquet",
+          "sha256": "b167b20caba824ac89ea79dc534963f29b2ba0b0aeed88ae628e6bb891f097ee"
+        },
+        "date": "20220104",
+        "symbol": "510880.SH",
+        "columns": [
+          "symbol",
+          "date",
+          "open"
+        ]
+      },
+      {
+        "source": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/raw/tushare/fund_daily/trade_date=20230103/part-00000.parquet",
+        "snapshot": {
+          "path": "data/reports/positive_ev_20260921/dividend_style_review/price_inputs/raw_20230103.parquet",
+          "sha256": "b9b4986be89b8de6fc7632c3c99fb110c393c35628fae4e287e0a99e7d5f5d41"
+        },
+        "date": "20230103",
+        "symbol": "510880.SH",
+        "columns": [
+          "symbol",
+          "date",
+          "open"
+        ]
+      },
+      {
+        "source": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/raw/tushare/fund_daily/trade_date=20240102/part-00000.parquet",
+        "snapshot": {
+          "path": "data/reports/positive_ev_20260921/dividend_style_review/price_inputs/raw_20240102.parquet",
+          "sha256": "768b84911ef2313e9212493bf2c4f81837b6460d5c7e57a7180d92ca38f14d83"
+        },
+        "date": "20240102",
+        "symbol": "510880.SH",
+        "columns": [
+          "symbol",
+          "date",
+          "open"
+        ]
+      }
+    ],
+    "raw_projection_policy": "Copyretainedbyteswithoutpricedecode;projectonlythese5datesand510880symbolafterexclusiveexecutionclaim;exactopenagreementrequired."
+  },
+  "old_studies": "Fiveclosedhypothesesunchanged;no2026price/outcomeaccess",
+  "net_account_allowed": false,
+  "promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "parameter_search_allowed": false,
+  "net_positive_EV_verified": false
+}
