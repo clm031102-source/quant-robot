@@ -1,0 +1,284 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_primary_money_carry_annual_v1",
+  "status": "method_fixed_before_income_value_access_source_collection_only",
+  "authority": "Project lead under existing autonomous CNY10000 research mandate; self-review, not independent approval",
+  "asset": "CN_ETF_XSHE_159001",
+  "mechanism": "Underlying money-market cash income held through a single fixed annual primary subscription/redemption episode; cash-management comparison, not a newly discovered timing alpha. Does not replace the original mandate.",
+  "source_ledger_v2": {
+    "path": "data/reports/positive_ev_20260921/cash_carry_review/source_ledger_v2.json",
+    "sha256": "c2abf4a552fe7f505befd24319721f4abb0c94614ecf629e6338daee83b0df56"
+  },
+  "exposure": "Related historical/current performance snippets were incidentally exposed before this proposal. A2015Friday-to-Monday income response is retained opaque; only dates/field presence were inspected. No full-context blindness, freshOOS or historical-vintage claim. Local2026ETFholdout remains sealed.",
+  "account": {
+    "capital_CNY": 10000,
+    "entry_debit_cap_CNY": 1000,
+    "max_holding_sessions": 252,
+    "reinvestment": false,
+    "independent_episode_reset": true,
+    "not_continuous_account": true
+  },
+  "intervals": [
+    {
+      "entry_year": 2015,
+      "entry_date": "2015-01-05",
+      "exit_date": "2016-01-04",
+      "income_first_date": "2015-01-06",
+      "income_last_date": "2016-01-04",
+      "holding_sessions": 244
+    },
+    {
+      "entry_year": 2016,
+      "entry_date": "2016-01-04",
+      "exit_date": "2017-01-03",
+      "income_first_date": "2016-01-05",
+      "income_last_date": "2017-01-03",
+      "holding_sessions": 244
+    },
+    {
+      "entry_year": 2017,
+      "entry_date": "2017-01-03",
+      "exit_date": "2018-01-02",
+      "income_first_date": "2017-01-04",
+      "income_last_date": "2018-01-02",
+      "holding_sessions": 244
+    },
+    {
+      "entry_year": 2018,
+      "entry_date": "2018-01-02",
+      "exit_date": "2019-01-02",
+      "income_first_date": "2018-01-03",
+      "income_last_date": "2019-01-02",
+      "holding_sessions": 243
+    },
+    {
+      "entry_year": 2019,
+      "entry_date": "2019-01-02",
+      "exit_date": "2020-01-02",
+      "income_first_date": "2019-01-03",
+      "income_last_date": "2020-01-02",
+      "holding_sessions": 244
+    },
+    {
+      "entry_year": 2020,
+      "entry_date": "2020-01-02",
+      "exit_date": "2021-01-04",
+      "income_first_date": "2020-01-03",
+      "income_last_date": "2021-01-04",
+      "holding_sessions": 243
+    },
+    {
+      "entry_year": 2021,
+      "entry_date": "2021-01-04",
+      "exit_date": "2022-01-04",
+      "income_first_date": "2021-01-05",
+      "income_last_date": "2022-01-04",
+      "holding_sessions": 243
+    },
+    {
+      "entry_year": 2022,
+      "entry_date": "2022-01-04",
+      "exit_date": "2023-01-03",
+      "income_first_date": "2022-01-05",
+      "income_last_date": "2023-01-03",
+      "holding_sessions": 242
+    },
+    {
+      "entry_year": 2023,
+      "entry_date": "2023-01-03",
+      "exit_date": "2024-01-02",
+      "income_first_date": "2023-01-04",
+      "income_last_date": "2024-01-02",
+      "holding_sessions": 242
+    }
+  ],
+  "later_entry_years": [
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "fixed_execution": {
+    "route": "Cash subscription/redemption at contractual100CNYper share; whole shares, no secondary quote, spread or fabricated price slippage. Require each endpointPCF to agree with one159900cash component,100CNYreplacement and zero cash differences.",
+    "flat_investor_fee_CNY_per_leg": [
+      0,
+      5,
+      10
+    ],
+    "primary_fee_CNY_per_leg": 5,
+    "fee_status": "Unconfirmed all-in per-leg fee scenarios, not fund fees or verified broker tariffs; do not import the secondary-market5bps rate as a fact. Bank transfer and special redemption costs remain separate unresolved investor costs.",
+    "quantity": "Largest integer shares with100*shares+flat_entry_fee<=1000. Same fixed shares through exit.",
+    "eligibility": "Require primary flags, active cap fields and sufficient disclosed caps for quantity. Positive fund caps must accommodate at most1percent participation. Missing active fields fail source admission; inactive legacy fields remain explicitly missing, not filled with zero. Zero caps use reviewed official meaning no limit. Unknown intraday remaining capacity stays a condition, never a guaranteed fill.",
+    "failed_eligibility": "Entry refusal yields zero filled shares and zeroPnL for that fixed opportunity. A blocked exit after an allowed entry is unresolved execution and stops the diagnostic; never use the future exit status to rewrite the entry as unfilled. Do not replace dates or drop opportunities. Source invalidity stops before annual PnL."
+  },
+  "income": {
+    "basis": "Official Aclass incomeUnit is daily or explicitly aggregated closed-calendar-run income per100physical shares. Shares are100CNYeach. Do not use incomeRatio or prices.",
+    "entitlement": "From next open session after entry through exit date inclusive. These boundaries cannot split a closed-calendar-run aggregate.",
+    "allowed_date_shapes": "Every open session has one row. Each closed run has either all daily rows, one final-day aggregate, or partitions ending at December31and the run final day. Any other partial shape fails source admission. Year-end partition semantics are an inference from dates, conditional on the separately fixed seven-day identity checks; do not assume disjoint sums from dates alone.",
+    "decimal": "Parse signed finite four-decimal income values only inside the later registered one-use execution. Preserve negative amounts. No annual fund-operation fee subtraction because disclosed income is already fund net realized income.",
+    "daily_rounding_allowance_CNY_per_calendar_day": [
+      0,
+      0.01
+    ],
+    "primary_daily_rounding_allowance_CNY": 0.01,
+    "rounding_status": "Pro-rata cash less the stated per-calendar-day allowance is a declared stress model, not a certified lower bound on individual clearing allocation. Do not label it actual account cash.",
+    "payment_timing": "2015monthly and2023-06-05daily payment rules retained. This first diagnostic sums earned income without reinvestment and does not claim exact cash availability or payment-transfer charges.",
+    "seven_day_consistency": {
+      "formula": "For Aclass, seven-day income per100shares = incomeRatio_in_percentage_points *700/365. Compare with sum of report-period incomeUnit values covering the same7calendar days, with no partial period allowed.",
+      "check_end_dates": [
+        "2015-01-12",
+        "2017-01-03",
+        "2018-01-02",
+        "2019-01-02",
+        "2023-01-03",
+        "2024-01-02"
+      ],
+      "basis": "First ordinary Friday-to-Monday probe and the first open day after each of the five irregular cross-year closures identified by date-only metadata. No endpoint chosen by income values.",
+      "absolute_tolerance_income_unit": "0.00005*7 +0.0005*700/365",
+      "tolerance_basis": "Official four-decimal income and three-decimal percentage annualized-yield rounding; arithmetic error propagation, not empirical fitting.",
+      "failure": "Stop with source inconsistency; compute no annual strategyPnL and do not try alternate scaling, holiday overlap or dates to rescue the candidate.",
+      "access": "Only inside the later claimed, fingerprinted one-use execution. No income values inspected while amending this source shape."
+    }
+  },
+  "criteria": {
+    "all_nine_opportunities_filled": true,
+    "all_four_later_opportunities_filled": true,
+    "full_positive_frequency_min": 0.7,
+    "full_and_later_mean_modeled_net_PnL_positive": true,
+    "primary_fixed_block_interval_lower_positive": true,
+    "meaning": "Conditional cash-feasibility screen only. Nine predeclared annual observations cannot independently certify profitability, unusual tail risk, daily risk or paper promotion. No threshold changes after data access."
+  },
+  "uncertainty": {
+    "replications": 5000,
+    "seed": 20260921,
+    "method": "Circular blocks of2consecutive annual opportunities; draw5starts from0..8withreplacement, concatenate and takefirst9observations, averagePnL; NumPylinear2.5/97.5quantiles. Conditional dependent-sample diagnostic, not freshOOS or multiple-testing correction."
+  },
+  "reporting": [
+    "Every fixed interval and all six fee/rounding scenarios",
+    "Full/later mean, total, positive frequency, worst opportunity and primary block interval",
+    "Additional unmodeled investor-fee headroom per opportunity",
+    "Sixpriorstudiesremainclosed;thisisone new candidate, not six selected candidates",
+    "No strategy qualification from this diagnostic alone"
+  ],
+  "source_scope": {
+    "maximum_new_requests": 28,
+    "allowed_hosts": [
+      "api.efunds.com.cn",
+      "cdn.efunds.com.cn",
+      "www.efunds.com.cn"
+    ],
+    "PCF_endpoint": "https://api.efunds.com.cn/xcowch/front/etffund/downfile",
+    "PCF_anchor_dates": [
+      "2015-01-05",
+      "2016-01-04",
+      "2017-01-03",
+      "2018-01-02",
+      "2019-01-02",
+      "2020-01-02",
+      "2021-01-04",
+      "2022-01-04",
+      "2023-01-03",
+      "2024-01-02"
+    ],
+    "reuse_PCF": {
+      "2015-01-05": {
+        "path": "data/reports/positive_ev_20260921/cash_carry_review/history_feasibility/PCF_original_20150105.response",
+        "sha256": "cf9c28a9c522e9793049dbbb95d08fb28ca92271a71219d75a8c91c902bd820e"
+      }
+    },
+    "new_PCF_link_queries_max": 9,
+    "returned_exact_date_PCF_originals_max": 9,
+    "income_endpoint": "https://api.efunds.com.cn/xcowch/front/fund/nav",
+    "income_windows": [
+      {
+        "startDate": "2015-01-01",
+        "endDate": "2015-12-31"
+      },
+      {
+        "startDate": "2016-01-01",
+        "endDate": "2016-12-31"
+      },
+      {
+        "startDate": "2017-01-01",
+        "endDate": "2017-12-31"
+      },
+      {
+        "startDate": "2018-01-01",
+        "endDate": "2018-12-31"
+      },
+      {
+        "startDate": "2019-01-01",
+        "endDate": "2019-12-31"
+      },
+      {
+        "startDate": "2020-01-01",
+        "endDate": "2020-12-31"
+      },
+      {
+        "startDate": "2021-01-01",
+        "endDate": "2021-12-31"
+      },
+      {
+        "startDate": "2022-01-01",
+        "endDate": "2022-12-31"
+      },
+      {
+        "startDate": "2023-01-01",
+        "endDate": "2023-12-31"
+      },
+      {
+        "startDate": "2024-01-01",
+        "endDate": "2024-01-02"
+      }
+    ],
+    "income_fixed_body": {
+      "fundCode": "159001",
+      "pageIndex": 0,
+      "pageSize": 512,
+      "siteID": "1",
+      "isMoneyFund": true
+    },
+    "income_requests_max": 10,
+    "income_before_registration": "Retain original opaque; extract response count, schema keys, dates, income-field presence/nullness only. No income values, annualized yields, performance or sign aggregates. Stop for source review if truncated or dates incomplete; no extra pages or dates.",
+    "policy": "Oneexclusiveclaimpernamedrequest;verifiedTLS;30secondtimeout;12MiBcap;noautomaticretryorredirect;original URLs only from exactdate metadata;no2026sources."
+  },
+  "execution": {
+    "maximum_actual_runs": 1,
+    "requires_separate_fingerprinted_registration_and_PM_admission": true,
+    "income_value_inspection_before_registered_claim": false,
+    "general_batch_allowed": false,
+    "net_account_allowed": false,
+    "paper_promotion_allowed": false,
+    "live_boundary_allowed": false
+  },
+  "calendar": {
+    "path": "data/reports/positive_ev_20260921/labor_risk_diagnostic/inputs/calendar.csv",
+    "sha256": "dbecac271ded4b95da6234658742177569405c477097ec1b780914ebddcaa11a"
+  },
+  "source_semantics_amendment": {
+    "reason": "Date-only full archive contains2658rows,no missing open sessions,462closedruns,including five partial runs split atDecember31. All fixed opportunity dates, fees, allowance and decision thresholds are unchanged; income values remain opaque.",
+    "date_review": {
+      "path": "data/reports/positive_ev_20260921/cash_carry_annual_sources/date_coverage_review.json",
+      "sha256": "7f4ff464007c3d1cfab4de381ed208b73a0ef61d5241bf1b0ef9466a97c01b50"
+    },
+    "quota_schema": {
+      "path": "data/reports/positive_ev_20260921/cash_carry_review/schema_review/quota_technical_schema.pdf",
+      "sha256": "28b2336cb58c6545133e6ff014297f59d0e92f00ba197c527f85182e4de227f9"
+    },
+    "active_quota_notice": {
+      "path": "data/reports/positive_ev_20260921/cash_carry_review/schema_review/quota_actual_controls_2013.pdf",
+      "sha256": "aed51fa2bad2bbb45a23bd26c8d216068f5621a414ad27029329768fe29d25d4"
+    },
+    "income_formula_sources": [
+      {
+        "path": "data/reports/positive_ev_20260921/cash_carry_review/prospectus_2015.pdf",
+        "sha256": "adff66f8c78c03a68a2ce16d50f6badbd37e387836b381d49a03a69064ea2481"
+      },
+      {
+        "path": "data/reports/positive_ev_20260921/cash_carry_review/prospectus_2023.pdf",
+        "sha256": "019c396b6f48cf3f26f2a0a6de87b5f9c2879cd91c91e3db24585efa65ca7efe"
+      }
+    ],
+    "execution_clarification": "Before income values, prohibit look-ahead entry filtering from a future failed redemption. No change to dates, quantity rule, fee/allowance scenarios or statistical thresholds."
+  }
+}
