@@ -9,7 +9,14 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest actual test: [disclosed-holdings flow breadth](cn_etf_disclosed_flow_bounds_review_2026-09-21.md).
+Latest actual test: [labor-risk annual contrast](cn_etf_labor_market_source_review_2026-09-14.md).
+Sixty original releases support48 gross intervals. Twenty-two were selected,15 positive,
+with+1.5833% mean gross interval return. The fixed block interval for the daily exposure-matched
+effect is positive, but only two selected intervals fall in2023onward, below the frozen minimum.
+Only two contiguous selected episodes underlie the22 intervals. The fixed hypothesis is closed
+for insufficient evidence; it was not a net account run or a proof of negative EV.
+
+Preceding test: [disclosed-holdings flow breadth](cn_etf_disclosed_flow_bounds_review_2026-09-21.md).
 Seven complete report snapshots now cover the retained 510300 timeline. The 38-month
 conditional diagnostic had three positive-signal months: two positive returns and one
 negative, with +2.7302% mean gross return. It did not qualify: too few selected months
@@ -18,19 +25,19 @@ no net account or paper promotion followed, and historical input vintages remain
 The preceding [50ETF option activity test](cn_etf_option_relative_activity_review_2026-09-21.md)
 also remains closed: 16 selected months out of 52, 43.75% positive intervals,
 and -0.1009% mean gross return.
-Neither fixed hypothesis may be rescued by changing its sign, threshold or window.
+None of these fixed hypotheses may be rescued by changing its sign, threshold or window.
 Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
-Next bounded review: [labor-market source and mechanism](cn_etf_labor_market_source_review_2026-09-14.md),
-with the [fixed labor-risk proposal](../../configs/cn_etf_labor_risk_source_proposal_20260921.json).
-A new primary method manuscript was obtained; two definition downloads failed with TLS EOF.
-The proposal permits neither full-history collection nor factor/outcome execution. Definition lineage,
-original release dates and version identity remain to be reviewed. The September 21 ChinaBond
-observation has already been received under the shared daily claim; do not collect it again.
+Next review should target a different economic mechanism with more independent observations.
+The labor source corpus and method paper remain reusable evidence; its failed or completed scopes
+cannot be reopened. Original official definitions and releases were recovered using a separately
+frozen direct HTTPS scope, without changing global proxy or TLS verification. Historical vintages
+and full definition continuity remain assumptions. The September21 ChinaBond observation has
+already been received under the shared daily claim; do not collect it again.
 
 Mainline baseline `e3204fc` includes the account, shared-source integrity and GUI isolation fixes
-through PRs #3 and #4. This research branch integrates that baseline while retaining the two
-consumed studies and the newer labor-risk proposal. Mainline CI results do not certify new research results.
+through PRs #3 and #4. This research branch integrates that baseline while retaining the three
+consumed studies. Mainline CI results do not certify new research results.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
