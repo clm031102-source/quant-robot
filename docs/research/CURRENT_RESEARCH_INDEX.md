@@ -22,6 +22,15 @@ Six source-income identities and54scenario-year scalar checks pass.193input role
 pins were verified. Seven economic studies are complete; zero strategies qualified, zero forward paper days.
 Retain this as a conditional cash benchmark only, not timing alpha or satisfaction of the profit mandate.
 
+Current next candidate: [fixed equity plus gold account review](cn_etf_equity_gold_review_2026-09-21.md).
+Eleven gold annual reports reconcile all eleven unit movements and ten year-to-year links;
+the2014..2023window has no distributions or splits. Six new equity distribution notices plus
+one retained notice resolve all seven early cash-payment dates. Nineteen new source requests
+are complete and fingerprinted. The continuous10000CNYaccount method is fixed before new
+gold daily-price paths: annual entries, actual cash timing, causal trims/risk exits and nine
+cost scenarios. Input binding and account implementation remain next; no eighth outcome test,
+new paper day or qualified strategy is claimed.
+
 Preceding actual test: [fixed dividend-style annual exposure](cn_etf_dividend_style_review_2026-09-21.md).
 Sixteen complete2008..2023annual opportunities, each capped at1000CNYall-in, yielded+523.90CNY
 in total under the main5CNYminimum/10bpslippage model;9/16positive(56.25%),mean+32.74CNY.
@@ -67,7 +76,7 @@ None of these fixed hypotheses may be rescued by changing its sign, threshold or
 Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
 Next research should assess a distinct mechanism whose frequency and cost burden can support
-meaningful validation. Reuse retained official sources; all six consumed hypotheses stay closed.
+meaningful validation. Reuse retained official sources; all seven completed studies stay closed.
 The dividend-style source review and endpoint test are complete, not pending price collection.
 The RRR annual reconciliation and endpoint diagnostic are complete, not pending source work.
 The labor source corpus and method paper remain reusable evidence; its failed or completed scopes
@@ -76,16 +85,17 @@ frozen direct HTTPS scope, without changing global proxy or TLS verification. Hi
 and full definition continuity remain assumptions. The September21 ChinaBond observation has
 already been received under the shared daily claim; do not collect it again.
 
-Mainline baseline `e3204fc` includes the account, shared-source integrity and GUI isolation fixes
-through PRs #3 and #4. This research branch integrates that baseline while retaining the six
-consumed studies. Mainline CI results do not certify new research results.
+Imported mainline baseline `e3204fc` includes the account, shared-source integrity and GUI isolation fixes
+through PRs #3 and #4. This research branch integrates that baseline while retaining the seven
+completed studies. This is the imported baseline, not a statement about latest main.
+Mainline CI results do not certify new research results.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue
 
 - Review and ordered acceptance criteria: [project progress review](project_progress_review_2026-09-21.md).
-- Source baseline: `main` at `e3204fc`, including the prior NAV invalidation, September account/source implementation and GUI isolation fix.
+- Imported source baseline: `e3204fc`, including the prior NAV invalidation, September account/source implementation and GUI isolation fix; latest main remains independently owned and may have advanced.
 - Historical topic baseline `0b8984c` is now in main via PR #3. The earlier comparison of 141 commits and 423 files was against the pre-integration main and is no longer the current main gap.
 - Topic branch continuation authority: `docs/research/etf_monetization_execution_plan_2026-09-11.md` on that branch, plus the local `data/reports/etf_monetization_20260911/progress.json`. Its consumed monthly, household, month-start, and fiscal study authorizations remain consumed; the earlier mainline entries below cannot reopen them.
 - Current research authority: `configs/research_family_scheduler_cn_etf.json`, especially `last_decision`; earlier sections below preserve dated evidence and do not independently authorize another run.
