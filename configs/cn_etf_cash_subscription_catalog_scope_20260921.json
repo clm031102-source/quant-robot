@@ -14,8 +14,27 @@
   },
   "allowed_public_hosts": [
     "www.efunds.com.cn",
-    "cdn.efunds.com.cn"
+    "cdn.efunds.com.cn",
+    "api.efunds.com.cn"
   ],
+  "resolved_metadata_query": {
+    "basis": "Official retained fund-page inline product_queryData function exposes this public POST endpoint and all request field names. Resolve the already-budgeted one metadata query; no additional request budget.",
+    "method": "POST",
+    "url": "https://api.efunds.com.cn/xcowch/front/contents",
+    "body": {
+      "siteID": "1",
+      "catalogAlias": "xxplflwj,xxpldqgg,xxpllsgg",
+      "title": "调整",
+      "fundCode": "159001",
+      "isIncludeTransFund": "Y",
+      "prop1": "2015-01-01,2024-06-28",
+      "pageSize": 100,
+      "pageIndex": 0
+    },
+    "maximum_pages": 1,
+    "metadata_fields_to_extract": ["title", "prop1", "path", "link", "id"],
+    "pagination_policy": "Retain response total to disclose truncation; no further pages or alternate search query under this scope."
+  },
   "parsing": "Extract only title, product identity, script URLs, PCF and dated-contract links/call definitions. Do not extract quote, NAV, income, performance values or issue unbounded latest-data requests.",
   "cutoff": "Historical catalog/PCF identities2015-01-01..2024-06-28 only.2026contracts permitted only for terms, not income.",
   "policy": "HTTPS GET or official read-only metadataPOST;TLSverified;noautomaticredirect/retry;exclusiveclaim;30seconds;12MiBcap.",
