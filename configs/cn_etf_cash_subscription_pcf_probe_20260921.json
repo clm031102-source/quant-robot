@@ -11,10 +11,12 @@
   "maximum_requests": 5,
   "request_roles": {
     "observed_official_HTML": 1,
-    "linked_relevant_javascript_at_most": 2,
+    "linked_relevant_javascript_at_most": 1,
     "fixed_date_PCF_query": 1,
+    "fixed_date_original_link_query": 1,
     "original_PCF_link_returned_for_exact_date_at_most": 1
   },
+  "resolved_original_link_step": "The observed inline downLoadFile function calls front/etffund/downfile with fundCode,tDate,listType=ON_SITE before opening returned data.fileName. Allocate one unused JavaScript slot to this exact-date link query; total budget remains5. The baseinfo map returns2024-06-28but outer etfInfo carries a current date; acceptance must verify original identity and date, never substitute the outer date.",
   "allowed_hosts": ["www.efunds.com.cn", "api.efunds.com.cn", "cdn.efunds.com.cn"],
   "discovery_extraction": "Product identity, PCF widget endpoint/request definitions and linked scripts only. Do not extract the other ETF's prices, NAV, holdings or performance. Retain HTML opaque except metadata.",
   "target_extraction": "Exact fund/date identity; creation unit; cash replacement; previous date; subscription/redemption flags; fund/account daily gross and net caps; publication timestamp if supplied; original filename. No income or ETF price history.",
