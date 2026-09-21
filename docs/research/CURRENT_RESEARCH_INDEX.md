@@ -25,15 +25,15 @@ Retain this as a conditional cash benchmark only, not timing alpha or satisfacti
 Current next candidate: [fixed equity plus gold account review](cn_etf_equity_gold_review_2026-09-21.md).
 Eleven gold annual reports reconcile all eleven unit movements and ten year-to-year links;
 the2014..2023window has no distributions or splits. Six new equity distribution notices plus
-one retained notice resolve all seven early cash-payment dates. Nineteen new source requests
-are complete and fingerprinted. The continuous10000CNYaccount method is fixed before new
-gold daily-price paths: annual entries, actual cash timing, causal trims/risk exits and nine
-cost scenarios. Input binding and account implementation remain next; no eighth outcome test,
-new paper day or qualified strategy is claimed.
-The separate `cn_etf_equity_gold_execution_clarification_20260921.json` resolves trim-order
-cancellation and daily participation after independent review. It was frozen after source-price
-inspection but before account outcomes; the original method is unchanged. It grants no execution
-or paper authority, and current-volume limits are modeled feasibility assumptions.
+one retained notice resolve all seven early cash-payment dates. Subsequent price and terminal-action
+scopes bring the total to24requests.4908dailyrows cover2454sessions per asset;7768shared-windowOHLC
+values match independently, while222volume/amounttaildifferences remain recorded.140input bindings
+and10annualplans are ready; integration separately verified all140bindings, the additional five
+source-response chains, and fixed cycle dates. The continuous10000CNYaccount engine passes20
+independently executed synthetic tests, with no material fixed-engine finding.
+An execution supplement fixes trim cancellation and daily1percentpartial fills after source-price
+quality exposure but before any account outcome. Exact one-use registration and execution remain
+next; no eighth outcome test, new paper day or qualified strategy is claimed.
 
 Preceding actual test: [fixed dividend-style annual exposure](cn_etf_dividend_style_review_2026-09-21.md).
 Sixteen complete2008..2023annual opportunities, each capped at1000CNYall-in, yielded+523.90CNY
