@@ -109,7 +109,7 @@
     "fee_status": "Unconfirmed all-in per-leg fee scenarios, not fund fees or verified broker tariffs; do not import the secondary-market5bps rate as a fact. Bank transfer and special redemption costs remain separate unresolved investor costs.",
     "quantity": "Largest integer shares with100*shares+flat_entry_fee<=1000. Same fixed shares through exit.",
     "eligibility": "Require primary flags, active cap fields and sufficient disclosed caps for quantity. Positive fund caps must accommodate at most1percent participation. Missing active fields fail source admission; inactive legacy fields remain explicitly missing, not filled with zero. Zero caps use reviewed official meaning no limit. Unknown intraday remaining capacity stays a condition, never a guaranteed fill.",
-    "failed_eligibility": "Retain zero filled shares and zeroPnL for that fixed opportunity; do not replace its date or exclude it from statistics. Source invalidity stops the diagnostic before income value inspection."
+    "failed_eligibility": "Entry refusal yields zero filled shares and zeroPnL for that fixed opportunity. A blocked exit after an allowed entry is unresolved execution and stops the diagnostic; never use the future exit status to rewrite the entry as unfilled. Do not replace dates or drop opportunities. Source invalidity stops before annual PnL."
   },
   "income": {
     "basis": "Official Aclass incomeUnit is daily or explicitly aggregated closed-calendar-run income per100physical shares. Shares are100CNYeach. Do not use incomeRatio or prices.",
@@ -278,6 +278,7 @@
         "path": "data/reports/positive_ev_20260921/cash_carry_review/prospectus_2023.pdf",
         "sha256": "019c396b6f48cf3f26f2a0a6de87b5f9c2879cd91c91e3db24585efa65ca7efe"
       }
-    ]
+    ],
+    "execution_clarification": "Before income values, prohibit look-ahead entry filtering from a future failed redemption. No change to dates, quantity rule, fee/allowance scenarios or statistical thresholds."
   }
 }
