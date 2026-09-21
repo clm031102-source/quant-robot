@@ -9,7 +9,15 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest actual test: [quarterly US variance-insurance gap](cn_etf_us_variance_risk_review_2026-09-21.md).
+Latest actual test: [broad RMB RRR implementation events](cn_etf_rrr_effective_event_review_2026-09-21.md).
+Fifteen fixed events passed current official-source reconciliation against12annual policy reports.
+The main5CNYminimum/10bpslippage endpoint diagnostic earned+116.20CNYtotal,7/15positive(46.67%).
+The2020onward8events lost76.90CNY,2/8positive(25%). The full mean-PnL95%calendar-year-cluster
+interval is[-17.59,+35.85]CNY. Later mean, win rate and lower-bound gates failed; the exact
+hypothesis is closed. No full-account run or paper promotion followed. All86input/15implementation
+pins and135scenario-event arithmetic rows were checked. Historical vintages remain unverified.
+
+Preceding actual test: [quarterly US variance-insurance gap](cn_etf_us_variance_risk_review_2026-09-21.md).
 The 45-quarter study selected 37 quarters, 18 positive (48.65%), mean gross +1.4039%.
 Its full matched-exposure effect is -0.3960 bp/session with a fixed 95% block interval
 [-3.1387, +2.0586] bp/session. The later effect is positive, but the full rule fails.
@@ -36,18 +44,20 @@ and -0.1009% mean gross return.
 None of these fixed hypotheses may be rescued by changing its sign, threshold or window.
 Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
-Next review should target a different economic mechanism with more independent observations.
+Next research should assess a distinct mechanism whose frequency and cost burden can support
+meaningful validation. Reuse retained official sources; all five consumed hypotheses stay closed.
+The RRR annual reconciliation and endpoint diagnostic are complete, not pending source work.
 The labor source corpus and method paper remain reusable evidence; its failed or completed scopes
 cannot be reopened. Original official definitions and releases were recovered using a separately
 frozen direct HTTPS scope, without changing global proxy or TLS verification. Historical vintages
 and full definition continuity remain assumptions. The September 21 ChinaBond observation has
 already been received under the shared daily claim; do not collect it again.
 
-Mainline baseline `a4a558b` includes the account, shared-source integrity, GUI isolation,
-shared as-of review and the first three study closeouts through PRs #3 to #7. This integration retains all four
+Mainline baseline `1d64a86` includes the account, shared-source integrity, GUI isolation,
+shared as-of review and the first four study closeouts through PRs #3 to #8. This integration retains all five
 consumed studies. Mainline CI results do not certify new research results.
 The source scope and PM gate remain bound to the code worktree, while receipts and reviews
-share the primary archive. PR #7 passed all six CI jobs; Windows 3.11 logged 3,805 passing tests.
+share the primary archive. PR #8 passed all six CI jobs; Windows 3.11 logged 3,818 passing tests.
 The first future v2 moneyflow receipt was captured once on September 21 at 19:05.
 Its frozen 19:00 cutoff returns two unknown cells; the first post-capture cutoff returns two
 observed cells. Both permitted reader invocations are consumed. Source and code hashes match,

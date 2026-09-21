@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "study_id": "broad_rmb_rrr_effective_cn_equity_20sessions_v1",
+  "status": "fixed_economic_proposal_source_review_only",
+  "authority": "Project lead autonomous hypothesis under the CNY10000 mandate; no independent approval claimed.",
+  "primary_market": "CN_ETF",
+  "asset_id": "CN_ETF_XSHG_510300",
+  "economic_prediction": "Broad reductions in the reserve burden may support credit supply and risk-bearing after implementation. Buy Chinese broad equity after the first effective date and test net positive returns over one trading month. This is a predictive conditional-return hypothesis, not identification of an unexpected monetary shock or proof of a causal equity response.",
+  "method_basis": {
+    "url": "https://www.bis.org/publications/working-paper-360-chinas-evolving-reserve-requirements.pdf",
+    "version": "BIS Working Paper360, November2011",
+    "scope": "Sections4-5 discuss monetary conditions and reserve-cost incidence. The paper does not establish a profitable20session ChinaETF strategy.",
+    "counterexamples": ["A cut can offset FX outflows or replace maturing facilities without a net monetary expansion.", "The announcement can be anticipated or its price effect can finish before implementation.", "Easing responds to economic weakness that can dominate subsequent returns.", "Targeted eligibility, averaging rules and banking structure changed over this history."]
+  },
+  "fixed_rule": {
+    "event_universe": "Official PBOC announcements of a general reduction in RMB deposit reserve requirements for financial/deposit-taking institutions, from2013-01-01 through2024-06-28. Include general cuts accompanied by additional targeted cuts or rate changes, and general cuts excluding institutions already at the stated minimum reserve floor. Exclude FX reserve changes, targeted-only conditional cuts, or cuts explicitly limited to a named subset of bank categories without a general component. Record excluded announcements and the exact source wording. No surprise, size or net-liquidity filter.",
+    "announcement_identity": "One policy announcement is one event. For multiple implementation tranches within one announcement, use only its first effective date. Do not count Q&A, reprints, later tranches or repeated news as additional events.",
+    "entry": "First CN exchange session strictly after both the official publication civil date and first effective civil date,09:30 raw open. Publication date must be supported by the original or a contemporaneous official reproduction available before entry; current retrieval is not vintage proof.",
+    "exit": "Open20CN exchange sessions after entry, with no entry-date close substitution. If another qualifying event occurs while holding, skip it without extending the exit. An event on an existing exit session is also skipped to avoid a same-open re-entry convention. No reinvestment or pyramiding.",
+    "window": "First full calendar year after ETF launch through existing source cutoff2024-06-28; exclude incomplete terminal holdings by calendar alone. No2026price or return access.",
+    "direction": "Long only; cash outside selected intervals.",
+    "later_subset": "Entries on or after2020-01-01; never described as untouched OOS.",
+    "parameter_search_allowed": false
+  },
+  "planned_diagnostic": {
+    "primary_objective": "Positive absolute net profit under the main fee assumption. Matched exposure and buy-and-hold comparisons are descriptive; timing alpha is not substituted for the user's profit objective.",
+    "sizing": "CNY10000 initial reference capital, at mostCNY1000 all-in entry debit per nonoverlapping event,100share lots. Buy quantity=floor_to_lot under theCNY1000debit cap including commission and adverse entry slippage. Zero affordable lots is an unfilled event, not a deleted loss.",
+    "costs": "Commission5bp per side with minimum0/5/10CNY and adverse slippage0/10/30bp per side; main minimum5CNY and10bp. All nine scenarios reported; no winning fee choice. ETF gross cash distributions for entitled record dates included, no cash reinvestment.",
+    "qualification": "Before returns are read, freeze the complete computation and exact inputs. Proposed fixed minimums:12executed nonoverlapping events overall and5in2020onward; overall and later main-cost net means>0; overall main-cost net positive frequency>=55%; lower2.5percentile of a5000replication calendar-year-cluster resample mean main-cost P&L>0, seed20260921. Include zero-event years2013-2024 in resampling; zero-count draws count as nonpositive for qualification and are reported. Annual and event contributions reported. These exploratory thresholds do not establish population EV or account feasibility.",
+    "limitations": "A few policy events per year imply low statistical power and slow prospective accumulation;20days/30natural paper trades are not relaxed. Prior2013-2024ETF outcomes were used in other studies. The complete historical search count remains unverified and no multiplicity correction or untouched OOS claim is available. This endpoint diagnostic does not validate daily loss, liquidity participation, fills or full-account risk.",
+    "no_rescue": "No changes to event eligibility, first-tranche choice, direction,20session horizon, start/end, later split, fee baseline or thresholds after this proposal in response to source counts or returns. A source failure pauses this exact hypothesis rather than inventing dates. A failed diagnostic closes it."
+  },
+  "source_collection_scope": {
+    "allowed_hosts": ["www.pbc.gov.cn", "wzdt.pbc.gov.cn", "www.gov.cn", "www.bis.org"],
+    "targets": "The stated BIS method PDF, PBOC RMB-reserve policy index/pagination, original2013-2024PBOC policy announcements and annual policy chronologies/reports needed to check event completeness. Contemporaneous gov.cn reproductions may resolve a missing original. Resolve URLs from observed official pages/search results only.",
+    "maximum_new_HTTP_requests": 40,
+    "maximum_response_bytes": 5242880,
+    "request_policy": "GET publicHTTPS, TLS validation,30second request deadline, no automatic retry or redirect. Record a per-URL exclusive attempt before request and retain status/hash; failed attempts consume scope. No credentials, purchases or postings.",
+    "existing_sources": "Reuse the pinned2013-2024ETF/calendar/corporate-action sources from the completed variance-risk study. This source scope does not permit reading new ETF returns or recalculating old studies.",
+    "completion": "Create a dated inclusion/exclusion ledger, distinguish announcement/effective dates and concurrent measures, reconcile annual official counts where possible. Record unresolved completeness/vintage limitations explicitly."
+  },
+  "execution": "Source review only. A separate complete immutable registration, exact single-study scheduler admission and fresh PM gate are required before real event-return computation.",
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}

@@ -1727,5 +1727,41 @@
     "sign_flip_rescue_allowed": false,
     "threshold_or_window_rescue_allowed": false,
     "next": "Preserve all four consumed studies. Reuse reviewed earlyETFsource evidence for a separately justified independent hypothesis; no reversal, phase, horizon, sample or cost rescue."
+  },
+  "rrr_effective_diagnostic_decision": {
+    "status": "completed_rejected",
+    "registration_id": "e50214a057201504a4cd34a969fd3c6e4e00c20588769934fedb54d8b30776d7",
+    "registration_path": "data/reports/positive_ev_20260921/rrr_effective_diagnostic/registration.json",
+    "registration_sha256": "d860057e9b2b3a76a933972c61e3bb5d303da4661b2930ec728a7b3b0d34ac8d",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_rrr_effective_endpoint_cost_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/rrr_effective_diagnostic/attempt_claim.json",
+    "conditional_endpoint_cost_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false,
+    "result_path": "data/reports/positive_ev_20260921/rrr_effective_diagnostic/result.json",
+    "result_sha256": "998e0801eafcb4ae11a6d88c071a185c36f6744a3bd3c732935ead4943c4e9ed"
+  },
+  "rrr_effective_diagnostic_closeout": {
+    "economic_hypothesis_id": "broad_rmb_rrr_effective_cn_equity_20sessions_v1",
+    "decision": "fixed_endpoint_cost_hypothesis_closed_insufficient_evidence",
+    "failed_checks": [
+      "cluster_lower_positive",
+      "later_mean_positive",
+      "positive_frequency"
+    ],
+    "main_net_PnL_CNY": 116.2,
+    "main_positive_frequency": 0.4666666666666667,
+    "later_net_PnL_CNY": -76.9,
+    "net_positive_EV_verified": false,
+    "net_account_run": false,
+    "rerun_allowed": false,
+    "sign_flip_allowed": false,
+    "horizon_or_eligibility_rescue_allowed": false,
+    "next": "Review a distinct economic mechanism with viable observation frequency and cost burden. Reuse retained source evidence; do not rescue consumed event hypotheses or read the2026ETFholdout."
   }
 }

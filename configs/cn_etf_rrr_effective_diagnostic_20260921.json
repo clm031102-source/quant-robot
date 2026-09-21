@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "study_id": "broad_rmb_rrr_effective_cn_equity_20sessions_v1",
+  "status": "fixed_before_event_outcomes",
+  "authority": "Project lead under existing autonomous CNY10000 research mandate",
+  "original_proposal": {
+    "path": "configs/cn_etf_rrr_effective_event_source_proposal_20260921.json",
+    "sha256": "77945bd23a798003c5d382eda50a685a22c272b7c798ea54a1b770c1894aa121"
+  },
+  "event_ledger": {
+    "path": "data/reports/positive_ev_20260921/rrr_effective_review/event_source_ledger_v2.json",
+    "sha256": "acfb985e26f18687513bcad92a68ee5d6fa33b99c1aa6389722a5516bcce951b"
+  },
+  "annual_reconciliation": {
+    "path": "data/reports/positive_ev_20260921/rrr_effective_review/annual_reconciliation/reconciliation.json",
+    "sha256": "39d1c14f275ebb26b3f3df493b0bea15d5c0a5bd4c41bc87210f5938b89768ca"
+  },
+  "rule": "Original eligibility, first-tranche identity, strict next-session entry,20session exit and no-overlap convention unchanged.",
+  "fixed_counts": {
+    "eligible": 15,
+    "later_2020_onward": 8
+  },
+  "capital_CNY": 10000,
+  "entry_debit_cap_CNY": 1000,
+  "lot_shares": 100,
+  "fee_rate_per_side": 0.0005,
+  "minimum_commissions_CNY": [
+    0,
+    5,
+    10
+  ],
+  "adverse_slippages_bp_per_side": [
+    0,
+    10,
+    30
+  ],
+  "primary_scenario": {
+    "minimum_commission_CNY": 5,
+    "slippage_bp_per_side": 10
+  },
+  "rounding": "Decimal inputs from string. Buy price rounded up and sell price rounded down to0.001CNY after multiplicative adverse slippage; this is a conservative modeled quote, not a fill. Commission per side=max(minimum,notional*0.0005),rounded half-up to0.01CNY. Dividend entitlement credited gross per share, no reinvestment; cash pay-date availability is not modeled.",
+  "quantity": "Largest100share lot quantity whose buy notional+buy commission is<=1000CNY. Zero quantity remains zero-PnL event in every mean/win denominator; executed counts separate.",
+  "dividend_entitlement": "entry_date<=record_date<exit_date, with next-session ex-date validated. No split/reinvestment; conditional11distribution source review retained.",
+  "qualification": {
+    "executed_overall_min": 12,
+    "executed_later_min": 5,
+    "full_and_later_mean_PnL_positive": true,
+    "full_net_positive_frequency_min": 0.55,
+    "primary_lower_2_5pct_cluster_mean_PnL_positive": true
+  },
+  "bootstrap": {
+    "unit": "entry calendar year cluster, all2013..2024 including empty years",
+    "replications": 5000,
+    "sampled_years_per_replication": 12,
+    "seed": 20260921,
+    "statistic": "resampled total net PnL / resampled opportunity count; includes unfilled events",
+    "zero_count_replication": "value0, retained in quantiles and counted",
+    "quantile": "numpy default linear2.5/97.5percentiles"
+  },
+  "descriptive_comparisons": {
+    "duration_matched": "Nonoverlapping20session intervals on calendar grid anchored first2013session; last incomplete interval excluded. Main-cost per-opportunity mean with same1000CNY cap. All calendar intervals retained regardless of event overlap. Different period mix; no timing-alpha qualification.",
+    "buy_and_hold": "First2013session open to2024-06-28open, main costs and1000CNY cap, all entitled gross cash, no reinvestment. Different exposure duration, descriptive only."
+  },
+  "account_interpretation": "Sum of endpoint event PnL divided by10000 is reference-capital contribution only, not a full-account equity curve, CAGR, daily loss test or drawdown result.",
+  "net_account_allowed": false,
+  "promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false,
+  "parameter_search_allowed": false,
+  "net_positive_EV_verified": false
+}

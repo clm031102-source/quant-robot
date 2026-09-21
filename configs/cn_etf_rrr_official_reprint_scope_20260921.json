@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "study_id": "broad_rmb_rrr_effective_cn_equity_20sessions_v1",
+  "purpose": "Observed official contemporaneous reproductions and a PBOC regional-host mirror resolve gaps in the main PBOC reserve-policy index, which ends in2020 and omits known general announcements. Source locations only; no rule, window, threshold or return access change.",
+  "request_budget": "Consumes the existing40request cumulative cap, not an additional allowance; no retry of failed URLs.",
+  "exact_additional_urls": [
+    "https://app.www.gov.cn/govdata/gov/201901/05/433817/article.html",
+    "https://dfjrjgj.hunan.gov.cn/dfjrjgj/tslm_71665/mtjj/201909/t20190909_13365100.html",
+    "https://jr.jl.gov.cn/jrzx/zyjrxxzz/gj/202001/t20200106_337904.html",
+    "https://www.hunan.gov.cn/zqt/zcsd/202107/t20210714_19919542.html",
+    "https://xining.pbc.gov.cn/goutongjiaoliu/113456/113469/2025092212552480200/index.html",
+    "https://www.hunan.gov.cn/zqt/zcsd/202211/t20221128_29139004.html",
+    "https://xining.pbc.gov.cn/goutongjiaoliu/113456/113469/2025092212553138609/index.html",
+    "https://app.www.gov.cn/govdata/gov/202401/25/511522/article.html"
+  ],
+  "availability": "A dated official reproduction can support a conservative availability date before the fixed entry. It does not certify an unchanged historical page or prove the exact original publisher clock. Distinguish original announcement date from reproduction date. Sources published after entry are retrospective corroboration only.",
+  "factor_generated": false,
+  "returns_calculated": false,
+  "live_boundary_allowed": false
+}

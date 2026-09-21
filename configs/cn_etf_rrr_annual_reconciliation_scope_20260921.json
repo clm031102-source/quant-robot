@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "study_id": "broad_rmb_rrr_effective_cn_equity_20sessions_v1",
+  "stage": "annual_policy_event_completeness_only",
+  "basis": "Initial40requests are consumed. The retained old reserve-policy index is incomplete. A newly inspected official monetary-policy-report catalog lists every2013-2023Q4report and2024Q2report, providing a bounded annual cross-check rather than more event discovery by search.",
+  "catalog_url": "https://www.pbc.gov.cn/zhengcehuobisi/125207/125227/125957/index.html",
+  "selected_reports": "Exactly2013-2023fourth-quarter China Monetary Policy Reports and2024second-quarter report, Chinese original versions. Read reserve-requirement policy sections and policy chronology appendices; no stock-price series or market performance extraction.",
+  "allowed_hosts": ["www.pbc.gov.cn"],
+  "maximum_new_HTTP_requests": 25,
+  "maximum_response_bytes": 12582912,
+  "request_policy": "One catalog, at most one landing page and one originalPDF per selected report. PublicHTTPS GET, TLS validation, no retry or redirect,30second deadline, exclusive per-URL claim before request. Reuse already-retained matching sources if found; no purchases, credentials or posting.",
+  "existing_event_ledger_sha256": "acfb985e26f18687513bcad92a68ee5d6fa33b99c1aa6389722a5516bcce951b",
+  "review": "Reconcile general announcements, targeted-only measures, multi-tranche implementation, dynamically assessed qualifications and absence of general changes by year. These later annual reports corroborate completeness; they never replace contemporaneous knowledge dates for entries. Missing or contradictory evidence stays unresolved.",
+  "fixed_hypothesis_unchanged": true,
+  "factor_generated": false,
+  "returns_calculated": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}
