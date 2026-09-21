@@ -2123,5 +2123,22 @@
       "passed": false
     },
     "next": "Close the fixed annual-improvement/124day enterprise survey hypothesis at insufficient episode counts. No outcome join or rescue by sign, quarter comparator, expiry, sample, minimum count, fees or risk. Review a genuinely different cost-compatible economic mechanism; do not subdivide persistent states into supposedly independent trades."
+  },
+  "credit_premium_cadence_decision": {
+    "status": "authorized_once",
+    "registration_id": "8c380c3ca7eb7469ef34977287bbebfff15bd07748d80b3ed1db826ae57adcb2",
+    "registration_path": "data/reports/positive_ev_20260922/credit_premium_cadence/registration.json",
+    "registration_sha256": "e1329677df76cd84f955716f5185d0d6a022338350373f694e2cb2932960532f",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_credit_premium_cadence_screen",
+    "ledger_path": "data/reports/positive_ev_20260922/credit_premium_cadence/attempt_claim.json",
+    "source_cadence_only": true,
+    "returns_allowed": false,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
