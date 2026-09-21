@@ -25,7 +25,18 @@ execution protocols and the registration/claim/result/closure chain against 30f3
 Static review found no important defect. The 2,672-state recount remains the original retained
 cross-implementation check; the integrator did not rerun it or access ETF outcome inputs.
 
-Latest source review: [retail investor entry](cn_etf_investor_entry_source_review_2026-09-22.md).
+Latest source preparation: [same-tenor credit premium](cn_etf_credit_premium_proposal_2026-09-22.md).
+The independent economic rule and exact source scope were frozen at8db2b6fbefore new corporate history.
+Thirteen requests succeed; paired government andAAA-note histories each contain2961rows across142months.
+141months meet the conditional date/tenor rule;January2020stays unknown under the unchanged7day limit.
+A separately written parser reconciles every raw value and month;26related tests pass. Historical release
+versions remain uncertified. No spread, signal, outcome or new cadence screen was calculated. The next
+step is a separately registered one-use count screen; general batches and financial execution stay closed.
+Independent integration matches 30 scope pins, 73 verification pins, seven protocols and all 13
+request chains. Direct checks of 29 originals reconcile all 5,922 one-year fields and 142 monthly pairs;
+the gate snapshot itself was not in the 73 frozen pins. Thirteen integration synthetic tests pass.
+
+Preceding source review: [retail investor entry](cn_etf_investor_entry_source_review_2026-09-22.md).
 Zero of the two fixedJune2017/June2023monthly pilots have qualified originals and publication dates.
 Three official annual reports establish net eligible-population change rather than gross first-time
 entrants; the2017and2023population descriptions differ. Annual totals and later catalogue dates cannot
