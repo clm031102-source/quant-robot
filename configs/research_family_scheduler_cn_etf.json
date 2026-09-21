@@ -1727,5 +1727,21 @@
     "sign_flip_rescue_allowed": false,
     "threshold_or_window_rescue_allowed": false,
     "next": "Preserve all four consumed studies. Reuse reviewed earlyETFsource evidence for a separately justified independent hypothesis; no reversal, phase, horizon, sample or cost rescue."
+  },
+  "rrr_effective_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "e50214a057201504a4cd34a969fd3c6e4e00c20588769934fedb54d8b30776d7",
+    "registration_path": "data/reports/positive_ev_20260921/rrr_effective_diagnostic/registration.json",
+    "registration_sha256": "d860057e9b2b3a76a933972c61e3bb5d303da4661b2930ec728a7b3b0d34ac8d",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_rrr_effective_endpoint_cost_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/rrr_effective_diagnostic/attempt_claim.json",
+    "conditional_endpoint_cost_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
