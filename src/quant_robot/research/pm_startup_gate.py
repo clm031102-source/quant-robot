@@ -21,6 +21,7 @@ from quant_robot.research.us_variance_risk_study import scope as us_variance_ris
 from quant_robot.research.rrr_effective_study import scope as rrr_effective_scope
 from quant_robot.research.dividend_style_study import scope as dividend_style_scope
 from quant_robot.research.cash_carry_study import scope as cash_carry_scope
+from quant_robot.research.cash_carry_repair_study import scope as cash_carry_repair_scope
 
 
 STAGE = "quant_pm_startup_gate"
@@ -65,6 +66,7 @@ def build_quant_pm_startup_gate(
         rrr_effective_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         dividend_style_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         cash_carry_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        cash_carry_repair_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
     ) if scope]
     restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)

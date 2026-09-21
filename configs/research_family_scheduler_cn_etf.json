@@ -1839,6 +1839,46 @@
     "annual_PnL_computed": false,
     "net_positive_EV_verified": false,
     "rerun_allowed": false,
-    "next": "One separately registered exact literal-format engineering repair may be reviewed under its frozen correction proposal; preserve this failed attempt. No economic-method changes."
+    "next": "Original pre-PnL format failure preserved. The separately frozen exact annotation repair completed the first annual calculation for this same economic hypothesis; see cash_carry_format_repair_decision."
+  },
+  "cash_carry_format_repair_decision": {
+    "status": "consumed_conditional_cash_benchmark_passed",
+    "registration_id": "2322ece942fc94f92b35b2e35f3f8a174664e1c9773581235276ef270585c0c5",
+    "registration_path": "data/reports/positive_ev_20260921/cash_carry_format_repair/registration.json",
+    "registration_sha256": "af9e5e86f2ea5519a3315b6790d6eb88b8262a1fb4843dcf6538692aa8fd7ec6",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_primary_cash_carry_literal_format_repair",
+    "ledger_path": "data/reports/positive_ev_20260921/cash_carry_format_repair/attempt_claim.json",
+    "same_economic_hypothesis": true,
+    "conditional_endpoint_cost_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false,
+    "result": {
+      "path": "data/reports/positive_ev_20260921/cash_carry_format_repair/result.json",
+      "sha256": "e308d87de9ffe58afa525bd27d669dec54683aba0dc600befc825ab4af329199"
+    },
+    "outcome": {
+      "path": "data/reports/positive_ev_20260921/cash_carry_format_repair/outcome.json",
+      "sha256": "835e80888a9bb14730c5a42fc3f2e451200f1c2835cafe808cb5172f940ac89b"
+    },
+    "independent_verification": {
+      "path": "data/reports/positive_ev_20260921/cash_carry_format_repair/independent_verification.json",
+      "sha256": "b3010e73f0e091217a303d5eaab3be2a0b9c00f526f6dfbf7a1ac2bb0452b23d"
+    },
+    "conditional_cash_screen_passed": true,
+    "net_positive_EV_verified": false,
+    "qualified_strategies": 0,
+    "new_forward_paper_days": 0,
+    "net_account_run": false,
+    "rerun_allowed": false,
+    "primary_annual_opportunities": 9,
+    "primary_positive_opportunities": 9,
+    "primary_mean_modeled_net_PnL_CNY": 7.653984111111111,
+    "later_mean_modeled_net_PnL_CNY": 2.586812,
+    "next": "Retain as conditional cash-management benchmark. Annual economic evidence is complete; no repeat, fee selection or threshold rescue. Continue distinct economic-factor research and new execution/forward evidence without replacing the original profit mandate."
   }
 }

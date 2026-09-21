@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_primary_money_carry_annual_v1",
+  "status": "fixed_engineering_format_repair_before_any_annual_PnL",
+  "authority": "Existing project-lead autonomous research mandate; explicit self-reviewed engineering correction, not independent approval",
+  "repair_of_registration": {
+    "path": "data/reports/positive_ev_20260921/cash_carry_diagnostic/registration.json",
+    "sha256": "9709f868f870c0c33a17215c4c2510995d4c38893954a9cbec31227994dc3b75"
+  },
+  "prior_outcome": {
+    "path": "data/reports/positive_ev_20260921/cash_carry_diagnostic/outcome.json",
+    "sha256": "e9cea293e757de5523c3b59aee97903c6e0ad50ec62e0382fb207a5316acaa32"
+  },
+  "original_proposal": {
+    "path": "configs/cn_etf_cash_carry_annual_diagnostic_20260921.json",
+    "sha256": "bff664923726a7b5bd909ff6d53607368dad7ffd280fd6b962d55c9b0cb62357"
+  },
+  "format_failure_review": {
+    "path": "data/reports/positive_ev_20260921/cash_carry_annual_sources/post_claim_source_failure_review.json",
+    "sha256": "65a2e51e874bab6d74d9ea7fa84e885b12ebb74039ce754eff2a77d730614e12"
+  },
+  "original_execution_commit": "44f1352",
+  "reason": "The first claimed execution stopped on the fifth2015row because a valid four-decimal amount is followed by the literal holiday-period annotation. No seven-day check, annual income total, strategy PnL or selection statistic was computed. Treat this as a parser defect, not missing income or financial evidence against the hypothesis. Preserve the original consumed claim and outcome.",
+  "repair": {
+    "field": "incomeUnit",
+    "exact_suffix": "(节假日期间)",
+    "annotated_numeric_grammar": "[+-]?[0-9]+\\.[0-9]{4}",
+    "expected_annotations": 465,
+    "annotation_only_on_closed_CN_calendar_dates": true,
+    "operation": "Remove only the exact suffix when the whole annotated field matches the fixed grammar and its date is a closed calendar date. Preserve the signed four-decimal amount, raw response bytes, source dates and all other fields. No imputation, duplicate deletion, scaling, new downloads or changed window.",
+    "source_inputs": "Exactly the189roles from the original registration; normalize in memory and retain original/normalized hashes in the new result."
+  },
+  "unchanged_financial_method": "All nine intervals, entitlement boundaries, PCF tests, six seven-day consistency checks and tolerances, six fee/allowance scenarios, quantity/participation limits, bootstrap, primary selection and pass thresholds from the original proposal remain unchanged.",
+  "exposure": "Income values with annotations were exposed during failure diagnosis. Original raw source preflight describes its earlier state only; this correction is not blind, freshOOS, a new independent hypothesis, or profitability certification.",
+  "execution": {
+    "maximum_repair_runs": 1,
+    "same_economic_hypothesis": true,
+    "new_downloads": 0,
+    "claim_before_normalization_and_annual_PnL": true,
+    "income_identity_failure": "Stop without any annual PnL. No alternate dates, scaling or overlap interpretations.",
+    "requires_fingerprinted_registration_and_PM_gate": true,
+    "general_batch_allowed": false,
+    "net_account_allowed": false,
+    "paper_promotion_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
