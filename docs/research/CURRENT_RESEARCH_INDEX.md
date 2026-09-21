@@ -9,6 +9,13 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
+Latest actual test: [50ETF option relative activity](cn_etf_option_relative_activity_review_2026-09-21.md).
+Official counts qualified across 1087 sessions and 54 months. The separately registered
+52-interval gross diagnostic failed: 16 selected months, 43.75% positive intervals,
+-0.1009% mean selected gross return, and an insignificant rank correlation. Its one-use
+authorization is consumed; no net account or paper promotion followed. The ongoing
+project mandate remains active for economically independent hypotheses.
+
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue
@@ -21,7 +28,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Current mode: `family_rotation_review_only`; zero active primary families and zero allocated primary budget. The Quant PM gate is ready for `factor_review`, while factor batches remain blocked.
 - Family inventory: seven explicitly closed CN ETF families, three exploratory source-blocked families, and one auxiliary-only CN stock family. The scheduler's count of eight stop-loss triggers includes the auxiliary stock family; it does not mean eight closed ETF families.
 - Latest access evidence: the 2026-09-21 four cross-exchange/cross-period historical PCF probes and one `etf_basic` probe all returned permission denied. No full backfill was started.
-- Immediate dependency: enable historical PCF access or supply a licensed SSE+SZSE historical delivery. Existing target builder, delivery contract, structural validator, and cross-exchange readiness gate are available.
+- PCF-dependent families require historical PCF access or a licensed SSE+SZSE historical delivery. Existing target builder, delivery contract, structural validator, and cross-exchange readiness gate are available; this is not a blanket prerequisite for independently reviewed non-PCF hypotheses.
 - No current strategy qualifies for paper observation. Historical paper readiness and interface schema readiness are engineering evidence only.
 
 ## Latest CN ETF NAV Invalidation

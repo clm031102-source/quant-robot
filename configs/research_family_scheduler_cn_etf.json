@@ -1409,12 +1409,12 @@
     "next": "Review recoverable position-cap drift separately from loss circuit breakers for sustained operation, on synthetic fixtures only. Keep this fiscal study closed; do not replace it immediately with another scalar macro timing search."
   },
   "option_activity_diagnostic_decision": {
-    "status": "authorized_once",
+    "status": "completed_gross_screen_not_qualified",
     "registration_id": "b55524602ddeb7bb8742cf928ef170935c07f481896aaa6926b5efb46fc1c6f0",
     "registration_path": "data/reports/positive_ev_20260921/option_diagnostic/registration.json",
     "registration_sha256": "e84071c6954ec36d182f2ea14e6632b3ffbfe3a9c053aecd89ee64d0ac2d0330",
     "max_executions": 1,
-    "execution_count": 0,
+    "execution_count": 1,
     "allowed_stage": "single_option_activity_gross_diagnostic",
     "ledger_path": "data/reports/positive_ev_20260921/option_diagnostic/attempt_claim.json",
     "conditional_gross_only": true,
@@ -1423,5 +1423,35 @@
     "promotion_allowed": false,
     "final_holdout_allowed": false,
     "live_boundary_allowed": false
+  },
+  "option_activity_diagnostic_closeout": {
+    "study_id": "sse50_option_relative_activity_monthly_v1",
+    "registration_id": "b55524602ddeb7bb8742cf928ef170935c07f481896aaa6926b5efb46fc1c6f0",
+    "decision": "fixed_hypothesis_closed_no_rerun",
+    "artifact_sha256": {
+      "registration": "e84071c6954ec36d182f2ea14e6632b3ffbfe3a9c053aecd89ee64d0ac2d0330",
+      "attempt_claim": "c9a950436fe0d1f002ae3471be6c793161e0ddd82aa2529e8300a38cbf31e2c1",
+      "result": "893e3480f6060af25edf3f0d115e5df6a7724a620f80306d25c245f705a6c801",
+      "outcome": "b5db16b044d071fb73e5bf5f70d1e02901ad25b4738d88a9ddaca7c37ee1860b"
+    },
+    "intervals": 52,
+    "selected_months": 16,
+    "selected_win_rate": 0.4375,
+    "selected_mean_gross_return": -0.0010091297864431026,
+    "spearman": 0.025868692905318878,
+    "bootstrap_5_95": [
+      -0.21589995017910196,
+      0.2381341236968226
+    ],
+    "later_selected_months": 3,
+    "later_selected_win_rate": 0.0,
+    "later_selected_mean_gross_return": -0.02540759689803751,
+    "net_account_run": false,
+    "positive_ev_verified": false,
+    "new_forward_paper_days": 0,
+    "rerun_allowed": false,
+    "sign_flip_rescue_allowed": false,
+    "threshold_or_window_rescue_allowed": false,
+    "next": "Retain qualified official source evidence; review a genuinely different economic mechanism. Do not repackage the failed relative activity ratio. Gross failure supplies no net-profitable candidate."
   }
 }
