@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_ipo_activity_source_review_v1",
+  "stage": "specific_transfer_suspended_without_market_test",
+  "capital_CNY": 10000,
+  "document": "docs/research/cn_etf_ipo_activity_source_review_2026-09-22.md",
+  "decision": "Do not directly transfer the old subscription-prefunding mechanism, raw IPO counts or contemporaneous literature results into broad ETF timing. This source review does not establish positive or negative EV for all IPO strategies.",
+  "source_pins": {
+    "originals_ledger": {
+      "path": "data/reports/positive_ev_20260921/ipo_activity_review_20260922/originals_ledger.json",
+      "sha256": "3bf2a217f61f4170ab4d51fa7b122879984c48a64b082afc26be78c70b48fbc2"
+    },
+    "source_review_verification": {
+      "path": "data/reports/positive_ev_20260921/ipo_activity_review_20260922/source_review_verification.json",
+      "sha256": "1204c740d31d22fb2df667d5ed91d3f24e19de21f48914f4c029531e62813101"
+    }
+  },
+  "source_semantics": {
+    "CSRC_2016_subscription_prefunding_cancelled": true,
+    "CSRC_browser_fulltext_available": true,
+    "CSRC_local_raw_response_status": 403,
+    "actual_IPO_payment_or_supply_eliminated_by_reform": false,
+    "FRBSF_appendix_dependent_variable": "sum of new IPOs in Shanghai and Shenzhen",
+    "FRBSF_future_ETF_prediction_test": false,
+    "Fang_Shi_Xu_version": "2012 CFRN deposited draft; identity with published final version unverified",
+    "Fang_Shi_Xu_sample": "156 monthly observations,1996-2008",
+    "Fang_Shi_Xu_IPO_size": "current month IPO issuing amount / prior month total market capitalization",
+    "Fang_Shi_Xu_return": "arithmetic sum of monthly mean dividend-inclusive stock returns; text excludes firms listed less than6months",
+    "Fang_Shi_Xu_Table4_outcomes_include_event_month": true,
+    "Fang_Shi_Xu_prior_return_endpoint": "page21 footnote ends at previous month; generic table-note language differs and is retained",
+    "SSE_monthly_source_universe": "Shanghai only",
+    "SSE_cross_method_company_counts_additive": false,
+    "historical_publication_and_revision_chain_certified": false,
+    "China_2024_sentiment_beta_full_method_available": false,
+    "cross_section_stock_beta_result_equals_aggregate_ETF_timing": false,
+    "old_equity_financing_share_proposal_reopened": false
+  },
+  "reopening_requirements": [
+    "A separately justified post-reform supply or sentiment mechanism with explicit investable mainland ETF mapping; literature need not first guarantee profitability.",
+    "Fixed input definition, issuer universe, event clock and available publication/revision evidence; complete monthly totals may not be assigned to that month's opening.",
+    "No post-literature selection of count versus amount, sign or horizon; any genuinely distinct hypothesis requires a new frozen evaluation contract with full account costs and risk rules."
+  ],
+  "scope_consumption": {
+    "search_queries": 6,
+    "web_opens_or_clicks": 10,
+    "repeated_browser_appendix_reads": 1,
+    "raw_requests": 8,
+    "HTTP200": 5,
+    "HTTP301": 2,
+    "HTTP403": 1,
+    "accepted_PDF_originals": 3,
+    "accepted_HTML_originals": 2,
+    "accepted_PDF_pages": 118,
+    "reviewed_page_renders": 6,
+    "raw_same_URL_retries": 0,
+    "paid_access_or_external_messages": 0
+  },
+  "exposure": {
+    "published_equity_results_seen": true,
+    "SSE_2021_monthly_market_statistics_seen": true,
+    "2026_search_snippets_seen": true,
+    "local_2026_ETF_holdout_read": false,
+    "bulk_IPO_history_downloaded": false,
+    "context_completely_blind": false
+  },
+  "new_economic_experiments": 0,
+  "total_economic_experiments": 10,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "factor_batch_allowed": false,
+  "financial_execution_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "next": "Stop this bounded IPO source search and review a distinct mechanism. Preserve all ten consumed experiments and the prior equity-financing source decision."
+}

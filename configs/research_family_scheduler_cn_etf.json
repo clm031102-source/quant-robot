@@ -1986,5 +1986,63 @@
       "later_mean_positive"
     ],
     "next": "Preserve the consumed electricity hypothesis as rejected. Continue review of a distinct economic mechanism with source evidence and prior-study deduplication; do not tune electricity sign, window, dates, missing months or source vintage to rescue it. General batch remains closed; valid new exact studies may be admitted under the standing CNY10000mandate."
+  },
+  "term_structure_diagnostic_decision": {
+    "status": "consumed_fixed_term_structure_hypothesis_closed",
+    "registration_id": "c0be780f880e95f1ba860b4730f346ca64427909c4a8f412fbb35c7889ebe5e1",
+    "registration_path": "data/reports/positive_ev_20260921/term_structure_diagnostic/registration.json",
+    "registration_sha256": "a6ee37fb866e090008662f47c661d7f42f5a47d106f6f8fff1e84bb089a92ea0",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_term_structure_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/term_structure_diagnostic/attempt_claim.json",
+    "conditional_gross_only": false,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false,
+    "gross_screen_passed": false,
+    "net_positive_EV_verified": false,
+    "qualified_strategies": 0,
+    "new_forward_paper_days": 0,
+    "total_economic_experiments": 10,
+    "net_account_run": false,
+    "rerun_allowed": false,
+    "result": {
+      "path": "data/reports/positive_ev_20260921/term_structure_diagnostic/result.json",
+      "sha256": "94ef1f5ccd8c8f87616f9b80d906764b26e7265e3bb11cd8f1b73572449cd81a"
+    },
+    "outcome": {
+      "path": "data/reports/positive_ev_20260921/term_structure_diagnostic/outcome.json",
+      "sha256": "761b70d9348cdea74ba9b35cd15020bec294e33b78e3d456dd8149113de4dffb"
+    },
+    "independent_verification": {
+      "path": "data/reports/positive_ev_20260921/term_structure_diagnostic/independent_verification.json",
+      "sha256": "9525aaf75b14b0757ddfa54825306e264afec55db2601d57b08a0eec04054a06"
+    },
+    "intervals": 44,
+    "selected_intervals": 16,
+    "selected_positive_intervals": 6,
+    "selected_episodes": 9,
+    "unknown_intervals": 4,
+    "later_selected_intervals": 6,
+    "later_positive_intervals": 2,
+    "later_selected_episodes": 4,
+    "full_selected_mean_gross": -0.016255580350148492,
+    "later_selected_mean_gross": -0.041275079920771486,
+    "full_effect_D_daily_log": -0.000209178849243265,
+    "later_effect_D_daily_log": -0.00023440978573567513,
+    "effect_block_interval": [
+      -0.00043701290796544087,
+      2.2902028172355506e-05
+    ],
+    "failed_checks": [
+      "effect_lower_positive",
+      "full_mean_positive",
+      "later_effect_positive",
+      "later_mean_positive"
+    ],
+    "next": "Preserve this consumed sovereign10Yminus1Yquarterly hypothesis as rejected. No sign, tenor, median-window, horizon, sample, missing-month or fee/risk rescue. Continue a distinct mechanism with independent validation evidence under the standingCNY10000mandate. General batches, netaccount for this hypothesis, promotion, holdout and live execution stay disabled."
   }
 }
