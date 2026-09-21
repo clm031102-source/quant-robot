@@ -1,6 +1,6 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-09-21
+Last updated: 2026-09-22
 
 Current continuation: [CNY 10,000 research mandate](positive_ev_mandate_2026-09-21.md),
 branch `codex/factor-review-positive-ev-20260921`. This working branch combines the
@@ -9,7 +9,22 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest actual test: [money ETF annual primary cash carry](cn_etf_cash_subscription_review_2026-09-21.md).
+Latest actual test: [fixed equity plus gold continuous account](cn_etf_equity_gold_review_2026-09-21.md).
+The fixed2014..2023study completed once, with terminal settlement on2024-01-02, across9cost scenarios
+and3asset combinations. Main5CNYminimum/10bpslippage paired-account net profit is491.10CNY on
+10000CNYinitial capital, with65CNYfees and13modeled fills. Four completed asset positions have
+2positive results(50%). Daily loss61.60CNY triggered the frozen permanent entry halt on2015-07-08;
+liquidation followed on2015-07-09. Only2014and2015had paired entries, and2020..2023contribution is zero.
+Maximum drawdown is2.1107%. The annual-mean95%two-year-block interval is[0,134.68]CNY. Five of seven
+financial checks fail; transient position breaches and the daily-loss breach are retained.
+All143input/9implementation hashes,27accounts,66258daily ledger rows,384fills,540corporate-action
+entries,270annual contributions and144position episodes reconcile independently;5000scalar block
+replicates reproduce the interval.62related tests passed before execution.24source requests remain
+consumed. The exact hypothesis is closed, with no risk-limit, asset, cost or restart-policy rescue.
+Eight economic studies are complete; zero strategies qualified and zero forward paper days.
+Standalone gold is an exposed descriptive comparator, not an independently validated winner.
+
+Preceding actual test: [money ETF annual primary cash carry](cn_etf_cash_subscription_review_2026-09-21.md).
 The fixed2015..2023annual study passes its conditional cash screen:9/9positive, mean7.653984CNY;
 the2020..2023subset is4/4positive, mean2.586812CNY. These are independent annual positions capped
 at1000CNYall-in within the10000CNYmandate, with5CNYflat fees per leg and0.01CNYper-day rounding stress.
@@ -19,19 +34,8 @@ Fifty-four original responses include2658income rows and all ten required annual
 The first claimed attempt failed on literal holiday annotations before annual totals; a separately
 frozen format-only correction normalized465annotated fields with no change to economic logic.
 Six source-income identities and54scenario-year scalar checks pass.193input roles/173files and14code
-pins were verified. Seven economic studies are complete; zero strategies qualified, zero forward paper days.
+pins were verified. This was the seventh economic study; it did not qualify a strategy or add forward days.
 Retain this as a conditional cash benchmark only, not timing alpha or satisfaction of the profit mandate.
-
-Current next candidate: [fixed equity plus gold account review](cn_etf_equity_gold_review_2026-09-21.md).
-Eleven gold annual reports reconcile all eleven unit movements and ten year-to-year links;
-the2014..2023window has no distributions or splits. Six new equity distribution notices plus
-one retained notice resolve all seven early cash-payment dates. Subsequent price and terminal-action
-scopes bring the total to24requests.4908dailyrows cover2454sessions per asset;7768shared-windowOHLC
-values match independently, while222volume/amounttaildifferences remain recorded.140input bindings
-and10annualplans are ready. The continuous10000CNYaccount engine passes20synthetic tests.
-An execution supplement fixes trim cancellation and daily1percentpartial fills after source-price
-quality exposure but before any account outcome. Exact one-use registration and execution remain
-next; no eighth outcome test, new paper day or qualified strategy is claimed.
 
 Preceding actual test: [fixed dividend-style annual exposure](cn_etf_dividend_style_review_2026-09-21.md).
 Sixteen complete2008..2023annual opportunities, each capped at1000CNYall-in, yielded+523.90CNY
@@ -78,7 +82,7 @@ None of these fixed hypotheses may be rescued by changing its sign, threshold or
 Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
 Next research should assess a distinct mechanism whose frequency and cost burden can support
-meaningful validation. Reuse retained official sources; all seven completed studies stay closed.
+meaningful validation. Reuse retained official sources; all eight completed studies stay closed.
 The dividend-style source review and endpoint test are complete, not pending price collection.
 The RRR annual reconciliation and endpoint diagnostic are complete, not pending source work.
 The labor source corpus and method paper remain reusable evidence; its failed or completed scopes
