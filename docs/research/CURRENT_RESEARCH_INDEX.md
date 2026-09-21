@@ -28,13 +28,17 @@ The proposal permits neither full-history collection nor factor/outcome executio
 original release dates and version identity remain to be reviewed. The September 21 ChinaBond
 observation has already been received under the shared daily claim; do not collect it again.
 
+Mainline baseline `e3204fc` includes the account, shared-source integrity and GUI isolation fixes
+through PRs #3 and #4. This research branch integrates that baseline while retaining the two
+consumed studies and the newer labor-risk proposal. Mainline CI results do not certify new research results.
+
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue
 
 - Review and ordered acceptance criteria: [project progress review](project_progress_review_2026-09-21.md).
-- Source baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation.
-- Unmerged topic baseline: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c`; 141 commits and 423 changed files beyond `main`. Its offline accounting/execution and prospective source-receipt work must be included in progress assessments but is not yet integrated into `main`.
+- Source baseline: `main` at `e3204fc`, including the prior NAV invalidation, September account/source implementation and GUI isolation fix.
+- Historical topic baseline `0b8984c` is now in main via PR #3. The earlier comparison of 141 commits and 423 files was against the pre-integration main and is no longer the current main gap.
 - Topic branch continuation authority: `docs/research/etf_monetization_execution_plan_2026-09-11.md` on that branch, plus the local `data/reports/etf_monetization_20260911/progress.json`. Its consumed monthly, household, month-start, and fiscal study authorizations remain consumed; the earlier mainline entries below cannot reopen them.
 - Current research authority: `configs/research_family_scheduler_cn_etf.json`, especially `last_decision`; earlier sections below preserve dated evidence and do not independently authorize another run.
 - Current mode: `family_rotation_review_only`; zero active primary families and zero allocated primary budget. The Quant PM gate is ready for `factor_review`, while factor batches remain blocked.

@@ -9,11 +9,11 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
-from urllib.parse import urlencode
 
 import pandas as pd
 
 from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
+from quant_robot.ops.paper_rehearsal_requests import same_parameter_paper_query as _same_parameter_paper_query
 from quant_robot.portfolio.rebalance import FORBIDDEN_REAL_ACCOUNT_COLUMNS, build_rebalance_plan
 
 STAGE = "phase_6_0_daily_trade_advisory"
@@ -375,6 +375,7 @@ def build_daily_trade_advisory_pack(
     evidence_snapshot: dict[str, Any] | None = None,
     candidate_pool_top20: dict[str, Any] | None = None,
     manual_available_cash: float | None = None,
+    source: str = "processed-bars",
 ) -> dict[str, Any]:
     signal_cards = [_signal_card(candidate, _matching_signal(candidate, signal_snapshots)) for candidate in candidates]
     selected_profile = _risk_profile_by_id(risk_profile_id)
@@ -405,9 +406,11 @@ def build_daily_trade_advisory_pack(
     )
     pack = {
         "stage": STAGE,
+        "source": source,
         "run_date": run_date or date.today().isoformat(),
         "safety": SAFETY_NOTICE,
         "summary": {
+            "source": source,
             "selected_factor_count": len(candidates),
             "signal_count": sum(1 for card in signal_cards if card["status"] == "signal_ready"),
             "combined_target_count": len(combined_targets),
@@ -10365,34 +10368,6 @@ def _same_parameter_request_with_lock(request: dict[str, Any], lock_id: str) -> 
     return row
 
 
-def _same_parameter_paper_query(request: dict[str, Any]) -> str:
-    request_id = request.get("same_parameter_request_id") or request.get("request_id")
-    pairs = [
-        ("source", request.get("source")),
-        ("market", request.get("market")),
-        ("factor", request.get("factor") or request.get("factor_name")),
-        ("factor_windows", request.get("factor_windows")),
-        ("top_n", request.get("top_n")),
-        ("rebalance_interval", request.get("rebalance_interval")),
-        ("start_date", request.get("start_date")),
-        ("end_date", request.get("end_date")),
-        ("as_of_date", request.get("as_of_date")),
-        ("run_date", request.get("as_of_date")),
-        ("initial_cash", request.get("initial_cash")),
-        ("commission_bps", request.get("commission_bps")),
-        ("slippage_bps", request.get("slippage_bps")),
-        ("max_asset_weight", request.get("max_asset_weight")),
-        ("max_market_weight", request.get("max_market_weight")),
-        ("max_gross_exposure", request.get("max_gross_exposure")),
-        ("min_cash_weight", request.get("min_cash_weight")),
-        ("risk_profile_id", request.get("risk_profile_id")),
-        ("same_parameter_lock_id", request.get("same_parameter_lock_id")),
-        ("same_parameter_request_id", request_id),
-        ("case_id", request.get("case_id")),
-    ]
-    return urlencode([(key, str(value)) for key, value in pairs if value is not None and str(value) != ""])
-
-
 def _same_parameter_combined_manifest_row(index: int, row: dict[str, Any]) -> dict[str, Any]:
     return {
         "row_number": index,
@@ -11844,7 +11819,7 @@ def _build_signal_execution_paper_handoff(
     max_gross_exposure = _float(summary.get("applied_max_gross_exposure"), _float(summary.get("requested_max_gross_exposure"), 1.0))
     min_cash_weight = _float(summary.get("min_cash_weight"), max(0.0, 1.0 - max_gross_exposure))
     request = {
-        "source": "processed-bars",
+        "source": str(summary.get("source") or "processed-bars"),
         "market": market,
         "factor": factor_name,
         "factor_windows": factor_windows,

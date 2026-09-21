@@ -38,6 +38,15 @@ class TushareSourceError(RuntimeError):
         super().__init__(f"{kind}: {message}")
 
 
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise TushareSourceError("response_schema", "duplicate JSON key")
+        result[key] = value
+    return result
+
+
 def _new_session():
     import requests
 
@@ -223,7 +232,7 @@ class TushareSourceHttpClient:
                         chunks.append(chunk)
                     raw = b"".join(chunks)
             self.last_attempt.update(response_bytes=len(raw), response_sha256=hashlib.sha256(raw).hexdigest())
-            parsed = json.loads(raw)
+            parsed = json.loads(raw, object_pairs_hook=_unique_json_object)
             frame = self._frame(parsed, names, primary, points, max_rows, params)
             self.last_attempt.update(status="empty_unqualified" if frame.empty else "received", rows=len(frame))
             return frame

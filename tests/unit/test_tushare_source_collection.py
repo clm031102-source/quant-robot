@@ -163,6 +163,30 @@ class TushareSourceCollectionTests(unittest.TestCase):
         self.assertEqual(list((self.root / "data/reports/tushare_source_collections/claims").glob("*.json")), [])
         network.assert_not_called()
 
+    def test_ambiguous_json_stops_batch_without_persisting_a_successful_projection(self):
+        second = copy.deepcopy(self.scope["requests"][0])
+        second["params"]["ts_code"] = "510500.SH"
+        self.scope["requests"].append(second)
+        sha = validate_scope(self.scope, repo_root=self.root)["scope_sha256"]
+        raw = self.response.raw[:-2] + b',"has_more":true,"has_more":false}}'
+        session = Session(Response(raw=raw))
+        with patch("quant_robot.data.sources.tushare_http._new_session", return_value=session):
+            result = self.collect(execute=True, expected_scope_sha256=sha)
+            with self.assertRaisesRegex(ValueError, "already"):
+                self.collect(execute=True, expected_scope_sha256=sha)
+        output = Path(result["output_dir"])
+        attempt = json.loads((output / "request_001.json").read_text())
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["requests_started"], 1)
+        self.assertEqual(result["requests_not_started"], 1)
+        self.assertEqual(result["responses_received"], 0)
+        self.assertEqual(attempt["transport"]["failure_kind"], "response_schema")
+        self.assertEqual(attempt["transport"]["response_sha256"], hashlib.sha256(raw).hexdigest())
+        self.assertNotIn("canonical_payload_file", attempt)
+        self.assertFalse((output / "response_001.json").exists())
+        self.assertFalse((output / "request_002.json").exists())
+        self.assertEqual(len(session.calls), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,7 @@ from quant_robot.gui.daily_trade_factors import (
     candidate_factor_windows as _candidate_factor_windows,
     daily_trade_factor_windows as _daily_trade_factor_windows,
     resolve_factor_windows as _resolve_factor_windows,
+    runtime_daily_trade_candidates as _runtime_daily_trade_candidates,
 )
 from quant_robot.gui.fixtures import mock_data
 from quant_robot.gui.research_access import require_gui_research_access, normalize_gui_source as _normalize_gui_source
@@ -477,15 +478,23 @@ def build_daily_trade_advisory_snapshot(
     manual_available_cash: float | None = None,
     evidence_snapshot: str | dict[str, Any] | None = None,
     recent_data_refresh_pack: str | Path | None = DEFAULT_RECENT_DATA_REFRESH_PACK,
-    daily_ops_pack: str | Path | None = DEFAULT_DAILY_OPS_PACK,
+    daily_ops_pack: str | Path | None = None,
     repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
-    require_gui_research_access(_normalize_gui_source(source), market)
-    leaderboard = build_factor_leaderboard_snapshot(
-        reports_root=reports_root,
-        configs_root=configs_root,
-        limit=20,
-    )
+    source_name = _normalize_gui_source(source)
+    require_gui_research_access(source_name, market)
+    is_demo = source_name == "demo_fixture"
+    # The default demo must not select factors using workstation research results.
+    # Explicit in-process fixture roots remain available to integration tests.
+    if is_demo and not reports_root:
+        leaderboard = {"leaderboards": {}, "top20": [], "summary": {
+            "scan_mode": "bundled_demo_presets", "report_files_scanned": 0,
+            "config_files_scanned": 0, "candidate_rows": 0,
+        }}
+    else:
+        leaderboard = build_factor_leaderboard_snapshot(
+            reports_root=reports_root, configs_root=configs_root, limit=20,
+        )
     runnable_factors = [str(name) for name in build_gui_snapshot().get("available_factors", [])]
     candidates = select_daily_top_factor_candidates(
         leaderboard,
@@ -536,14 +545,18 @@ def build_daily_trade_advisory_snapshot(
     pack = build_daily_trade_advisory_pack(
         candidates,
         signals,
+        source=source_name,
         portfolio_value=portfolio_value,
         max_gross_exposure=max_gross_exposure,
         risk_profile_id=risk_profile_id,
         current_positions=_parse_current_positions_input(current_positions),
         manual_available_cash=manual_available_cash,
-        evidence_snapshot=_daily_trade_evidence_snapshot(
-            evidence_snapshot=evidence_snapshot,
-            repo_root=repo_root,
+        evidence_snapshot=(
+            _parse_evidence_snapshot_input(evidence_snapshot)
+            if is_demo and repo_root is None
+            else _daily_trade_evidence_snapshot(
+                evidence_snapshot=evidence_snapshot, repo_root=repo_root,
+            )
         ),
         candidate_pool_top20=candidate_pool_top20,
     )
@@ -551,12 +564,18 @@ def build_daily_trade_advisory_snapshot(
     pack["leaderboard_summary"] = leaderboard.get("summary", {})
     pack["fallback_used"] = fallback_used
     pack["signal_errors"] = signal_errors
-    pack["source"] = source
+    pack["source"] = source_name
+    if is_demo:
+        pack["data_mode"] = mock_data.DATA_MODE
+        pack["notice"] = mock_data.DEMO_NOTICE
     pack["data_root"] = str(resolved_data_root) if resolved_data_root is not None else ""
     pack["requested_data_root"] = str(data_root) if data_root is not None else ""
     pack["data_root_policy"] = data_root_policy
     pack["market"] = market.upper()
-    pack["daily_ops_handoff"] = _build_daily_ops_handoff(pack, daily_ops_pack)
+    resolved_daily_ops_pack = daily_ops_pack
+    if resolved_daily_ops_pack is None and not is_demo:
+        resolved_daily_ops_pack = DEFAULT_DAILY_OPS_PACK
+    pack["daily_ops_handoff"] = _build_daily_ops_handoff(pack, resolved_daily_ops_pack)
     handoff_summary = pack["daily_ops_handoff"]["summary"]
     pack["summary"]["daily_ops_handoff_status"] = handoff_summary["handoff_status"]
     pack["summary"]["daily_ops_ticket_count"] = handoff_summary["daily_ops_ticket_count"]
@@ -565,15 +584,15 @@ def build_daily_trade_advisory_snapshot(
 
 
 def _build_daily_ops_handoff(pack: dict[str, Any], daily_ops_pack: str | Path | None) -> dict[str, Any]:
-    pack_path = Path(daily_ops_pack) if daily_ops_pack else DEFAULT_DAILY_OPS_PACK
+    pack_path = Path(daily_ops_pack) if daily_ops_pack else None
     top3_summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
-    daily_pack = _read_optional_json(pack_path)
+    daily_pack = _read_optional_json(pack_path) if pack_path is not None else {}
     if not daily_pack:
         return _sanitize(
             {
                 "stage": DAILY_OPS_HANDOFF_STAGE,
                 "artifact_present": False,
-                "source_path": str(pack_path),
+                "source_path": str(pack_path) if pack_path is not None else "",
                 "summary": {
                     "handoff_status": "daily_ops_missing",
                     "daily_ops_status": "missing",
@@ -1207,32 +1226,6 @@ def _bars_until_as_of_date(bars: pd.DataFrame, as_of_date: str | None) -> pd.Dat
         return bars
     cutoff = pd.to_datetime(as_of_date).date()
     return bars[pd.to_datetime(bars["date"]).dt.date <= cutoff].copy()
-
-
-def _runtime_daily_trade_candidates(factor_names: list[str], market: str, limit: int) -> list[dict[str, Any]]:
-    preferred = ["momentum_2", "reversal_2", "volatility_2", "liquidity_2", "volume_change_2"]
-    ordered = [name for name in preferred if name in set(factor_names)]
-    ordered.extend(name for name in factor_names if name not in ordered)
-    rows = []
-    for index, factor_name in enumerate(ordered[: max(1, int(limit))], start=1):
-        rows.append(
-            {
-                "rank": index,
-                "case_id": f"runtime_baseline_{factor_name}",
-                "factor_name": factor_name,
-                "market": market,
-                "family": "runtime_baseline",
-                "promotion_label": "可运行基线信号",
-                "plain_conclusion": "排行榜里暂时没有可运行前三候选时，用内置可运行因子生成手工建议；这不是可推广盈利承诺。",
-                "params": {"top_n": 2},
-                "signalable": True,
-                "advisory_eligible": False,
-                "fallback_baseline": True,
-                "manual_trade_allowed": False,
-                "manual_trade_block_reason": "fallback_baseline_not_tradeable",
-            }
-        )
-    return rows
 
 
 def _candidate_int(params: dict[str, Any], keys: tuple[str, ...], default: int) -> int:

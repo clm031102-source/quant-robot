@@ -182,6 +182,27 @@ class TushareSourceHttpTests(unittest.TestCase):
         self.assertTrue(client.last_attempt["provider_page_metadata"]["has_more"])
         self.assertIsNone(client.last_payload)
 
+    def test_duplicate_json_keys_cannot_hide_pagination_or_provider_rejection(self):
+        data = json.dumps(self.payload()["data"])
+        bodies = (
+            '{"code":0,"data":' + data[:-1] + ',"has_more":true,"has_more":false}}',
+            '{"code":40203,"code":0,"data":' + data + '}',
+            '{"code":0,"data":{"has_more":true},"data":' + data + '}',
+        )
+        for body in bodies:
+            with self.subTest(body=body):
+                client = self.client()
+                session = Session(Response(raw=body.encode()))
+                with patch("quant_robot.data.sources.tushare_http._new_session", return_value=session):
+                    with self.assertRaises(TushareSourceError) as error:
+                        self.query(client)
+                self.assertEqual(error.exception.kind, "response_schema")
+                self.assertEqual(client.last_attempt["status"], "failed")
+                self.assertEqual(client.requests_used, 1)
+                self.assertEqual(len(session.calls), 1)
+                self.assertIsNone(client.last_payload)
+                self.assertIn("response_sha256", client.last_attempt)
+
 
 if __name__ == "__main__":
     unittest.main()

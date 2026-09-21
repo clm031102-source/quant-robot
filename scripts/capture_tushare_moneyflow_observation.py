@@ -14,6 +14,7 @@ ensure_workspace_imports()
 
 from quant_robot.config.secrets import require_env_secret  # noqa: E402
 from quant_robot.data.sources.tushare_moneyflow_observation import capture_moneyflow_observation  # noqa: E402
+from quant_robot.data.sources.observation_archive import observation_archive_root  # noqa: E402
 from scripts.run_quant_pm_startup_gate import run_quant_pm_startup_gate  # noqa: E402
 
 
@@ -24,10 +25,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     try:
-        result = capture_moneyflow_observation(repo_root=Path.cwd(), execute=args.execute,
+        archive_root = observation_archive_root(Path.cwd(), Path("data/reports/tushare_moneyflow_forward"))
+        result = capture_moneyflow_observation(repo_root=archive_root, execute=args.execute,
             get_token=lambda: require_env_secret("TUSHARE_TOKEN"),
             run_gate=lambda output: run_quant_pm_startup_gate(output_dir=output,
                 machine=args.machine, task="factor_review", branch=args.branch))
+        result["archive_repo_root"] = str(archive_root)
     except (OSError, ValueError) as exc:
         result = {"status": "rejected", "failure_kind": type(exc).__name__,
                   "research_admission_granted": False}
