@@ -1816,5 +1816,21 @@
     "net_account_run": false,
     "rerun_allowed": false,
     "next": "Review a distinct economic mechanism; six consumed hypotheses remain closed. Retained source material is reusable, not rerun authority."
+  },
+  "cash_carry_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "f536346db86bb8669f4d3487754d48c64095975b4d4eca27654df046bf5feb59",
+    "registration_path": "data/reports/positive_ev_20260921/cash_carry_diagnostic/registration.json",
+    "registration_sha256": "9709f868f870c0c33a17215c4c2510995d4c38893954a9cbec31227994dc3b75",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_primary_cash_carry_endpoint_cost_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/cash_carry_diagnostic/attempt_claim.json",
+    "conditional_endpoint_cost_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
