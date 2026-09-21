@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.gui.control_center import build_control_center_snapshot, run_verification_gate
-from quant_robot.gui.research_access import GuiResearchAccessDenied
+from quant_robot.gui.research_access import GuiResearchAccessDenied, normalize_gui_source
 from quant_robot.gui.paper_inputs import prepare_gui_paper_inputs
 from quant_robot.gui.paper_result_archive import load_paper_result, retain_paper_result
 from quant_robot.gui.operation_ledger import append_operation_ledger_entry, build_operation_ledger_snapshot
@@ -120,10 +120,11 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 return
             if parsed.path == "/api/trade/daily-advisory":
                 query = parse_qs(parsed.query)
+                source = normalize_gui_source(_first(query, "source", "processed-bars"))
                 result = build_daily_trade_advisory_snapshot(
-                    reports_root=_optional(query, "reports_root"),
-                    configs_root=_optional(query, "configs_root"),
-                    source=_first(query, "source", "processed-bars"),
+                    reports_root=None if source == "demo_fixture" else _optional(query, "reports_root"),
+                    configs_root=None if source == "demo_fixture" else _optional(query, "configs_root"),
+                    source=source,
                     data_root=_optional(query, "data_root"),
                     market=_first(query, "market", "CN_ETF"),
                     limit=int(_first(query, "limit", "3")),
@@ -140,6 +141,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     evidence_snapshot=_optional(query, "evidence_snapshot"),
                 )
                 operation_request = dict(result.get("summary", {}) if isinstance(result.get("summary"), dict) else {})
+                operation_request["source"] = source
                 same_parameter = (
                     result.get("daily_same_parameter_paper_rehearsal")
                     if isinstance(result.get("daily_same_parameter_paper_rehearsal"), dict)

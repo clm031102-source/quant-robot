@@ -42,3 +42,29 @@ def resolve_factor_windows(factor_name: str, explicit: tuple[int, ...] | None) -
         return explicit
     suffix = factor_name.rsplit("_", 1)[-1]
     return (int(suffix),) if suffix.isdigit() else (2, 3)
+
+
+def runtime_daily_trade_candidates(factor_names: list[str], market: str, limit: int) -> list[dict[str, Any]]:
+    preferred = ["momentum_2", "reversal_2", "volatility_2", "liquidity_2", "volume_change_2"]
+    ordered = [name for name in preferred if name in set(factor_names)]
+    ordered.extend(name for name in factor_names if name not in ordered)
+    rows = []
+    for index, factor_name in enumerate(ordered[: max(1, int(limit))], start=1):
+        rows.append(
+            {
+                "rank": index,
+                "case_id": f"runtime_baseline_{factor_name}",
+                "factor_name": factor_name,
+                "market": market,
+                "family": "runtime_baseline",
+                "promotion_label": "可运行基线信号",
+                "plain_conclusion": "排行榜里暂时没有可运行前三候选时，用内置可运行因子生成手工建议；这不是可推广盈利承诺。",
+                "params": {"top_n": 2},
+                "signalable": True,
+                "advisory_eligible": False,
+                "fallback_baseline": True,
+                "manual_trade_allowed": False,
+                "manual_trade_block_reason": "fallback_baseline_not_tradeable",
+            }
+        )
+    return rows
