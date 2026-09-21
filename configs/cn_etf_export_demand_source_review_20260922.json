@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_export_demand_source_review_v1",
+  "stage": "source_semantics_checked_hypothesis_not_registered",
+  "capital_CNY": 10000,
+  "document": "docs/research/cn_etf_export_demand_source_review_2026-09-22.md",
+  "decision": "Keep export currency, reported growth, release levels and vintages distinct. No direct external-demand timing rule is registered; source review is not a failed financial test or evidence of profitable predictability.",
+  "source_pins": {
+    "source_semantics_verification": {
+      "path": "data/reports/positive_ev_20260921/export_demand_review_20260922/source_semantics_verification.json",
+      "sha256": "5e67fe365bdfe4068d38f10164a367c836110c413e465e7e99793a4ba0afcc61"
+    },
+    "nonmarket_account_cost_bounds": {
+      "path": "data/reports/positive_ev_20260921/export_demand_review_20260922/account_cost_bounds.json",
+      "sha256": "c246d620906759668ddec09723e765bcfcb7fc96782cea5eda5d15bc254621f5"
+    },
+    "IMF_substantive_metadata": {
+      "path": "data/reports/positive_ev_20260921/export_demand_review_20260922/imf_china_trade_dqaf.json",
+      "sha256": "d6f6ab7b1bb57d04a6d990aa1b4c1a73f5a91ce57f6d10123d930207f1aa7af7"
+    }
+  },
+  "source_semantics": {
+    "export_valuation": "FOB",
+    "import_valuation": "CIF",
+    "export_recording_event": "customs clearance, not order, accounting revenue or cash receipt",
+    "current_metadata_revision_description": "Monthly corrections and semiannual review; revision stops after annual review and yearbook publication.",
+    "metadata_historical_version_applicability_certified": false,
+    "current_metadata_lag_equals_each_actual_historical_release": false,
+    "combined_January_February_releases_may_be_split_into_two_observations": false,
+    "2023_JanFeb_CNY_export_yoy_percent": 0.9,
+    "2023_JanFeb_USD_export_yoy_percent": -6.8,
+    "two_release_USD_amount_ratio_yoy_percent": -7.049752157150725,
+    "separate_release_levels_reproduce_later_reported_yoy": false,
+    "specific_revision_or_official_error_proven": false,
+    "USD_or_CNY_nominal_growth_equals_real_export_volume": false,
+    "national_customs_universe_equals_CSI300_constituents": false,
+    "primary_paper_full_method_available": false,
+    "paper_abstract_predictor": "trade-partner country stock returns, not customs export growth"
+  },
+  "nonmarket_cost_feasibility": {
+    "all_in_single_position_cap_CNY": 1000,
+    "commission_bps_per_side": 5,
+    "slippage_bps_per_side": 10,
+    "minimum_fee_CNY_scenarios": [0, 5, 10],
+    "break_even_raw_price_gain_percent_lower_bounds": [0.30045052556308184, 1.2072373881419107, 2.2244466688911133],
+    "continuous_quantity_and_no_tick_rounding_used_only_for_math_bound": true,
+    "no_interim_dividends_or_other_cashflows_assumed": true,
+    "no_additional_charges_assumed": true,
+    "cash_distributions_reduce_required_price_gain": true,
+    "bound_is_annualized_or_whole_account_return": false,
+    "actual_trade_rules_relaxed": false,
+    "actual_broker_fees_confirmed": false,
+    "continuous_holding_requires_roundtrip_every_release": false
+  },
+  "scope_consumption": {
+    "search_queries": 7,
+    "web_opens": 7,
+    "raw_requests": 8,
+    "raw_HTTP200": 6,
+    "raw_TLS_failures": 2,
+    "local_application_shells": 1,
+    "local_JS_dependencies": 4,
+    "local_substantive_metadata_JSON": 1,
+    "historical_release_fulltext_web_renderings": 2,
+    "historical_release_local_originals": 0,
+    "browser_navigation_attempts": 1,
+    "browser_inventory_attempts": 1,
+    "browser_tool_timeouts": 2,
+    "raw_same_URL_retries": 0,
+    "paid_access_or_external_messages": 0
+  },
+  "retention_limits": [
+    "Initial search saved as manual selected observations, not complete tool result.",
+    "Official releases retained as web-tool text; local original HTTPS failed TLS. Different evidence types are not conflated.",
+    "Application shell is not substantive methodology; the separately retained public metadata JSON provides it.",
+    "Browser navigation and inventory timed out with kernel reset; no tab ID or successful render confirmed. No repeated navigation."
+  ],
+  "exposure": {
+    "published_stock_prediction_abstracts_seen": true,
+    "selected_2022_2023_export_values_seen": true,
+    "2026_search_snippets_seen": true,
+    "local_2026_ETF_holdout_read": false,
+    "bulk_export_history_downloaded": false,
+    "context_completely_blind": false
+  },
+  "new_economic_experiments": 0,
+  "total_economic_experiments": 10,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "factor_batch_allowed": false,
+  "financial_execution_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "next": "Stop broad source searching. Before any historical collection, decide whether one original export-information hypothesis has a defensible post-release ETF mechanism and sufficient cost headroom; fix currency, published field, vintage convention, timing and falsification rules. Do not select sign or window from seen outcomes or reopen consumed families."
+}
