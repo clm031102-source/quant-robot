@@ -35,18 +35,22 @@ frozen direct HTTPS scope, without changing global proxy or TLS verification. Hi
 and full definition continuity remain assumptions. The September 21 ChinaBond observation has
 already been received under the shared daily claim; do not collect it again.
 
-Mainline baseline `40627b6` includes the account, shared-source integrity, GUI isolation and
-shared as-of review fixes through PRs #3, #4 and #5. This integration retains the three
+Mainline baseline `0a99993` includes the account, shared-source integrity, GUI isolation,
+shared as-of review and disclosed-flow closeout through PRs #3, #4, #5 and #6. This integration retains the three
 consumed studies. Mainline CI results do not certify new research results.
 The source scope and PM gate remain bound to the code worktree, while receipts and reviews
-share the primary archive. PR #6 remains a separately tested integration checkpoint.
+share the primary archive. PR #6 passed all six CI jobs; Windows 3.12 logged 3,790 passing tests.
+The first future v2 moneyflow receipt was captured once on September 21 at 19:05.
+Its frozen 19:00 cutoff returns two unknown cells; the first post-capture cutoff returns two
+observed cells. Both permitted reader invocations are consumed. Source and code hashes match,
+but this grants no research admission or paper days; September 14 v1 remains rejected.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue
 
 - Review and ordered acceptance criteria: [project progress review](project_progress_review_2026-09-21.md).
-- Assessment starting baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation; mainline has since advanced to `40627b6` through PRs #3, #4 and #5.
+- Assessment starting baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation; mainline has since advanced to `0a99993` through PRs #3, #4, #5 and #6.
 - Imported topic baseline: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c`; 141 commits and 423 changed files beyond the starting baseline. Its offline accounting/execution and prospective source-receipt work is now integrated into `main`.
 - Topic branch continuation authority: `docs/research/etf_monetization_execution_plan_2026-09-11.md` on that branch, plus the local `data/reports/etf_monetization_20260911/progress.json`. Its consumed monthly, household, month-start, and fiscal study authorizations remain consumed; the earlier mainline entries below cannot reopen them.
 - Current research authority: `configs/research_family_scheduler_cn_etf.json`, especially `last_decision`; earlier sections below preserve dated evidence and do not independently authorize another run.

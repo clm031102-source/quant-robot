@@ -8,7 +8,7 @@
 
 - 工作区：`C:/Users/Administrator/.codex/worktrees/positive-ev-20260921/lhjqr`。
 - 分支：`codex/factor-review-positive-ev-20260921`，机器 `office_desktop`，任务 `factor_review`。
-- 已接入来源与进度评估版本；进度任务通过PR #3集成账户及专题成果、PR #4集成GUI演示隔离、PR #5集成共享按时点验收及期权关闭记录，主线现为`40627b6`。后续关闭成果逐批审查整合。
+- 已接入来源与进度评估版本；进度任务通过PR #3集成账户及专题成果、PR #4集成GUI演示隔离、PR #5集成共享按时点验收及期权关闭记录、PR #6集成披露资金流关闭和劳动来源范围，主线现为`0a99993`。后续关闭成果逐批审查整合。
 - 当前账户：`configs/cn_etf_research_account.json`。本金固定10000元，继续保留单仓1000元、
   日亏损60元、纸面回撤8%、单向成交参与不超过1%的既有约束。这里只确认了本金，
   没有把此前费用假设变成实际券商收费证明。
@@ -82,6 +82,10 @@
 - 首次格式2验收严格使用共享数据下
   `reports/etf_monetization_20260911/moneyflow_contract_v2_20260914/next_v2_source_acceptance_scope.json`；
   冻结两只股票、批次与截止时刻，不能把9月14日v1旧拒绝改判为通过。
+  该首次范围已于9月21日19:05消费：一次来源请求、两次固定reader；19:00两格未知，
+  19:05:21.182997晚截止两格可读，原件及实现指纹匹配。证据在同层
+  `first_future_v2_acceptance/`，不能再次运行该编排或补取样本。
+  来源仍为`observed_unqualified`，不授予研究、账户或纸面准入。
 - 详细来源接续证据仍在 `F:/lhjqr/data/reports/etf_monetization_20260911/progress.json`；
   其中旧的目标blocked状态不覆盖本次新的授权和目标，但旧实验消耗记录仍有效。
 - 2026 ETF价格/收益最终留出继续封存。来源原件不等于因子、交易信号或盈利证据。
