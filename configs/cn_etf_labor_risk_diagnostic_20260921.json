@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "study_id": "national_urban_unemployment_annual_contrast_v1",
+  "status": "fixed_before_real_signal_and_new_outcome_join",
+  "original_proposal": "configs/cn_etf_labor_risk_source_proposal_20260921.json",
+  "source_scope": "configs/cn_etf_labor_source_scope_20260921.json",
+  "primary_market": "CN_ETF",
+  "asset_id": "CN_ETF_XSHG_510300",
+  "release_count": 60,
+  "window": {
+    "first_release": "2020-01-17",
+    "last_release": "2024-06-17",
+    "first_entry": "2020-01-20",
+    "terminal_exit": "2024-06-18",
+    "expected_intervals": 48,
+    "later_slice_start": "2023-01-01"
+  },
+  "signal": "Strictly positive current minus prior-year same-month national all-age urban surveyed unemployment rate; tie/countercondition cash. First session strictly after actual declared release day. Multi-month releases use latest month. No parameter search.",
+  "source_exception": "Retained2026 official-page values are assumed equal to their declared historical release values; actual retrieval timestamps preserved. Absence of silent revisions and full definition stability are unverified. Later-amended planned release schedules check corpus completeness only, never shift or prove historical availability.",
+  "price_basis": {
+    "name": "one_share_open_to_open_declared_cash_gross_v1",
+    "formula": "(exit_raw_open + cash_per_unit_with_record_date_on_or_after_entry_and_before_exit - entry_raw_open)/entry_raw_open",
+    "cash_reinvestment": false,
+    "receivables_included": true,
+    "net_investor_cash_certified": false,
+    "fees_slippage_lot_fill_account_included": false
+  },
+  "statistics": {
+    "primary": "D=sum((z-z_bar)*log(1+y))/sum(n), where n is each open-to-open interval's exchange-session transitions and z_bar=sum(n*z)/sum(n). Units are gross log return per exchange session; matched-exposure comparator is descriptive.",
+    "selected": "Report all selected interval counts, mean gross interval return, gross positive-interval frequency, exposure sessions, signal switches and annual contributions. Intervals and switches are not completed account trades.",
+    "bootstrap": "5000 paired circular block resamples of whole (z,y,n) release intervals, fixed block length12 and seed20260921; recompute weighted exposure and D each time; report2.5th/97.5th percentiles. Long blocks address persistent annual-contrast states but only about four blocks are available, and coverage is not certified.",
+    "qualification": "At least6 selected intervals overall and3 in fixed2023onward slice, at least one unselected interval overall, full D2.5th percentile>0, full and later selected arithmetic mean gross returns>0, later D>0. Counts6/3 retain the preceding flow screen's minimum evidence convention, not a theorem about sufficient independent samples.",
+    "no_rescue": "No sign, threshold, comparator, horizon, later split, block length, sample expansion or fee-case tuning after this run.",
+    "fresh_OOS": false,
+    "multiple_testing_adjusted": false,
+    "complete_search_history_verified": false,
+    "preregistration_limit": "Economic formula and source window were fixed before historical corpus expansion. Raw macro levels have now been inspected for source quality; statistical contract is fixed before computed states and this new ETF-outcome join. This is conditional exploration, not an untouched preregistered confirmatory experiment."
+  },
+  "execution": {
+    "max_attempts": 1,
+    "claim_before_factor_and_price_decode": true,
+    "separate_exact_scheduler_admission_required": true,
+    "fresh_PM_gate_required": true
+  },
+  "next_if_qualified": "Separate frozen CNY10000 account study with maxCNY1000 position, minimum commissions0/5/10 and slippage0/10/30bps, main5CNY/10bps; no account permission here.",
+  "next_if_not_qualified": "Close this fixed hypothesis; insufficiency is not proof of negative population EV.",
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false,
+  "reviewer": "Project lead self-review; no independent approval claimed."
+}

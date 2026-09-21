@@ -1511,5 +1511,21 @@
     "sign_flip_rescue_allowed": false,
     "threshold_or_window_rescue_allowed": false,
     "next": "Keep original fixed hypothesis closed. Sources remain reusable for genuinely different reviewed mechanisms; this limited retrospective result is not promotion or broader basket readiness."
+  },
+  "labor_risk_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "a9bf550c945eb96bcb2b9a3de234484c06e54ade00e79d675921a3390c63b157",
+    "registration_path": "data/reports/positive_ev_20260921/labor_risk_diagnostic/registration.json",
+    "registration_sha256": "afa5494d74252f62edb8ceb5579c07c8995f61b13e898bf6dcfd9f1b0cbac431",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_labor_risk_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/labor_risk_diagnostic/attempt_claim.json",
+    "conditional_gross_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
