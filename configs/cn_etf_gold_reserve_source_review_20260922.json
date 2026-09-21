@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "review_id": "official_gold_reserve_quantity_two_month_pilot_20260922",
-  "status": "bounded_source_review_complete_historical_versions_unresolved",
+  "status": "historical_release_policy_supported_specific_versions_unresolved",
   "capital_CNY": 10000,
   "input_definition": "Official gold reserve quantity reported in 10000 ounces; not USD or SDR valuation, not automatically contemporaneous net purchases or exclusively allocated physical bullion.",
   "frozen_scope_wording_correction": "The retained pre-search scope used physical monetary-gold holdings. This review narrows the description to reported gold reserve quantity because the retrieved China tables do not certify the instrument breakdown. The original scope bytes are preserved.",
@@ -70,7 +70,48 @@
   },
   "exposure": "Annual 2019/2023 table rows and 2018/2024/2025/2026 reserve snippets were incidentally visible. Prior ETF history through2023 is already exposed. This review read no ETF return series or local2026ETF outcome holdout; it is not a claim of wholly blind source selection.",
   "decision": "Retain the two quantity fields and accounting distinctions. Defer financial admission because this corpus does not authenticate the required historical availability/version sequence; do not infer a July first-release date from an observation month, URL path, or current annual carrier. This is not proof that earlier releases do not exist or that reserve quantities have no predictive value. A separately scoped admission could test reported stocks without claiming purchase flow, but must first fix the economic rule and address historical clocks, persistent episodes, costs and exposed history. Do not repeat this bounded search or relaunch the closed low-real-rate or constant-allocation study.",
+  "historical_clock_followup": {
+    "parent_commit": "dc990e3",
+    "scope": {
+      "path": "data/reports/positive_ev_20260922/gold_reserve_vintage_pilot/scope.json",
+      "sha256": "2ce9e4c287772c354d7c47e8b4533fcab9b6ded74a4fe3ec5c7d0c5292fc17a0"
+    },
+    "verification": {
+      "path": "data/reports/positive_ev_20260922/gold_reserve_vintage_pilot/verification.json",
+      "sha256": "5cb0efb44dbd784107e2cb6d20b9df7e6079c5728a4b7046fd498b286181c977",
+      "bytes": 11399
+    },
+    "archive_lead": {
+      "url": "https://www.safe.gov.cn/hubei/file/file/20191008/9e365790528648759585d0907e25f7aa.pdf",
+      "sha256": "fb39fb282957a8b6cb6a604abe707bb3c5d1c9121752f6967503df03beda075c",
+      "origin": "The previous pilot's retained query3 already identified this distinct partial annual PDF; this followup did not repeat the old four general queries.",
+      "june_quantity_10000_oz": 6194,
+      "last_visually_populated_month": "2019-08",
+      "public_carrier_date": null,
+      "creation_metadata_literal": "D:20190910163835+08'38'"
+    },
+    "historical_policy": {
+      "url": "https://www.safe.gov.cn/shanghai/2015/0724/237.html",
+      "sha256": "7edaaff548dbfbd96731ea65da6ba12344247f8d14fdb7b15914cd0286855312",
+      "carrier_pubdate": "2015-07-24",
+      "official_reserve_assets": "Monthly, generally no later than day7 of the next month.",
+      "reserves_liquidity_template": "Monthly, generally at the end of the next month; it is a separate release.",
+      "limitation": "A historical stated policy, not proof of every actual date or a no-revision policy. The2015 gold disclosure explicitly described gradual accumulation over preceding years from multiple channels."
+    },
+    "counts": {
+      "search_queries": 2,
+      "empty_search_results": 1,
+      "web_requests_including_clicks": 4,
+      "web_successes": 3,
+      "web_timeout": 1,
+      "raw_requests": 4,
+      "raw_HTTP_200": 4,
+      "raw_retained_bytes": 601172
+    },
+    "decision": "The general historical release schedule is now sourced. The partial archive confirms the June value agrees with the retained later table, but its public carrier date and applicable revision policy remain unresolved. A verified conservative public version before a frozen decision can suffice; absolute first publication is not required. This finding does not itself admit a financial test or justify further repeated searches."
+  },
   "total_economic_experiments": 10,
+  "information_budget_review": "configs/cn_etf_gold_reserve_information_budget_20260922.json",
   "qualified_strategies": 0,
   "authorization": {
     "history_collection_allowed": false,

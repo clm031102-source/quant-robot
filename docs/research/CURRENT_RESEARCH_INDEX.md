@@ -21,7 +21,19 @@ quarters remain included. Historical curve availability and original vintages ar
 Ten economic studies are complete, zero strategies qualify and zero real forward days were added.
 General batches, net account for this rejected hypothesis, promotion and2026holdout stay closed.
 
-Latest source review: [official gold reserve quantities](cn_etf_gold_reserve_source_review_2026-09-22.md).
+Latest feasibility review: [credit ETF fixed-date lot](cn_etf_credit_bond_lot_review_2026-09-22.md).
+Under the documented 100-unit assumption, 511220 at the frozen 2020-01-02 close requires
+9,667.70 CNY in the main fee scenario: it fits the 10,000 CNY account but exceeds the 1,000 CNY
+all-in position cap. All nine fee/slippage combinations independently reconcile using exact fractions.
+Root verified 23 artifact pins, seven protocols, the account line-ending binding and the single-date
+cache hash; the consumed price reader was not rerun and the cache was not decoded again.
+Independent semantics review separates the guide's fund units from bond lots. The listing evidence
+is retained web text, with incomplete raw PDF and two failed screenshots; the 2020 rule lifecycle
+remains uncertified. Stop this fixed product/date history expansion. This is neither an economic test
+nor a rejection of all credit ETFs; ten completed studies, zero qualifying strategies and zero new
+forward days remain.
+
+Preceding source review: [official gold reserve quantities](cn_etf_gold_reserve_source_review_2026-09-22.md).
 Two fixed June pilots report6194 and6795 ten-thousand ounces, distinct from USD/SDR valuation.
 Five retained originals total3297508bytes;44artifact fingerprints,7fixed protocols,4queries,4opens,
 request chains, table header spans and six selected quantity/valuation fields were independently checked.
@@ -30,6 +42,25 @@ only. Neither authenticates historical first availability. Independent review of
 supports the stock/flow/reclassification distinction without certifying China's instrument breakdown.
 The source review is archived with no financial admission, signal generation or eleventh study.
 Do not repeat this bounded search or relaunch the closed real-rate or constant-allocation rules.
+
+The fixed8bcaf59 follow-up used one already identified partial2019PDF and two distinct queries.
+Four originals(601172bytes),35artifact pins,7fixed protocols and4web requests were independently
+checked. The single-page PDF agrees with the June pilot but has no authenticated public carrier date.
+A2015official Q&A supports generally monthly reserve-asset publication by the following month's day7;
+the foreign-currency liquidity template has a separate month-end schedule. Neither is a certified
+date/version sequence or a revision ban. The same Q&A describes multi-year, multi-channel gold
+accumulation. A definite version demonstrably public before a frozen decision can suffice, including
+a verified later carrier; absolute first publication is unnecessary. No financial admission was granted.
+
+The [information and cost budget](cn_etf_gold_reserve_information_budget_2026-09-22.md) then
+deprioritized full-history gold-reserve expansion pending an economically justified design and new
+version evidence. Independent exact arithmetic matches all4500hypothetical power cells,270reported
+cells,nine first crossings,eight calendar bounds and the cost/counterexamples. Under hypothetical
+IID65%net-win probability,a single5%test first reaches80%power atN69,then falls below it atN70.
+This is not a universal minimum,empirical power or a new admission rule. Calendar slots are not
+independent trades; high net-win probability does not establish positive expected PnL. Twelve flat
+price roundtrips with a restored1000CNYall-in allocation cost143.86CNY in the existing main fee
+scenario,without lot/tick or real-tariff certification. No eleventh economic study was added.
 
 Preceding source review: [export demand](cn_etf_export_demand_source_review_2026-09-22.md).
 The retained2023Jan-Feb announcement reports CNY export growth+0.9% and USD-6.8%; different
