@@ -17,6 +17,7 @@ from quant_robot.research.fiscal_study_pm_scope import fiscal_study_scope
 from quant_robot.research.option_activity_study import scope as option_activity_scope
 from quant_robot.research.disclosed_flow_study import scope as disclosed_flow_scope
 from quant_robot.research.labor_risk_study import scope as labor_risk_scope
+from quant_robot.research.us_variance_risk_study import scope as us_variance_risk_scope
 
 
 STAGE = "quant_pm_startup_gate"
@@ -57,6 +58,7 @@ def build_quant_pm_startup_gate(
         option_activity_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         disclosed_flow_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         labor_risk_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        us_variance_risk_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
     ) if scope]
     restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)
@@ -93,6 +95,8 @@ def build_quant_pm_startup_gate(
         warnings.append("research_family_scheduler_single_option_activity_diagnostic_mode")
     elif restricted_mode == "single_labor_risk_diagnostic_only":
         warnings.append("research_family_scheduler_single_labor_risk_diagnostic_mode")
+    elif restricted_mode == "single_us_variance_risk_diagnostic_only":
+        warnings.append("research_family_scheduler_single_us_variance_risk_diagnostic_mode")
     elif restricted_mode == "single_disclosed_flow_diagnostic_only":
         warnings.append("research_family_scheduler_single_disclosed_flow_diagnostic_mode")
     else:
@@ -144,7 +148,7 @@ def build_quant_pm_startup_gate(
                 not blockers
                 and (not restricted_mode or restricted_mode == "single_prescreen_only")
             ),
-            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only"} else {},
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only"} else {},
             "monthly_diagnostic_allowed": not blockers and restricted_mode == "single_monthly_diagnostic_only",
             "monthly_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_monthly_diagnostic_only" else {},
             "household_diagnostic_allowed": not blockers and restricted_mode == "single_household_diagnostic_only",
@@ -159,6 +163,8 @@ def build_quant_pm_startup_gate(
             "disclosed_flow_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_disclosed_flow_diagnostic_only" else {},
             "labor_risk_diagnostic_allowed": not blockers and restricted_mode == "single_labor_risk_diagnostic_only",
             "labor_risk_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_labor_risk_diagnostic_only" else {},
+            "us_variance_risk_diagnostic_allowed": not blockers and restricted_mode == "single_us_variance_risk_diagnostic_only",
+            "us_variance_risk_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_us_variance_risk_diagnostic_only" else {},
             "single_prescreen_authorization_required": restricted_mode == "single_prescreen_only",
             "portfolio_grid_allowed": False,
             "walk_forward_allowed": False,
@@ -548,6 +554,9 @@ def _next_actions(
     if restricted_mode == "single_labor_risk_diagnostic_only":
         return [{"action": "run_registered_labor_risk_gross_diagnostic",
             "reason": "Only the exact unused release-timed labor-risk study may execute once; general batches, accounts, holdout, promotion and live execution remain disabled."}]
+    if restricted_mode == "single_us_variance_risk_diagnostic_only":
+        return [{"action": "run_registered_us_variance_risk_gross_diagnostic",
+            "reason": "Only the exact unused quarterly US-variance-risk study may execute once; general batches, accounts, holdout, promotion and live execution remain disabled."}]
     if restricted_mode == "family_rotation_review_only":
         return [
             {

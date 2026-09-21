@@ -1606,5 +1606,126 @@
     "sign_flip_rescue_allowed": false,
     "threshold_or_window_rescue_allowed": false,
     "next": "Preserve this fixed closed study and reusable original source corpus. Review a different economic mechanism with enough genuinely separate observations before new admission; no fee-case tuning, account or paper promotion here."
+  },
+  "us_variance_risk_diagnostic_decision": {
+    "status": "completed_insufficient_gross_evidence",
+    "registration_id": "deeac185ffe5c2943ef7bb5a1344a2fa335e1c5185c4ec67e4d41e9d3afbf532",
+    "registration_path": "data/reports/positive_ev_20260921/us_variance_risk_diagnostic/registration.json",
+    "registration_sha256": "517d2d192e8cbbb7b9b1b629f4d0292887f20ecbdd6f2ee06d7889952fb2d65c",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_us_variance_risk_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/us_variance_risk_diagnostic/attempt_claim.json",
+    "conditional_gross_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  },
+  "us_variance_risk_diagnostic_closeout": {
+    "study_id": "us_variance_insurance_gap_cn_equity_quarterly_v1",
+    "registration_id": "deeac185ffe5c2943ef7bb5a1344a2fa335e1c5185c4ec67e4d41e9d3afbf532",
+    "decision": "fixed_hypothesis_closed_insufficient_evidence_no_rerun",
+    "artifact_sha256": {
+      "registration": "517d2d192e8cbbb7b9b1b629f4d0292887f20ecbdd6f2ee06d7889952fb2d65c",
+      "attempt_claim": "15bdc7a9bf14ff52384b399ef58108fcf23012bed9adc9f09ca5833db630e453",
+      "result": "4b8ee2db05f88ffb7a78b90993a3739e5c24164275e596816eee7ea9820f0672",
+      "outcome": "ce07bd4f614c8c972328ad16cacd6311826427e7b28c8361db1427a1289470cd",
+      "scalar_verification": "f1b2d58160eb25bde5b82807be9b519c86bb8ae111309d312e2c4f5f88ad2e2c"
+    },
+    "full": {
+      "D_daily_log": -3.960480735837204e-05,
+      "internal_state_switches": 10,
+      "intervals": 45,
+      "selected_intervals": 37,
+      "selected_mean_gross": 0.014038789092354079,
+      "selected_positive_fraction": 0.4864864864864865,
+      "selected_runs": 6,
+      "selected_session_fraction": 0.8234432234432234,
+      "session_transitions": 2730,
+      "unconditional_mean_gross": 0.01792919866603992,
+      "unselected_intervals": 8
+    },
+    "later_2020_onward": {
+      "D_daily_log": 7.888796770724442e-05,
+      "internal_state_switches": 4,
+      "intervals": 17,
+      "selected_intervals": 13,
+      "selected_mean_gross": 0.0037604785735888438,
+      "selected_positive_fraction": 0.46153846153846156,
+      "selected_runs": 3,
+      "selected_session_fraction": 0.7655642023346303,
+      "session_transitions": 1028,
+      "unconditional_mean_gross": -0.000858716806642446,
+      "unselected_intervals": 4
+    },
+    "bootstrap_D_daily_log_2_5_97_5": [
+      -0.0003138701382066369,
+      0.00020585501820761788
+    ],
+    "checks": {
+      "cash_count": true,
+      "effect_lower_positive": false,
+      "later_cash_count": true,
+      "later_effect_positive": true,
+      "later_mean_positive": true,
+      "later_selected_count": true,
+      "later_selected_runs": true,
+      "selected_count": true,
+      "selected_mean_positive": true,
+      "selected_runs": true
+    },
+    "gross_screen_passed": false,
+    "selected_positive_intervals": 18,
+    "later_positive_intervals": 6,
+    "selected_contiguous_episodes": [
+      {
+        "entry_date": "2013-01-07",
+        "exit_date": "2016-01-05",
+        "quarters": 12
+      },
+      {
+        "entry_date": "2016-04-05",
+        "exit_date": "2016-07-04",
+        "quarters": 1
+      },
+      {
+        "entry_date": "2017-01-04",
+        "exit_date": "2019-01-03",
+        "quarters": 8
+      },
+      {
+        "entry_date": "2019-04-02",
+        "exit_date": "2020-04-02",
+        "quarters": 4
+      },
+      {
+        "entry_date": "2020-07-02",
+        "exit_date": "2022-01-05",
+        "quarters": 6
+      },
+      {
+        "entry_date": "2022-10-11",
+        "exit_date": "2024-04-02",
+        "quarters": 6
+      }
+    ],
+    "completed_account_trade_count": null,
+    "reason": [
+      "effect_confidence_lower_bound_not_positive"
+    ],
+    "interpretation": "Positive selected gross mean does not establish timing value: full matched-exposure effect is negative and its fixed95percent block interval crosses zero. Later positive effect is not a full-rule pass.",
+    "negative_EV_proven": false,
+    "net_account_run": false,
+    "net_positive_ev_verified": false,
+    "new_forward_paper_days": 0,
+    "historical_vintage_verified": false,
+    "fresh_OOS": false,
+    "multiple_testing_adjusted": false,
+    "rerun_allowed": false,
+    "sign_flip_rescue_allowed": false,
+    "threshold_or_window_rescue_allowed": false,
+    "next": "Preserve all four consumed studies. Reuse reviewed earlyETFsource evidence for a separately justified independent hypothesis; no reversal, phase, horizon, sample or cost rescue."
   }
 }
