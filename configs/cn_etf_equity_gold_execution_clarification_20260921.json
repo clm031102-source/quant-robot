@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_equity_gold_risk_diversification_v1",
+  "status": "execution_ambiguities_resolved_before_any_account_outcomes",
+  "original_method": {
+    "path": "configs/cn_etf_equity_gold_account_method_20260921.json",
+    "sha256": "7eb0aec34d7886bf93ed3394544ded298ffd35f2c6ba08889d06eee7594ae62b"
+  },
+  "reason": "Independent integration review of cc0e2ab identified ambiguity between persistent exits and refreshed position trims, and between daily-volume versus ADVparticipation bounds. Preserve the original method and this dated supplement; neither is an outcome-driven rescue.",
+  "exposure_at_clarification": "The new source scope has already retrieved2454gold OHLCVArows and1483earlyequityvolume/amountrows. Source-quality checks validated19632OHLCcells and compared971common sessions per asset; prices agree and222volume/amountcells differ. Numerical source paths are therefore exposed. No account run, strategy PnL, return comparison or selection statistic has been calculated. This supplement is before outcomes, not before all price access. Prior source-review incidentalNAVexposure also remains recorded.",
+  "trim_order_lifetime": {
+    "rule": "A position-limit trim lasts for only the immediately following session. After that session's fills and closing mark, discard any unfilled trim remainder and recompute the smallest whole100-share trim from the latest closing position. If current marked value is at most1000CNY, cancel the remainder; do not continue an obsolete trim.",
+    "formula": "At close t: trim_shares = min(position_shares,100*ceil(max(position_shares*close_t-1000,0)/(100*close_t))). It is a request for session t+1 and cannot affect t.",
+    "example": "300shares at3.36queue100for tomorrow. If tomorrow is unfilled and closes3.32, marked value996cancels that trim; no daily-loss trigger is assumed in this example.",
+    "mandatory_exits": "Account-stop and scheduled/252-session exits persist until flat or fixed study terminal. A later price drop never cancels them. Mandatory exit supersedes any trim; only one outgoing order per asset/session."
+  },
+  "volume_capacity": {
+    "prior_capacity_shares": "floor(0.01*mean(previous20complete session share volumes))",
+    "current_capacity_shares": "floor(0.01*current full-day share volume)",
+    "advance_order_limit": "Prior capacity only; current capacity cannot increase or resize the advance order. Current full-day volume is a retrospective modeled-fill bound, not information available before the order or evidence of closing-auction depth.",
+    "buy_rule": "Prior-information entry quantity is a multiple of100, limited by prior capacity and all-in1000CNYbudget. Fill the entire predeclared quantity only if it is no larger than current capacity and remains within budget/cash at the modeled price. Otherwise cancel the whole entry; no partial buys or retries.",
+    "sell_rule": "Choose advance requested quantity from persistent liquidation or latest trim, capped by prior capacity. Modeled sale quantity =100*floor(min(requested_shares,prior_capacity_shares,current_capacity_shares)/100). Charge one fee for each nonzero modeled partial fill. Carry a mandatory-exit remainder; refresh/cancel a trim remainder after the new close.",
+    "odd_lot_exception": "Only a full liquidation of the entire remaining integer-share position may include its below100-share remainder, and only when the complete remaining quantity fits requested,priorcapacity,currentcapacity. Never create an arbitrary odd partial sell. Current reviewed assets have no in-window split that generates odd lots; unsupported corporate actions fail input acceptance.",
+    "example": "A requested sale200shares,priorcapacity>=200,currentvolume10000shares,can fill100shares. A requested buy200under the same limits cancels entirely."
+  },
+  "unchanged": "Assets,window,annualphase,capital,budget,fees,slippage,profit/riskthresholds,bootstrapandcomparisons remain as originally frozen. No historical hypothesis is reopened.",
+  "account_execution_allowed_now": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}
