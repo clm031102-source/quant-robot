@@ -9,6 +9,16 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
+Current source work: [electricity activity and repurchase review](cn_etf_real_activity_source_review_2026-09-22.md).
+The original electricity-risk paper and three Chinese release pages have been reviewed; five selected
+original documents, including one repurchase disclosure, were preserved and fingerprinted. Monthly
+and cumulative usage, industrial and secondary-industry categories, and page/body dates differ.
+Two separately published monthly levels do not reconstruct the later printed growth under a simple
+rounding model; preserve each release's comparable growth instead of silently replacing it.
+Next establish the domestic variable, year-start reporting, classification changes and public timing
+before freezing one economic test. This is source progress, not a ninth outcome or new strategy.
+Prior stock buyback variants remain closed; one cumulative disclosure does not establish an ETF aggregate.
+
 Latest actual test: [fixed equity plus gold continuous account](cn_etf_equity_gold_review_2026-09-21.md).
 The fixed2014..2023study completed once, with terminal settlement on2024-01-02, across9cost scenarios
 and3asset combinations. Main5CNYminimum/10bpslippage paired-account net profit is491.10CNY on

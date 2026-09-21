@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_electricity_activity_risk_source_review_v1",
+  "stage": "source_definition_review",
+  "capital_CNY": 10000,
+  "document": "docs/research/cn_etf_real_activity_source_review_2026-09-22.md",
+  "current_status": "original_method_and_three_CN_release_definitions_reviewed_further_source_contract_required",
+  "original_method": "Da, Huang and Yun (2017): U.S. per capita industrial electricity year-over-year growth, with historical vintages and reporting lag. Chinese secondary-industry growth is not an automatic replication.",
+  "input_decisions": {
+    "industrial_and_secondary_separate": true,
+    "monthly_and_YTD_separate": true,
+    "body_and_page_dates_separate": true,
+    "use_each_release_printed_comparable_growth_as_candidate_input": true,
+    "cross_release_level_ratio_replacement_allowed": false,
+    "missing_month_zero_fill_allowed": false,
+    "late_detailed_fields_backdated_to_early_summary_allowed": false
+  },
+  "source_pins": {
+    "materialization_scope": {
+      "path": "data/reports/positive_ev_20260921/next_mechanism_review_20260922/materialization_scope.json",
+      "sha256": "f9c531a256c2ac7ce24fc3a3ee1730a7318e8c4c493626c8831a77a76217ffb1"
+    },
+    "source_ledger": {
+      "path": "data/reports/positive_ev_20260921/next_mechanism_review_20260922/source_ledger.json",
+      "sha256": "07f66d403fe2bc044566b5bd28f75d4c111cc2ab3b72713db52b32870c8d0c7f"
+    },
+    "source_definition_verification": {
+      "path": "data/reports/positive_ev_20260921/next_mechanism_review_20260922/source_definition_verification.json",
+      "sha256": "9c22fd22a8728c209e6d3fbfe4e726e6428ef3d1f8763d9aa144eada1527aa61"
+    }
+  },
+  "next": "Freeze a bounded original-source definition/calendar review of year-start reporting and classification/comparability changes before complete history collection. Establish one explicit domestic activity proxy and conservative public availability rule; only then freeze a single economic hypothesis,benchmark,costs,account and rejection criteria before outcomes.",
+  "existing_reference": "Labor-risk results and reused ETF history are already exposed. Physical activity is a distinct input; statistical independence and fresh out-of-sample evidence remain unproven.",
+  "repurchase_decision": "Existing stock buyback event families remain closed. One cumulative cash disclosure does not qualify an ETF aggregate.",
+  "financial_rules_frozen": false,
+  "once_only_financial_authorization_issued": false,
+  "factor_batch_allowed": false,
+  "financial_outcomes_computed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false
+}
