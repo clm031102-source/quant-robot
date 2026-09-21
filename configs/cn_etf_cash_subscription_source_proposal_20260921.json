@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "proposal_id": "money_ETF_cash_subscription_carry_source_review_v1",
+  "status": "contract_source_review_only",
+  "authority": "Project lead under existing autonomous CNY10000 mandate; self-review, not independent approval",
+  "primary_market": "CN_ETF",
+  "asset": "CN_ETF_XSHE_159001",
+  "capital_CNY": 10000,
+  "existing_single_position_cap_CNY": 1000,
+  "question": "Can disclosed primary-market cash subscription/redemption of159001 provide a feasible small-position cash-carry sleeve after all investor fees and quota/entitlement/settlement constraints?",
+  "distinction": "Fund underlying money-market interest and cash subscription at contractual NAV, not secondary-market premium arbitrage or a timing factor. No reopening closed NAV, price, dividend-style or other hypotheses. Cash management cannot replace the original goal of validated net-positive-EV strategies.",
+  "selection": "159001 chosen for exchange-confirmed2014conversion from real-time cash subscription to moneyETF and official1share minimum, before any new income-series or price access. Search snippets exposed2013/2014fund performance; not a blind context.",
+  "source_scope": {
+    "maximum_requests": 4,
+    "sources": [
+      {
+        "role": "prospectus_2015",
+        "url": "https://static.cninfo.com.cn/finalpage/2015-05-13/1201006732.PDF"
+      },
+      {
+        "role": "prospectus_2023",
+        "url": "https://cdn.efunds.com.cn/owch/data/bulletin/20230605/%E6%98%93%E6%96%B9%E8%BE%BE%E4%BF%9D%E8%AF%81%E9%87%91%E6%94%B6%E7%9B%8A%E8%B4%A7%E5%B8%81%E5%B8%82%E5%9C%BA%E5%9F%BA%E9%87%91%E6%9B%B4%E6%96%B0%E7%9A%84%E6%8B%9B%E5%8B%9F%E8%AF%B4%E6%98%8E%E4%B9%A6.pdf"
+      },
+      {
+        "role": "prospectus_2026_contract_only",
+        "url": "https://cdn.efunds.com.cn/owch/data/bulletin/20260108/%E6%98%93%E6%96%B9%E8%BE%BE%E4%BF%9D%E8%AF%81%E9%87%91%E6%94%B6%E7%9B%8A%E8%B4%A7%E5%B8%81%E5%B8%82%E5%9C%BA%E5%9F%BA%E9%87%91%E6%9B%B4%E6%96%B0%E7%9A%84%E6%8B%9B%E5%8B%9F%E8%AF%B4%E6%98%8E%E4%B9%A6.pdf"
+      },
+      {
+        "role": "SZSE_2014_technical_guide",
+        "url": "https://www.szse.cn/www/marketServices/technicalservice/history/P020180328468159911968.pdf"
+      }
+    ],
+    "allowed_hosts": [
+      "static.cninfo.com.cn",
+      "cdn.efunds.com.cn",
+      "www.szse.cn"
+    ],
+    "policy": "HTTPS GET, verified TLS, no redirects/retries, exclusive claim per named source,30second deadline,12MiBcap.",
+    "extract_only": [
+      "listing_and_actual_share_conversion",
+      "minimum_primary_and_secondary_units",
+      "all_fund_and_intermediary_fees",
+      "income_entitlement",
+      "income_settlement_rounding",
+      "subscription_redemption_cash_settlement",
+      "PCF_fields_and_quota_rejection",
+      "suspension_and_liquidity_risk"
+    ],
+    "forbidden": [
+      "performance_sections",
+      "daily_or_period_income_history",
+      "ETF_price_series",
+      "2026ETFprice_or_return_holdout",
+      "account_orders_or_broker_access"
+    ]
+  },
+  "decision_rules": [
+    "Confirm primary1share unit and cashbasis, never apply it to secondaryorders.",
+    "Fund fee waiver does not certify brokercommission; keep unidentified investor costs explicit.",
+    "Daily eligibility, aggregate/account quotas, settlement timing and possible mandatory redemption fees must be supported.",
+    "Only after contract/source feasibility, decide whether a new independently preregistered study is justified; no return computation under thisscope."
+  ],
+  "new_return_calculation_allowed": false,
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "live_boundary_allowed": false
+}
