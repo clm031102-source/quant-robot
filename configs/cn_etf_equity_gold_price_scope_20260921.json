@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_equity_gold_risk_diversification_v1",
+  "authority": "Autonomous project-lead bounded input review, not independent approval",
+  "financial_method_sha256": "7eb0aec34d7886bf93ed3394544ded298ffd35f2c6ba08889d06eee7594ae62b",
+  "source_scope": {
+    "start": "2013-12-05",
+    "end": "2024-01-02",
+    "expected_CN_sessions": 2454,
+    "first_entry": "2014-01-03",
+    "preceding_warmup_sessions": 20,
+    "new_requests_maximum": 3,
+    "allowed_host": "yunhq.sse.com.cn",
+    "requests": [
+      {
+        "asset": "518880",
+        "kind": "date_only",
+        "params": {
+          "begin": 0,
+          "end": 5000,
+          "period": "day",
+          "select": "date"
+        }
+      },
+      {
+        "asset": "518880",
+        "kind": "scoped_OHLC_volume_amount",
+        "select": "date,open,high,low,close,volume,amount",
+        "date_window": [
+          "2013-12-05",
+          "2024-01-02"
+        ],
+        "indices": "absolute positions from date-only response, requiring exact pinned CN dates"
+      },
+      {
+        "asset": "510300",
+        "kind": "early_volume_amount",
+        "select": "date,volume,amount",
+        "date_window": [
+          "2013-12-05",
+          "2019-12-31"
+        ],
+        "indices": "absolute positions from retained equity_date_index, requiring exact pinned CN dates"
+      }
+    ],
+    "request_policy": "Claim before each request;verifiedTLS;no redirect/retry;timeout5sconnect/30sread;responsecap1MiB;exclusive outputs;failed attempts consumed",
+    "existing_inputs": {
+      "equity_date_index": {
+        "path": "F:/lhjqr/data/reports/etf_monetization_20260911/fixed_exposure_method_review_20260914/earlier_dates.response",
+        "sha256": "e1070542ecb06212fc7aeeaea28a9542786b56998466e184193da0c655b2b1f8"
+      },
+      "equity_2020_2024_turnover": {
+        "path": "F:/lhjqr/data/reports/etf_monetization_20260911/turnover_source_20260913/historical_turnover.response",
+        "sha256": "5f005ff0080a77f0130f029d64b799b24bae281f4bfdc27bba32bddfc3fb156c"
+      },
+      "equity_2020_2024_ohlc": {
+        "path": "F:/lhjqr/data/reports/etf_monetization_20260911/action_coverage_20260913/exchange_price_lead/historical_ohlc.response",
+        "sha256": "facc88b8ce901c38990eafc2203261416821f8137290f460a35b5f715dd464de"
+      },
+      "official_volume_display_script": {
+        "path": "F:/lhjqr/data/reports/etf_monetization_20260911/action_coverage_20260913/exchange_price_lead/funddetail_new.js",
+        "sha256": "93f568f86a59d69e5799d509968c3f75671820098ca25738876e2310bcc5a764"
+      },
+      "equity_early_ohlc": {
+        "path": "data/reports/positive_ev_20260921/us_variance_risk_diagnostic/inputs/early_price.response",
+        "sha256": "a8848e4ce8f3650ab133433991bc23749a0c9d39c280c56ba85a2880037ca106"
+      },
+      "old_calendar": {
+        "path": "data/reports/positive_ev_20260921/us_variance_risk_diagnostic/inputs/old_calendar.csv",
+        "sha256": "62d254f0c4743b2e153d52b818eb3e663ca96e85bae32a57c804cf1ef2d14bb9"
+      },
+      "old_calendar_manifest": {
+        "path": "data/reports/positive_ev_20260921/us_variance_risk_diagnostic/inputs/old_calendar_manifest.json",
+        "sha256": "4e76cc247564ed24ab38481e407216526a8dcdef18b082b8ca9cd754c383aef9"
+      },
+      "calendar": {
+        "path": "data/reports/positive_ev_20260921/labor_risk_diagnostic/inputs/calendar.csv",
+        "sha256": "dbecac271ded4b95da6234658742177569405c477097ec1b780914ebddcaa11a"
+      },
+      "calendar_manifest": {
+        "path": "data/reports/positive_ev_20260921/labor_risk_diagnostic/inputs/calendar_manifest.json",
+        "sha256": "4b0e6a524e567a3ea81c94cc1a822371699562df9ac0a5591e51f324d2199d6b"
+      },
+      "local_bars_2020": {
+        "path": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/processed/bars/frequency=1d/market=CN_ETF/year=2020/part-00000.parquet",
+        "sha256": "892fd8e59621cf9ea0963439c60e6de1c233fcdc251aff7c9b143d76a8498f5e"
+      },
+      "local_bars_2021": {
+        "path": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/processed/bars/frequency=1d/market=CN_ETF/year=2021/part-00000.parquet",
+        "sha256": "434b773260f218b6b11fffc1f23c13c1537c27bd399ca657fd4dd76c2d90137e"
+      },
+      "local_bars_2022": {
+        "path": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/processed/bars/frequency=1d/market=CN_ETF/year=2022/part-00000.parquet",
+        "sha256": "2f9bf675dd6151a54cfb22711f090b253be0e95e152552a924f1f29c21cbbb89"
+      },
+      "local_bars_2023": {
+        "path": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/processed/bars/frequency=1d/market=CN_ETF/year=2023/part-00000.parquet",
+        "sha256": "ebd7cac5292293c28c16b778d0919baaa79f285b074d1c3e7527a0cb87269b77"
+      },
+      "local_bars_2024": {
+        "path": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/processed/bars/frequency=1d/market=CN_ETF/year=2024/part-00000.parquet",
+        "sha256": "1b55bd64b7a5b6fa26394f44c89ec312a3b29387e335aac8d17a25ab64ae3452"
+      }
+    },
+    "local_read_columns": [
+      "asset_id",
+      "date",
+      "source",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume",
+      "amount"
+    ],
+    "local_filter": "Only fixed two assets,2020-01-02through2024-01-02;no2026row or field decoding",
+    "numerical_review": "Finite positive rawOHLC,nonnegativevolume/amount,pricebounds,dateidentity,independent local-vs-exchange comparisons. No returns,allocationoutcomes,factororaccountstatistics.",
+    "volume_units": "Candidate shares and CNY based on retained official display script and prior matched source samples. Decimal comparisons retain all differences. No full semantic/vintage certification from numeric agreement; unknown quote depth and flags remain explicit."
+  },
+  "return_calculation_allowed": false,
+  "account_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}
