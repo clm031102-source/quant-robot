@@ -20,7 +20,11 @@ class _ReleaseTable(HTMLParser):
         self.row = self.cell = None
 
     def handle_starttag(self, tag, attrs):
-        if tag == 'table' and 'statistics' in dict(attrs).get('class', '').split():
+        attributes = dict(attrs)
+        classes = attributes.get('class', '').split()
+        source_table = ('statistics' in classes or ('pubtables' in classes and
+                        attributes.get('title') == 'Foreign Exchange Rates -- H.10 Weekly'))
+        if tag == 'table' and source_table:
             if self.active:
                 raise ValueError('Nested statistics table')
             self.tables += 1

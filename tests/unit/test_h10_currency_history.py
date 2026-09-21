@@ -26,6 +26,14 @@ class H10CurrencyTests(unittest.TestCase):
         self.assertEqual(parse_release(raw,release_date='2013-12-30'),
                          parse_release(page(),release_date='2013-12-30'))
 
+    def test_2017_publication_table_class_requires_exact_H10title(self):
+        raw=page().replace(b'class="statistics"',
+            b'class="pubtables" title="Foreign Exchange Rates -- H.10 Weekly"')
+        self.assertEqual(parse_release(raw,release_date='2013-12-30'),
+                         parse_release(page(),release_date='2013-12-30'))
+        with self.assertRaises(ValueError):
+            parse_release(raw.replace(b' -- H.10 Weekly',b' other table'),release_date='2013-12-30')
+
     def test_last_valid_quote_can_precede_missing_Friday(self):
         result=endpoint_snapshot(page(values=('6.1','6.2','ND','6.3','ND')),
             release_date='2013-12-30',quarter_end='2013-12-31')
