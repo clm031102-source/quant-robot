@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "study_id": "us_variance_insurance_gap_cn_equity_quarterly_v1",
+  "status": "fixed_before_real_signal_and_ETF_outcome_join",
+  "original_proposal_sha256": "c95dc4ab90f00bd3f6a123185546532a48a6123da07eabb5b6e4a4ddf3424f1f",
+  "primary_market": "CN_ETF",
+  "asset_id": "CN_ETF_XSHG_510300",
+  "signal": "On the last US equity session of the completed Dec/Mar/Jun/Sep calendar month, x=VIXclose^2/12-sum((100*ln(SPXclose/SPXprevious_session_close))^2) over all US equity sessions in that month. Select strictly x>0, else cash; missing values block.",
+  "window": {"first_entry_quarter": "2013-01", "terminal_exit_quarter": "2024-04", "expected_intervals": 45, "later_slice_start": "2020-01-01", "expected_later_intervals": 17},
+  "timing": "Decide at15:00 Asia/Shanghai on the first CN exchange session of each Jan/Apr/Jul/Oct; enter the second session09:30 open, exit next anchor. Assume the prior US month-end closing observations were available by18:00 America/New_York on their observation date and verify that timestamp precedes every decision.18:00 is a conservative research assumption, not an observed publisher timestamp; current retrieval is not historical availability proof.",
+  "price_basis": "One raw ETF share, open-to-open plus declared gross cash for record dates entry<=record<exit, no cash reinvestment, receivables included. Annual no-split statements used conditionally. Fees, lot rounding, account cash and fills excluded at this screen.",
+  "statistics": {
+    "primary": "D=sum((z-z_bar)*log(1+y))/sum(n), with z_bar=sum(n*z)/sum(n), exchange-session durations n; descriptive matched-exposure gross effect per session.",
+    "bootstrap": {"kind": "paired circular blocks of complete quarterly (z,y,n) observations", "block_intervals": 4, "replications": 5000, "seed": 20260921, "quantiles": [0.025, 0.975]},
+    "qualification": "All required: at least6 selected and6 unselected quarters overall, at least3 selected and3 unselected in fixed2020onward subset; at least6 distinct selected runs overall and3 within the later subset; full D lower2.5percentile>0; full and later selected arithmetic means>0; later D>0. Run counts address the preceding study's persistent-state weakness; these are minimum research policies, not proof of independent samples or reliable bootstrap coverage.",
+    "report": "Counts, positive gross interval frequency, arithmetic mean, D, confidence interval, annual contributions, state switches and distinct selected runs. No chosen parameter variants or reruns. A run crossing the later boundary counts as a later segment, explicitly not a new independent trade.",
+    "no_rescue": "No changes to sign, zero threshold, proxy, phase, horizon, start/end, later split, block length, minimum counts or fees in response to this result.",
+    "fresh_OOS": false,
+    "multiple_testing_adjusted": false,
+    "complete_search_history_verified": false,
+    "limitations": "Only45quarters/about11year blocks; structural dependence and2014VIX method change remain.2020-2024ETF outcomes used in previous studies. Formula/window fixed before US-source expansion; raw source levels and earlyOHLC quality checks precede this statistical contract. This is conditional exploration, not confirmatory untouched evidence."
+  },
+  "execution": {"max_attempts": 1, "claim_before_factor_and_return_decode": true, "separate_exact_scheduler_admission_required": true, "fresh_PM_gate_required": true},
+  "if_passed": "Separately register the CNY10000 net-account study, maxCNY1000 position, commissions0/5/10 and slippage0/10/30bp, main5CNY/10bp, carry holdings across adjacent selected quarters.",
+  "if_failed": "Close this fixed hypothesis; insufficient evidence is not proof of negative population EV.",
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false,
+  "reviewer": "Project lead self-review under autonomous mandate; no independent review claimed."
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "study_id": "us_variance_insurance_gap_cn_equity_quarterly_v1",
+  "authority": "Project lead's bounded source extension under the existing autonomous CNY10000 research mandate; no independent approval claimed.",
+  "proposal_sha256": "c95dc4ab90f00bd3f6a123185546532a48a6123da07eabb5b6e4a4ddf3424f1f",
+  "purpose": "Resolve the already fixed 2013-2019 ETF source gap before one separately registered quarterly experiment. Does not reopen the paused annual fixed-exposure study or any closed candidate.",
+  "scope": {
+    "symbol": "510300",
+    "price_start": "2013-01-01",
+    "price_end": "2019-12-31",
+    "annual_report_years": [2013, 2014, 2015, 2016, 2017, 2018, 2019],
+    "annual_review_fields": ["fund identity", "report period", "profit distributions and dates", "share-capital rollforward", "conversion or split disclosures"],
+    "price_review_fields": ["date", "open", "high", "low", "close"],
+    "calendar_policy": "Reuse retained 2012-2014 and 2015-2025 CN calendars; no fresh calendar or 2026 ETF outcome retrieval.",
+    "date_index_source_sha256": "e1070542ecb06212fc7aeeaea28a9542786b56998466e184193da0c655b2b1f8"
+  },
+  "requests": {
+    "max_http_requests": 9,
+    "catalog": "One SSE commonQuery.do request for510300, TITLE=年度报告, publication2014-01-01 through2020-04-01, page1,size100; require no truncation and exact report identity before downloading.",
+    "pdf": "At most one full annual PDF for each of the seven fixed report years, using URLs actually returned by the official catalog; prefer reuse if an identical source is already retained. No summaries, performance ranking or holdings extraction.",
+    "price": "One SSE dayk request, absolute begin/end indices derived from the frozen date-only response. Require exact date equality with the pre-fixed 2013-2019 calendar before using numerical fields.",
+    "retry_count": 0,
+    "redirects_allowed": false,
+    "TLS_validation": true,
+    "max_catalog_bytes": 1000000,
+    "max_price_bytes": 300000,
+    "max_pdf_bytes_each": 12000000,
+    "read_timeout_seconds": 30,
+    "claim_before_request": true
+  },
+  "limits": {
+    "current_retained_versions_only": true,
+    "historical_vintage_certified": false,
+    "return_calculation_allowed": false,
+    "factor_calculation_allowed": false,
+    "account_run_allowed": false,
+    "2026_ETF_holdout_allowed": false,
+    "general_factor_batch_allowed": false,
+    "paper_promotion_allowed": false,
+    "live_access_allowed": false
+  },
+  "on_failure": "Retain the failed request and evidence gap. No silent replacement, retries, changed dates, or performance-based fallback. Independent later source evidence requires its own recorded scope."
+}

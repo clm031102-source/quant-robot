@@ -9,7 +9,15 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest actual test: [labor-risk annual contrast](cn_etf_labor_market_source_review_2026-09-14.md).
+Latest actual test: [quarterly US variance-insurance gap](cn_etf_us_variance_risk_review_2026-09-21.md).
+The 45-quarter study selected 37 quarters, 18 positive (48.65%), mean gross +1.4039%.
+Its full matched-exposure effect is -0.3960 bp/session with a fixed 95% block interval
+[-3.1387, +2.0586] bp/session. The later effect is positive, but the full rule fails.
+The hypothesis is closed without a sign, phase or horizon rescue; no net-account run followed.
+Seven early annual reports and 1,702 earlier ETF price sessions are now conditionally reviewed.
+The 2016 annual dividend conflict was resolved with the original 0.51 CNY/10 units notice.
+
+Preceding actual test: [labor-risk annual contrast](cn_etf_labor_market_source_review_2026-09-14.md).
 Sixty original releases support 48 gross intervals. Twenty-two were selected, 15 positive,
 with +1.5833% mean gross interval return. The fixed block interval for the daily exposure-matched
 effect is positive, but only two selected intervals fall in 2023 onward, below the frozen minimum.
@@ -35,11 +43,11 @@ frozen direct HTTPS scope, without changing global proxy or TLS verification. Hi
 and full definition continuity remain assumptions. The September 21 ChinaBond observation has
 already been received under the shared daily claim; do not collect it again.
 
-Mainline baseline `0a99993` includes the account, shared-source integrity, GUI isolation,
-shared as-of review and disclosed-flow closeout through PRs #3, #4, #5 and #6. This integration retains the three
+Mainline baseline `a4a558b` includes the account, shared-source integrity, GUI isolation,
+shared as-of review and the first three study closeouts through PRs #3 to #7. This integration retains all four
 consumed studies. Mainline CI results do not certify new research results.
 The source scope and PM gate remain bound to the code worktree, while receipts and reviews
-share the primary archive. PR #6 passed all six CI jobs; Windows 3.12 logged 3,790 passing tests.
+share the primary archive. PR #7 passed all six CI jobs; Windows 3.11 logged 3,805 passing tests.
 The first future v2 moneyflow receipt was captured once on September 21 at 19:05.
 Its frozen 19:00 cutoff returns two unknown cells; the first post-capture cutoff returns two
 observed cells. Both permitted reader invocations are consumed. Source and code hashes match,
@@ -50,7 +58,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 ## Current Project Assessment And Work Queue
 
 - Review and ordered acceptance criteria: [project progress review](project_progress_review_2026-09-21.md).
-- Assessment starting baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation; mainline has since advanced to `0a99993` through PRs #3, #4, #5 and #6.
+- Assessment starting baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation; mainline has since advanced to `a4a558b` through PRs #3 to #7.
 - Imported topic baseline: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c`; 141 commits and 423 changed files beyond the starting baseline. Its offline accounting/execution and prospective source-receipt work is now integrated into `main`.
 - Topic branch continuation authority: `docs/research/etf_monetization_execution_plan_2026-09-11.md` on that branch, plus the local `data/reports/etf_monetization_20260911/progress.json`. Its consumed monthly, household, month-start, and fiscal study authorizations remain consumed; the earlier mainline entries below cannot reopen them.
 - Current research authority: `configs/research_family_scheduler_cn_etf.json`, especially `last_decision`; earlier sections below preserve dated evidence and do not independently authorize another run.
