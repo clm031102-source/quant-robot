@@ -3,13 +3,13 @@
   "proposal_id": "money_ETF_cash_subscription_carry_source_review_v1",
   "stage": "bounded_source_endpoint_discovery",
   "reason": "Contract supports small cash subscription but requires datedPCF and a historical payment-rule revision. Search did not identify a stable dated source endpoint.",
-  "maximum_new_requests": 7,
+  "maximum_new_requests": 8,
   "first_page": "https://www.efunds.com.cn/fund/159001.shtml",
   "first_page_basis": "Fundcode substituted into official fund URL pattern observed for000009; route identity must be checked; no fallback URL guessing.",
   "request_roles": {
     "fund_page_HTML": 1,
     "relevant_linked_javascript_at_most": 3,
-    "official_metadata_query_at_most": 1,
+    "official_metadata_query_at_most": 2,
     "linked_payment_rule_PDF_at_most": 2
   },
   "allowed_public_hosts": [
@@ -34,6 +34,24 @@
     "maximum_pages": 1,
     "metadata_fields_to_extract": ["title", "prop1", "path", "link", "id"],
     "pagination_policy": "Retain response total to disclose truncation; no further pages or alternate search query under this scope."
+  },
+  "dated_revision_query_extension": {
+    "reason": "The first adjustment-title catalog found the2019settlement revision but no daily-payment revision. Retained2023prospectus physical page2 explicitly dates its contract/entrustment update to2023-06-05. One additional metadata-only query for exactly this observed date is allowed before returns; the existing second PDF slot is unchanged.",
+    "method": "POST",
+    "url": "https://api.efunds.com.cn/xcowch/front/contents",
+    "body": {
+      "siteID": "1",
+      "catalogAlias": "xxplflwj,xxpldqgg,xxpllsgg",
+      "title": "",
+      "fundCode": "159001",
+      "isIncludeTransFund": "Y",
+      "prop1": "2023-06-05,2023-06-05",
+      "pageSize": 100,
+      "pageIndex": 0
+    },
+    "maximum_pages": 1,
+    "metadata_fields_to_extract": ["title", "prop1", "path", "link", "id"],
+    "fallback": "If no original announcement resolves the payment effective date, retain the source gap. No alternate dates or rolling search."
   },
   "parsing": "Extract only title, product identity, script URLs, PCF and dated-contract links/call definitions. Do not extract quote, NAV, income, performance values or issue unbounded latest-data requests.",
   "cutoff": "Historical catalog/PCF identities2015-01-01..2024-06-28 only.2026contracts permitted only for terms, not income.",
