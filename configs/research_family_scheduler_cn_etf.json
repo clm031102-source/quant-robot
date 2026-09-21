@@ -1986,5 +1986,21 @@
       "later_mean_positive"
     ],
     "next": "Preserve the consumed electricity hypothesis as rejected. Continue review of a distinct economic mechanism with source evidence and prior-study deduplication; do not tune electricity sign, window, dates, missing months or source vintage to rescue it. General batch remains closed; valid new exact studies may be admitted under the standing CNY10000mandate."
+  },
+  "term_structure_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "c0be780f880e95f1ba860b4730f346ca64427909c4a8f412fbb35c7889ebe5e1",
+    "registration_path": "data/reports/positive_ev_20260921/term_structure_diagnostic/registration.json",
+    "registration_sha256": "a6ee37fb866e090008662f47c661d7f42f5a47d106f6f8fff1e84bb089a92ea0",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_term_structure_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/term_structure_diagnostic/attempt_claim.json",
+    "conditional_gross_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
