@@ -12,6 +12,14 @@ against the mandate's evidence criteria.
 Current result count: ten economic studies in the CNY10000continuation, zero qualified net-positive-EV
 strategies and zero new real forward days. Earlier archived studies remain separate consumed evidence.
 
+Latest candidate decision: [enterprise liquidity cadence](cn_etf_enterprise_liquidity_cadence_2026-09-22.md)
+fails the fixed minimum-episode screen before anyETFoutcome join. Across46intervals,17selected intervals
+form only4continuous selected episodes(minimum6). From2020,7selected intervals include3segments but
+only2new entries(minimum3); the2019carry-in is excluded. All2672daily states,46full/17later intervals and
+six count checks reconcile with a separately written daily oracle.35related tests pass. The candidate is
+consumed and closed without parameter or sample rescue. This adds one source-cadence screen, zero return
+studies and no profit/win-rate claim; the existing ten-study count remains unchanged.
+
 Latest source review: [enterprise working-capital history](cn_etf_enterprise_liquidity_history_2026-09-22.md).
 The fixed48-quarter corpus yields47original reports and46within the2023publication cutoff;2012Q3is
 missing and the current2023Q3carrier is dated2024-03-22. All99new requests succeed and47printed levels
@@ -19,8 +27,8 @@ are visually checked. Legacy definitions are algebraically compatible; sample/vi
 The current2013Q1/Q4cross-hostPDFpairs differ in bytes but agree across12pages of normalized text and
 rendered pixels. This does not certify immutable historical vintages. Mean weighting, later-slice clipping,
 carry-in exclusion from new-entry minima and same-open event priority are fixed before real states.
-Next is exact single-candidate cadence admission and minimum-observation screening, before anyETFreturn
-join. No new signal, economic experiment, general factor batch or2026holdout access occurred in this stage.
+That source stage generated no signal or return; the subsequent one-use cadence screen is now closed
+as above. No general factor batch or2026holdout access occurred.
 
 Latest capital-fit review: [credit bond ETF511220](cn_etf_credit_bond_lot_review_2026-09-22.md).
 The fixed2020-01-02close implies9667.70CNYfor100units under primary costs. This fits the10000account

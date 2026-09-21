@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "enterprise_funds_turnover_annual_improvement_v1",
+  "status": "consumed_fixed_enterprise_liquidity_cadence_closed",
+  "implementation_commit": "30f343b",
+  "capital_CNY": 10000,
+  "single_position_all_in_CNY": 1000,
+  "registration_id": "bc036f02155a8c5022d90773dbb5e63e5357117216c6be384facd7f332a9c714",
+  "registration_sha256": "a3f5288c393ac333a455b4848c06aa77b12b4c396c69d0cfa2c1d8d1b97b9b91",
+  "result": {
+    "path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/result.json",
+    "sha256": "481a8755d68d00440f68c69b92fdea0750bd89812b97687f9d2a557d8c6fe0c6"
+  },
+  "outcome": {
+    "path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/outcome.json",
+    "sha256": "2012062824d011e1054bd2bcd5dcacadd8b933c9eefcb74567b9ae29e2cf109a"
+  },
+  "verification": {
+    "path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/verification.json",
+    "sha256": "b0b3113a7bbaeea1340d39edceadd482ceb957089758c0b61d95054a6e3c89b6"
+  },
+  "screen": {
+    "checks": {
+      "full_known_cash": true,
+      "full_selected_episodes": false,
+      "full_selected_intervals": true,
+      "later_known_cash": true,
+      "later_new_selected_episodes": false,
+      "later_selected_intervals": true
+    },
+    "full": {
+      "carry_in_episodes": 0,
+      "interval_session_max": 82,
+      "interval_session_min": 2,
+      "intervals": 46,
+      "known_cash_intervals": 25,
+      "known_cash_sessions": 1520,
+      "new_selected_episodes": 4,
+      "selected_episodes": 4,
+      "selected_intervals": 17,
+      "selected_sessions": 1046,
+      "total_sessions": 2672,
+      "unknown_intervals": 4,
+      "unknown_sessions": 106
+    },
+    "later": {
+      "carry_in_episodes": 1,
+      "interval_session_max": 82,
+      "interval_session_min": 2,
+      "intervals": 17,
+      "known_cash_intervals": 8,
+      "known_cash_sessions": 480,
+      "new_selected_episodes": 2,
+      "selected_episodes": 3,
+      "selected_intervals": 7,
+      "selected_sessions": 445,
+      "total_sessions": 970,
+      "unknown_intervals": 2,
+      "unknown_sessions": 45
+    },
+    "passed": false
+  },
+  "episodes": [
+    {
+      "id": 1,
+      "entry_date": "2016-09-19",
+      "exit_date": "2018-12-25",
+      "selected_intervals": 9,
+      "sessions": 553,
+      "later_carry_in": false
+    },
+    {
+      "id": 2,
+      "entry_date": "2019-10-25",
+      "exit_date": "2020-04-27",
+      "selected_intervals": 2,
+      "sessions": 123,
+      "later_carry_in": true
+    },
+    {
+      "id": 3,
+      "entry_date": "2021-01-20",
+      "exit_date": "2022-03-31",
+      "selected_intervals": 5,
+      "sessions": 288,
+      "later_carry_in": false
+    },
+    {
+      "id": 4,
+      "entry_date": "2023-06-30",
+      "exit_date": "2023-11-01",
+      "selected_intervals": 1,
+      "sessions": 82,
+      "later_carry_in": false
+    }
+  ],
+  "checks": {
+    "input_roles": 127,
+    "unique_input_files": 126,
+    "implementation_pins": 11,
+    "daily_states": 2672,
+    "full_intervals": 46,
+    "later_intervals": 17,
+    "scalar_screen_checks": 6,
+    "related_tests_passed": 35,
+    "independent_human_review": false
+  },
+  "interpretation": "Only4full selected episodes and2new later entries; prespecified minima are6and3. A later carry-in is disclosed but excluded from new entries. Insufficient information, not evidence of negative populationEV.",
+  "signal_runs_are_not_completed_executable_trades": true,
+  "holding_limit_note": "The553and288session selected runs exceed the252session account holding cap; cadence describes source states only. No netaccount was modeled. Splitting those runs would not manufacture independent observations.",
+  "ETF_outcomes_read": false,
+  "returns_computed": false,
+  "win_rate": null,
+  "net_profit_CNY": null,
+  "net_positive_EV_verified": false,
+  "new_return_studies": 0,
+  "total_return_studies_current_mandate": 10,
+  "additional_source_cadence_screens": 1,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "direction_or_parameter_rescue_allowed": false,
+  "general_factor_batch_allowed": false,
+  "financial_execution_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false
+}
