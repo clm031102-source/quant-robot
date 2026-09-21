@@ -11,11 +11,16 @@ against the mandate's evidence criteria.
 
 Latest source review: [money ETF primary cash subscription](cn_etf_cash_subscription_review_2026-09-21.md).
 159001 supports one-share cash subscription at100CNYper share under the retained contracts.
-Twenty-three official responses were retained and hash-checked. Four historicalPCF originals
-span2015..2024and two formats; the monthly-to-daily payment change is verified effective2023-06-05.
-Full date coverage, quota-version semantics, available execution capacity and investor costs remain unresolved.
+The initial23response review is merged inPR11. A further3schema and28annual-source responses
+were retained and hash-checked; ten annualPCF endpoints and2658income dates have been reconciled.
+The monthly-to-daily payment change is verified effective2023-06-05. Historical publication
+vintages, available execution capacity, full quota-version semantics and investor costs remain unresolved.
 The current outer product date embedded in a historical API response was identified and excluded.
-No income-series request or new return calculation occurred: six actual studies and zero qualified
+Income responses remain opaque to the integration review; no new return calculation occurred.
+Five cross-year date-shape exceptions blocked the original annual method. The pre-value778a38f
+amendment requires six fixed seven-day identities before any annualPnL;01b182e also prevents
+future redemption refusal from rewriting historical entries as unfilled. These are conditional
+source and method checks, not execution or paper admission. Six actual studies and zero qualified
 strategies remain. Cash management is not a substitute for the mandate or a newly proven factor.
 
 Latest actual test: [fixed dividend-style annual exposure](cn_etf_dividend_style_review_2026-09-21.md).
