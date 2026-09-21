@@ -20,7 +20,15 @@ six count checks reconcile with a separately written daily oracle.35related test
 consumed and closed without parameter or sample rescue. This adds one source-cadence screen, zero return
 studies and no profit/win-rate claim; the existing ten-study count remains unchanged.
 
-Latest source review: [retail investor entry](cn_etf_investor_entry_source_review_2026-09-22.md).
+Latest source preparation: [same-tenor credit premium](cn_etf_credit_premium_proposal_2026-09-22.md).
+The independent economic rule and exact source scope were frozen at8db2b6fbefore new corporate history.
+Thirteen requests succeed; paired government andAAA-note histories each contain2961rows across142months.
+141months meet the conditional date/tenor rule;January2020stays unknown under the unchanged7day limit.
+A separately written parser reconciles every raw value and month;26related tests pass. Historical release
+versions remain uncertified. No spread, signal, outcome or new cadence screen was calculated. The next
+step is a separately registered one-use count screen; general batches and financial execution stay closed.
+
+Preceding source review: [retail investor entry](cn_etf_investor_entry_source_review_2026-09-22.md).
 Zero of the two fixedJune2017/June2023monthly pilots have qualified originals and publication dates.
 Three official annual reports establish net eligible-population change rather than gross first-time
 entrants; the2017and2023population descriptions differ. Annual totals and later catalogue dates cannot
