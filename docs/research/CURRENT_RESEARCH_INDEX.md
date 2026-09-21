@@ -12,15 +12,48 @@ against the mandate's evidence criteria.
 Current result count: ten economic studies in the CNY10000continuation, zero qualified net-positive-EV
 strategies and zero new real forward days. Earlier archived studies remain separate consumed evidence.
 
-Latest source review: [enterprise working-capital history](cn_etf_enterprise_liquidity_history_2026-09-22.md).
+Latest candidate decision: [enterprise liquidity cadence](cn_etf_enterprise_liquidity_cadence_2026-09-22.md)
+fails the fixed minimum-episode screen before anyETFoutcome join. Across46intervals,17selected intervals
+form only4continuous selected episodes(minimum6). From2020,7selected intervals include3segments but
+only2new entries(minimum3); the2019carry-in is excluded. All2672daily states,46full/17later intervals and
+six count checks reconcile with a separately written daily oracle.35related tests pass. The candidate is
+consumed and closed without parameter or sample rescue. This adds one source-cadence screen, zero return
+studies and no profit/win-rate claim; the existing ten-study count remains unchanged.
+
+Integration independently verified 127 input roles / 126 files, 11 runtime Git pins, seven
+execution protocols and the registration/claim/result/closure chain against 30f343b/ef05673.
+Static review found no important defect. The 2,672-state recount remains the original retained
+cross-implementation check; the integrator did not rerun it or access ETF outcome inputs.
+
+Latest source review: [retail investor entry](cn_etf_investor_entry_source_review_2026-09-22.md).
+Zero of the two fixedJune2017/June2023monthly pilots have qualified originals and publication dates.
+Three official annual reports establish net eligible-population change rather than gross first-time
+entrants; the2017and2023population descriptions differ. Annual totals and later catalogue dates cannot
+be substituted for the missing monthly input. Five original requests succeed; no financial signal or
+return study is added. This source-stage deferral does not establish negativeEV.
+Independent integration verifies 32 artifact pins, seven protocols and five retained responses
+(2,112,063 bytes). Six selected PDF pages and four retained images support the stated definitions;
+24 transcribed fields and 14 within-report rounding identities reconcile. No new requests or signals ran.
+
+Preceding source review: [dry-bulk freight mechanism](cn_etf_dry_bulk_mechanism_review_2026-09-22.md).
+The bounded review retains four valid originals and one403response. The original predictive paper's
+full method and a qualified free historical series remain unavailable; a separate China wavelet paper
+does not supply an executable, costed ETF rule. Official2018weight changes, the retainedDecember2025
+publication clock and historical-restatement policy prevent silent same-day or immutable-series assumptions.
+This is a source-stage deferral, not a negative-EV finding; no signals, return joins or new study were run.
+Independent integration review matches 27 artifact pins, seven protocols, three original HTMLs and
+four specified GMB pages. Five raw responses total 1,338,707 bytes, including a retained 263-byte failure.
+Web-ledger completeness and the fifth request transport implementation are not independently certified.
+
+Preceding source review: [enterprise working-capital history](cn_etf_enterprise_liquidity_history_2026-09-22.md).
 The fixed48-quarter corpus yields47original reports and46within the2023publication cutoff;2012Q3is
 missing and the current2023Q3carrier is dated2024-03-22. All99new requests succeed and47printed levels
 are visually checked. Legacy definitions are algebraically compatible; sample/vintage assumptions remain.
 The current2013Q1/Q4cross-hostPDFpairs differ in bytes but agree across12pages of normalized text and
 rendered pixels. This does not certify immutable historical vintages. Mean weighting, later-slice clipping,
 carry-in exclusion from new-entry minima and same-open event priority are fixed before real states.
-Next is exact single-candidate cadence admission and minimum-observation screening, before anyETFreturn
-join. No new signal, economic experiment, general factor batch or2026holdout access occurred in this stage.
+That source stage generated no signal or return; the subsequent one-use cadence screen is now closed
+as above. No general factor batch or2026holdout access occurred.
 
 Preceding [enterprise source pilot and proposal review](cn_etf_enterprise_liquidity_source_review_2026-09-22.md)
 matched 72 artifact pins, seven protocols, ten raw attempts (seven originals, 1,108,850 bytes;
