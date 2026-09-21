@@ -21,7 +21,16 @@ quarters remain included. Historical curve availability and original vintages ar
 Ten economic studies are complete, zero strategies qualify and zero real forward days were added.
 General batches, net account for this rejected hypothesis, promotion and2026holdout stay closed.
 
-Latest source review: [oil-price transmission](cn_etf_oil_transmission_source_review_2026-09-22.md).
+Latest source review: [IPO activity](cn_etf_ipo_activity_source_review_2026-09-22.md).
+The old subscription-prefunding channel changed in2016. FRBSF appendix regressions explain IPO
+counts rather than future ETF returns; the Fang draft joins event-month returns to a complete
+monthly issuance measure. This does not establish an available-at-entry predictor. Table4PanelA
+and PanelB have different significance patterns and are explicitly separated in this integration.
+The Shanghai issuance table is not a combined-market universe and its method counts are not additive.
+Eight responses(5HTTP200,2HTTP301,1HTTP403), thirteen support pins, seven protocols and six rendered
+pages were independently checked. No market test was run; the economic-study count remains ten.
+
+Preceding source review: [oil-price transmission](cn_etf_oil_transmission_source_review_2026-09-22.md).
 Direct monthly-oil-change transfer is suspended: early China evidence is insignificant and later
 G7 work distinguishes shock types. The China trend paper's exact full method remains unavailable.
 EIA monthly spot values are daily-price averages, and daily observation dates are not publication dates.
