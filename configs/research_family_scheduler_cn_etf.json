@@ -1453,5 +1453,21 @@
     "sign_flip_rescue_allowed": false,
     "threshold_or_window_rescue_allowed": false,
     "next": "Retain qualified official source evidence; review a genuinely different economic mechanism. Do not repackage the failed relative activity ratio. Gross failure supplies no net-profitable candidate."
+  },
+  "disclosed_flow_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "5dea3377b99b552a1624b86a4f36909389c28f971b2d170f0270cff53c684c29",
+    "registration_path": "data/reports/positive_ev_20260921/disclosed_flow_diagnostic/registration.json",
+    "registration_sha256": "ec0151866229aa7d9b239a739192602676e4e3dd2842deebb8b814ce73e5c730",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_disclosed_flow_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/disclosed_flow_diagnostic/attempt_claim.json",
+    "conditional_gross_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }

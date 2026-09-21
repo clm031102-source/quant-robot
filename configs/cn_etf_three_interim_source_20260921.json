@@ -1,0 +1,46 @@
+{
+  "scope_id": "510300_three_interim_source_only_20260921",
+  "review_path": "configs/cn_etf_disclosed_flow_bounds_review_20260921.json",
+  "review_sha256": "e1a86ae145cf85a1d6464fae17f1481138eef0a2f6b1aedf6c5b9b9e95bb3f24",
+  "title_source_path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\retained_holdings_510300_20260914\\retained_510300_title_candidates.json",
+  "title_source_sha256": "9d39e39d845c3d8add60a32c1196f8f384b7047f9619e73476022ea18f461441",
+  "documents": [
+    {
+      "symbol": "510300.SH",
+      "period_end": "2021-06-30",
+      "publication_date": "2021-08-28",
+      "available_from_session": "2021-08-30",
+      "publication_lag_days": "59",
+      "report_kind": "中期报告",
+      "title": "华泰柏瑞沪深300交易型开放式指数证券投资基金2021年中期报告",
+      "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2021-08-28/510300_20210828_1_ASSKBYLi.pdf",
+      "qualification": "title_candidate_only_pdf_identity_scope_rows_and_revisions_unverified"
+    },
+    {
+      "symbol": "510300.SH",
+      "period_end": "2022-06-30",
+      "publication_date": "2022-08-30",
+      "available_from_session": "2022-08-31",
+      "publication_lag_days": "61",
+      "report_kind": "中期报告",
+      "title": "华泰柏瑞沪深300交易型开放式指数证券投资基金2022年中期报告",
+      "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2022-08-30/510300_20220830_1_cZbpqKYD.pdf",
+      "qualification": "title_candidate_only_pdf_identity_scope_rows_and_revisions_unverified"
+    },
+    {
+      "symbol": "510300.SH",
+      "period_end": "2023-06-30",
+      "publication_date": "2023-08-31",
+      "available_from_session": "2023-09-01",
+      "publication_lag_days": "62",
+      "report_kind": "中期报告",
+      "title": "华泰柏瑞沪深300交易型开放式指数证券投资基金2023年中期报告",
+      "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2023-08-31/510300_20230831_LBRB.pdf",
+      "qualification": "title_candidate_only_pdf_identity_scope_rows_and_revisions_unverified"
+    }
+  ],
+  "max_requests": 3,
+  "max_pdf_bytes": 15000000,
+  "retry_count": 0,
+  "purpose": "Complete latest disclosed stock holdings only; no market flow sign aggregation or ETF outcomes"
+}
