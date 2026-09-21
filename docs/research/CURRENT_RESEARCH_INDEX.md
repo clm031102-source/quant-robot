@@ -9,14 +9,15 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Current source-stage hypothesis: [broad RMB RRR implementation events](cn_etf_rrr_effective_event_review_2026-09-21.md).
-The direction, eligibility and20session holding rule were fixed before event collection.
-Fifteen known qualifying announcements have retained official evidence and complete calendar
-intervals, eight from2020onward; eight excluded originals are also retained. Forty scoped
-direct requests are consumed(35retained). Annual event-universe completeness is still pending;
-there is no RRR outcome calculation or execution admission. Do not confuse source counts with trades.
+Latest actual test: [broad RMB RRR implementation events](cn_etf_rrr_effective_event_review_2026-09-21.md).
+Fifteen fixed events passed current official-source reconciliation against12annual policy reports.
+The main5CNYminimum/10bpslippage endpoint diagnostic earned+116.20CNYtotal,7/15positive(46.67%).
+The2020onward8events lost76.90CNY,2/8positive(25%). The full mean-PnL95%calendar-year-cluster
+interval is[-17.59,+35.85]CNY. Later mean, win rate and lower-bound gates failed; the exact
+hypothesis is closed. No full-account run or paper promotion followed. All86input/15implementation
+pins and135scenario-event arithmetic rows were checked. Historical vintages remain unverified.
 
-Latest actual test: [quarterly US variance-insurance gap](cn_etf_us_variance_risk_review_2026-09-21.md).
+Preceding actual test: [quarterly US variance-insurance gap](cn_etf_us_variance_risk_review_2026-09-21.md).
 The45quarter study selected37quarters,18positive(48.65%),mean gross+1.4039%.
 Its full matched-exposure effect is-0.3960bp/session with a fixed95%block interval
 [-3.1387,+2.0586]bp/session. The later effect is positive, but the full rule fails.
@@ -43,8 +44,9 @@ and -0.1009% mean gross return.
 None of these fixed hypotheses may be rescued by changing its sign, threshold or window.
 Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
-Next source work should reconcile the RRR event ledger against complete official annual policy records,
-then freeze an exact single net-diagnostic registration if the sources qualify.
+Next research should assess a distinct mechanism whose frequency and cost burden can support
+meaningful validation. Reuse retained official sources; all five consumed hypotheses stay closed.
+The RRR annual reconciliation and endpoint diagnostic are complete, not pending source work.
 The labor source corpus and method paper remain reusable evidence; its failed or completed scopes
 cannot be reopened. Original official definitions and releases were recovered using a separately
 frozen direct HTTPS scope, without changing global proxy or TLS verification. Historical vintages
@@ -52,7 +54,7 @@ and full definition continuity remain assumptions. The September21 ChinaBond obs
 already been received under the shared daily claim; do not collect it again.
 
 Mainline baseline `e3204fc` includes the account, shared-source integrity and GUI isolation fixes
-through PRs #3 and #4. This research branch integrates that baseline while retaining the four
+through PRs #3 and #4. This research branch integrates that baseline while retaining the five
 consumed studies. Mainline CI results do not certify new research results.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
