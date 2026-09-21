@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_dividend_style_annual_cash_return_v1",
+  "status": "source_review_only_before_outcomes",
+  "authority": "Project lead under existing autonomous CNY10000 mandate; self-review, not independent approval",
+  "primary_market": "CN_ETF",
+  "asset_id": "CN_ETF_XSHG_510880",
+  "question": "Can a fixed exposure to the established Shanghai high-dividend equity ETF deliver positive absolute annual endpoint net PnL at the CNY1000position scale under the main cost model?",
+  "economic_basis": "Companies distribute cash from their assets and earnings; a portfolio selected for sustained cash dividends may supply an investable equity risk-premium exposure. Dividends are part of total wealth, not free gains on ex-date. This is a proposed fixed factor-style exposure, not a newly discovered timing signal or a mathematical guarantee of positive returns.",
+  "distinction": "No past-price ranking, momentum, volatility filter, NAV premium, fund-share flow, RRR event or macro threshold. No reconstructed current constituents or fitted index dividend-yield series. The earlier index-valuation source blockage remains unchanged. The actual historically operating fund, including disclosed index-method revisions, is the exposure being tested; a constant position is not an IC factor.",
+  "method_sources": [
+    {
+      "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20150911_3984889.shtml",
+      "role": "Original2004indexannouncement and historical dividend-style definition; simplified Chinese same-page URL obtained from official traditional-Chinese wrapper target."
+    },
+    {
+      "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/10077875/files/bb1e253d8a6447be8bf77e98aa3dc8ba.pdf",
+      "role": "Official2022V1.2method, to document change rather than backfill it into2008."
+    },
+    {
+      "url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/det_port_form_dp.html",
+      "role": "Dividend-yield portfolio construction as a distinct style; no imported USequityperformance or Chineseprofitproof."
+    }
+  ],
+  "fixed_design": {
+    "asset_selection": "510880 selected before new price/return series access for its explicit dividend-style mandate and pre2013existence, not a performance ranking. Survival and prior broadETFresearch exposure remain limitations.",
+    "window": "First complete civil year after reported2007listing:2008-01-01 through existing cutoff2024-06-28. Only complete annual intervals; expected2008..2023entry years, not a chosen bull-market start.",
+    "entry_exit": "First actual CN session of each calendar year open to first actual CN session of next year open. Treat each year as a separate endpoint opportunity with separate entry/exit costs; annual reset is an analytical contract, not a claim that a real continuous account must sell and rebuy same-open. No other horizon, phase or entry-date search.",
+    "direction": "Long fixed dividend-style exposure; no conditional timing state.",
+    "capital_CNY": 10000,
+    "entry_all_in_cap_CNY": 1000,
+    "lot_shares": 100,
+    "distribution": "Record-date entitlement, gross cash, no reinvestment; ex-date price drop is not an extra gain. All splits/conversions/distributiondates must be reviewed first.",
+    "costs": "5bpcommission per side, minimum0/5/10CNY and adverse slippage0/10/30bp per side; primary5CNY/10bp. Include adverse0.001quote rounding and cent-rounded commissions. Zero affordable lots stays an unfilled zero opportunity.",
+    "later_subset": "Entry years2020..2023, descriptive later history, not untouchedOOS.",
+    "prospective_duration": "Annual opportunities are infrequent. Preserve20real paper days/30natural paper fills and other risk gates; this study cannot manufacture quick forward qualification."
+  },
+  "planned_screen": {
+    "minimum_executed_full": 12,
+    "minimum_executed_later": 4,
+    "minimum_full_net_positive_frequency": 0.55,
+    "full_and_later_mean_net_PnL_positive": true,
+    "uncertainty": "5000circular moving-block resamples of2consecutive annual opportunities, resampled to16years, seed20260921; lower2.5percentile of mean main-cost PnL must be>0. These small-sample exploratory checks do not establish populationEV.",
+    "comparisons": "Cash0baseline and preselected510300annual endpoint reference only on the common2013..2023entry years, same cap/costs/distribution convention. Reference is descriptive; positive absolute net profit is primary. No fitted risk weights or alpha qualification.",
+    "execution": "After source review, freeze exact inputs, full computation and one-study admission before any actual return calculation. Failed source review pauses this hypothesis; a failed diagnostic closes it without changing the fixed choices."
+  },
+  "source_scope": {
+    "maximum_new_requests": 25,
+    "public_requests": "One SSE annual catalog2009-01-01..2024-04-30 and exactly16full annual reports2008..2023; one original/prospectus catalog2006-01-01..2007-12-31 and at most one complete pre2008fund offering/prospectus/listing file; three named method documents above.22requestsmaximum for these roles. No all-period search, retry or performance-section extraction.",
+    "calendar_requests": "At most one SSE date-only dayk510880query and two Tusharetrade_cal requests(SSE/SZSE2008-01-01..2011-12-31), date/session fields only. Reuse known existing calendars2012onward. No OHLCseries.",
+    "cash_scale_check": "At most one local raw-price projection,5108802020-01-02close, from already-retained data, chosen before decoding. Used only for lot/fee feasibility; no returns or alternative dates.",
+    "allowed_public_hosts": [
+      "www.sse.com.cn",
+      "query.sse.com.cn",
+      "yunhq.sse.com.cn",
+      "mba.tuck.dartmouth.edu"
+    ],
+    "provider_host": "api.tushare.pro",
+    "request_policy": "PublicHTTPS GET or bounded existing-entitlement calendar POST;TLSverification, no automatic retries/redirects, per-request exclusive claim before network,30seconddeadline,12MiBmaximum response. Never write tokens or full credential payloads.",
+    "completeness": "Check annual cash/split disclosures and end-begin shares; keep revision/vintage caveats. Required source contradictions remain blockers; do not infer absence from current metadata alone."
+  },
+  "new_return_calculation_allowed": false,
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}

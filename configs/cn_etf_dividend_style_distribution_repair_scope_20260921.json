@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_dividend_style_annual_cash_return_v1",
+  "stage": "two_distribution_date_conflicts_only",
+  "basis": "Rendered2015annualreportp36prints record/exdatesboth2015-01-20; rendered2020annualp45prints2020-01-16record and2021-01-17exdate. Resolve from their original distribution announcements, not calendar guesses.",
+  "maximum_new_requests": 3,
+  "allowed_public_hosts": [
+    "query.sse.com.cn",
+    "www.sse.com.cn"
+  ],
+  "query": {
+    "url": "https://query.sse.com.cn/commonQuery.do",
+    "SECURITY_CODE": "510880",
+    "TITLE": "收益分配",
+    "START_DATE": "2015-01-01",
+    "END_DATE": "2020-01-31",
+    "pageSize": 100
+  },
+  "pdf_selection": "Exactly one original distribution announcement published inJanuary2015and one inJanuary2020, chosen from catalog identity/title before text. Never substitute year label for actual record/exdates.",
+  "policy": "PublicHTTPSGET,TLSverification,noautomaticretry/redirect,30seconddeadline,12MiBcap,exclusive claim. Catalog pagination/multiplecandidate ambiguity stays blocked.",
+  "old_scopes_unchanged": true,
+  "factor_generated": false,
+  "returns_calculated": false,
+  "net_account_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}
