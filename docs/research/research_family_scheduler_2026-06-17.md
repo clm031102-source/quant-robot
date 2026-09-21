@@ -27,16 +27,20 @@ The `cn_etf_volatility_regime` final market-residual prescreen produced zero res
 
 ## ETF Rotation Hypothesis Portfolio
 
-Current primary allocation:
+Current state, reconciled on 2026-09-21 against `configs/research_family_scheduler_cn_etf.json`:
 
-- `cn_etf_flow_breadth_aggregation`: 0.35, using stock flow only after ETF-level aggregation.
-- `cn_etf_fund_structure`: 0.35, subject to source permission and coverage checks.
-- `cn_etf_peer_relative_value`: 0.30, restricted to metadata-readiness review before factor implementation.
+- Seven CN ETF families are explicitly `stop_lossed`: NAV premium, price rotation, liquidity capacity, volatility regime, fund structure, dynamic co-movement peer dislocation, and margin positioning. Every budget is zero.
+- Flow breadth aggregation, peer relative value, and option sentiment remain exploratory at zero budget with unresolved source or breadth requirements.
+- CN stock moneyflow remains `auxiliary_only` at zero primary budget.
+- Active primary families: zero. Allocated primary budget: zero. Unallocated budget: 1.0.
+- The scheduler reports eight triggered stop losses because it also counts the auxiliary CN stock family's historical stop-loss trigger. This is not eight closed ETF families.
 
-The peer-relative-value family must first establish point-in-time same-index or tightly defined same-theme mappings. A name-only mapping, factor batch before readiness, portfolio grid before prescreen, or walk-forward before prescreen is prohibited.
+The latest delayed-NAV execution was invalidated, not accepted or statistically rejected. Its authorization was consumed and cannot be reused. The governing decision permits only `family_rotation_review_only` for `factor_review`; factor batches, portfolio grids, walk-forward, promotion, paper signals, and final holdout access remain disabled.
+
+Historical PCF or a historical official ETF-to-index bridge must pass a separate point-in-time source audit before a new independent hypothesis can be preregistered. Current names and metadata cannot substitute for historical availability.
 
 No single family should consume more than the configured per-family budget cap.
-At least three primary ETF research families must be active before a new factor batch starts.
+The ordinary scheduler requires at least three active primary families. Restricted source review, preregistration, and single-prescreen modes are separate explicit gates; they do not restore an unrestricted batch allocation.
 
 ## Operational Command
 

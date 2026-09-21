@@ -34,6 +34,21 @@ The gate reads and hashes:
 - At least one primary `CN_ETF` research allocation exists.
 - The live boundary remains disabled.
 
+## Restricted Review Modes
+
+The ordinary allocation criteria above do not describe every permitted review.
+The implementation also recognizes explicit source-repair, preregistration,
+single-prescreen, and family-rotation modes from the scheduler's `last_decision`.
+These modes validate their own task scope and disabled boundaries; a `ready`
+startup packet does not by itself permit factor generation.
+
+As of 2026-09-21, the scheduler has no active primary allocation and the
+consumed NAV prescreen is invalidated. `factor_review` is ready only in
+`family_rotation_review_only` mode. `factor_batch`, walk-forward, promotion,
+paper signals, and final holdout access remain disabled. Review the packet's
+`safety` and `mode` fields before acting, and use the current
+project virtual environment for commands.
+
 ## Blocked Means Stop
 
 If the gate returns `blocked`, do not run Tushare downloads, factor batches, walk-forward validation, or paper-signal generation.

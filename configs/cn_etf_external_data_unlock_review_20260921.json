@@ -1,0 +1,119 @@
+{
+  "stage": "cn_etf_external_data_unlock_review",
+  "as_of_date": "2026-09-21",
+  "market": "CN_ETF",
+  "analysis_boundary": {
+    "start_date": "2020-01-02",
+    "end_date": "2024-06-28",
+    "final_holdout_start": "2026-01-01",
+    "forward_returns_allowed": false
+  },
+  "output_dir": "data/reports/cn_etf_external_data_unlock_review_20260921",
+  "probes": [
+    {
+      "route": "historical_pcf",
+      "endpoint": "etf_sh_cons",
+      "required_points": 8000,
+      "parameters": {
+        "ts_code": "510050.SH",
+        "trade_date": "2020-01-02"
+      },
+      "required_columns": [
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr"
+      ]
+    },
+    {
+      "route": "historical_pcf",
+      "endpoint": "etf_sh_cons",
+      "required_points": 8000,
+      "parameters": {
+        "ts_code": "510050.SH",
+        "trade_date": "2024-06-28"
+      },
+      "required_columns": [
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr"
+      ]
+    },
+    {
+      "route": "historical_pcf",
+      "endpoint": "etf_sz_cons",
+      "required_points": 8000,
+      "parameters": {
+        "ts_code": "159919.SZ",
+        "trade_date": "2020-01-02"
+      },
+      "required_columns": [
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr"
+      ]
+    },
+    {
+      "route": "historical_pcf",
+      "endpoint": "etf_sz_cons",
+      "required_points": 8000,
+      "parameters": {
+        "ts_code": "159919.SZ",
+        "trade_date": "2024-06-28"
+      },
+      "required_columns": [
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr"
+      ]
+    },
+    {
+      "route": "tracking_index_mapping",
+      "endpoint": "etf_basic",
+      "required_points": 8000,
+      "parameters": {
+        "list_status": "L"
+      },
+      "required_columns": [
+        "symbol",
+        "index_code",
+        "list_date",
+        "list_status",
+        "exchange"
+      ]
+    }
+  ],
+  "documented_but_not_historical": [],
+  "documentation": {
+    "etf_sh_cons": "https://tushare.pro/document/2?doc_id=471",
+    "etf_sz_cons": "https://tushare.pro/document/2?doc_id=472",
+    "etf_basic": "https://tushare.pro/document/2?doc_id=385"
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "forward_return_read_allowed": false,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
