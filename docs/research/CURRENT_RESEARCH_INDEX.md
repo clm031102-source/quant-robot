@@ -9,24 +9,32 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Integration branch `codex/factor-review-project-progress-20260921` now also includes
-the account change at `2e45dd0`, alongside the shared source-archive and response-integrity
-fixes at `be5cf0f`. [PR #3](https://github.com/clm031102-source/quant-robot/pull/3)
-is the mainline integration entry; read its actual head and checks before merging.
+Mainline integration is complete through [PR #3](https://github.com/clm031102-source/quant-robot/pull/3)
+and [PR #4](https://github.com/clm031102-source/quant-robot/pull/4), at `e3204fc`.
+The CNY 10,000 account, shared source archive, response-integrity guards and isolated GUI
+demo flow passed their final six-job CI matrices. The integration branch additionally
+fixes moneyflow as-of review to use the same shared receipt and review archive.
+
+Latest actual test: [50ETF option relative activity](cn_etf_option_relative_activity_review_2026-09-21.md).
+Official counts qualified across 1087 sessions and 54 months. The separately registered
+52-interval gross diagnostic failed: 16 selected months, 43.75% positive intervals,
+-0.1009% mean selected gross return, and an insignificant rank correlation. Its one-use
+authorization is consumed; no net account or paper promotion followed. The ongoing
+project mandate remains active for economically independent hypotheses.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue
 
 - Review and ordered acceptance criteria: [project progress review](project_progress_review_2026-09-21.md).
-- Source baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation.
-- Imported topic baseline: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c`; 141 commits and 423 changed files beyond `main`. Its offline accounting/execution and prospective source-receipt work is included in this review branch. It is not yet integrated into `main`.
+- Assessment starting baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation; mainline has since advanced to `e3204fc` through PR #3 and PR #4.
+- Imported topic baseline: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c`; 141 commits and 423 changed files beyond the starting baseline. Its offline accounting/execution and prospective source-receipt work is now integrated into `main`.
 - Topic branch continuation authority: `docs/research/etf_monetization_execution_plan_2026-09-11.md` on that branch, plus the local `data/reports/etf_monetization_20260911/progress.json`. Its consumed monthly, household, month-start, and fiscal study authorizations remain consumed; the earlier mainline entries below cannot reopen them.
 - Current research authority: `configs/research_family_scheduler_cn_etf.json`, especially `last_decision`; earlier sections below preserve dated evidence and do not independently authorize another run.
 - Current mode: `family_rotation_review_only`; zero active primary families and zero allocated primary budget. The Quant PM gate is ready for `factor_review`, while factor batches remain blocked.
 - Family inventory: seven explicitly closed CN ETF families, three exploratory source-blocked families, and one auxiliary-only CN stock family. The scheduler's count of eight stop-loss triggers includes the auxiliary stock family; it does not mean eight closed ETF families.
 - Latest access evidence: the 2026-09-21 four cross-exchange/cross-period historical PCF probes and one `etf_basic` probe all returned permission denied. No full backfill was started.
-- Immediate dependency: enable historical PCF access or supply a licensed SSE+SZSE historical delivery. Existing target builder, delivery contract, structural validator, and cross-exchange readiness gate are available.
+- PCF-dependent families require historical PCF access or a licensed SSE+SZSE historical delivery. Existing target builder, delivery contract, structural validator, and cross-exchange readiness gate are available; this is not a blanket prerequisite for independently reviewed non-PCF hypotheses.
 - No current strategy qualifies for paper observation. Historical paper readiness and interface schema readiness are engineering evidence only.
 
 ## Latest CN ETF NAV Invalidation
@@ -39,7 +47,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 ## Retained Deployment And Source Evidence
 
-- Current task branch: `codex/factor-review-etf-monetization-20260911`; office desktop, commits and pushes authorized. This entry does not claim that the branch has been merged into `main`.
+- Original topic branch: `codex/factor-review-etf-monetization-20260911`; its pinned `0b8984c` evidence and implementation were integrated through PR #3. Later topic changes, if any, require a separate review.
 - Authoritative execution plan: [CN_ETF deployment plan](etf_monetization_execution_plan_2026-09-11.md), including acceptance gates, stall diagnosis, direction changes, and hourly reporting.
 - Research status: follow `configs/research_family_scheduler_cn_etf.json`. Its latest decision closes the invalidated delayed-NAV family; no primary family is active. Do not rerun closed candidates or interpret earlier paper-ready records as current profitability evidence.
 - Current deliverable: offline minimum commission, daily risk observation, raw-price execution and a synthetic-tested dividend/share-conversion ledger, with frozen evidence through promotion and Daily Ops. See [accounting scope and next source audit](cn_etf_paper_execution_accounting_2026-09-11.md). Real-source completeness remains unverified and blocks strict ETF promotion.

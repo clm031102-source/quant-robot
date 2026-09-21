@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "scope_id": "sse_option_activity_calendar_month_202001_20260921",
+  "study_id": "sse50_option_relative_activity_monthly_v1",
+  "purpose": "Independently qualify exchange-published daily counts for a complete calendar month; compare daily volume sums and last-session OI with the exchange monthly publication. This does not repair or certify provider oi.",
+  "source_use": {
+    "primary_source": "Shanghai Stock Exchange official historical statistics current view",
+    "point_in_time_verified": false,
+    "conditional_historical_exploration_only": true,
+    "assumptions": [
+      "Counts describe the stated historical trading date",
+      "Unknown historical revisions and exact publication times remain explicitly unresolved"
+    ],
+    "prohibited_claims": [
+      "point-in-time vintage certification",
+      "predictive efficacy",
+      "profitability",
+      "paper promotion"
+    ]
+  },
+  "endpoint": "https://query.sse.com.cn/commonQuery.do",
+  "referer": "https://www.sse.com.cn/assortment/options/date/",
+  "underlying": "510050",
+  "calendar": {
+    "path": "F:/lhjqr/data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+    "sha256": "dbecac271ded4b95da6234658742177569405c477097ec1b780914ebddcaa11a",
+    "start": "2020-01-01",
+    "end": "2020-01-31"
+  },
+  "sessions": [
+    "2020-01-02",
+    "2020-01-03",
+    "2020-01-06",
+    "2020-01-07",
+    "2020-01-08",
+    "2020-01-09",
+    "2020-01-10",
+    "2020-01-13",
+    "2020-01-14",
+    "2020-01-15",
+    "2020-01-16",
+    "2020-01-17",
+    "2020-01-20",
+    "2020-01-21",
+    "2020-01-22",
+    "2020-01-23"
+  ],
+  "reuse": {
+    "2020-01-02": {
+      "path": "data/reports/positive_ev_20260921/admission_review/sse_20200102.json",
+      "sha256": "b0917545272151c6544b12f8723066e4d47bb96f5493956d9dc75323545a88e3"
+    }
+  },
+  "daily_sql_id": "COMMON_SSE_ZQPZ_YSP_QQ_SJTJ_MRTJ_CX",
+  "monthly_sql_id": "COMMON_SSE_ZQPZ_YSP_QQ_SJTJ_YDTJ_CX",
+  "month": "2020-01",
+  "expected_validation": {
+    "daily_date_exact": true,
+    "unique_target_row": true,
+    "integer_nonnegative_counts": true,
+    "total_equals_call_plus_put": true,
+    "monthly_volume_equals_sum_daily": true,
+    "monthly_oi_equals_last_session": "test semantic hypothesis, do not assume"
+  },
+  "request_limits": {
+    "max_new_data_requests": 16,
+    "minimum_interval_seconds": 0.5,
+    "max_response_bytes": 2000000,
+    "connect_timeout": 5,
+    "read_timeout": 20,
+    "retries": 0,
+    "redirects": false,
+    "credentials": false
+  },
+  "stop_conditions": [
+    "Non-200 response",
+    "Response or pagination error",
+    "Date or target identity mismatch",
+    "Missing or non-integer required count",
+    "Total is inconsistent"
+  ],
+  "boundaries": {
+    "original_provider_probe_remains_closed": true,
+    "factor_generation_allowed": false,
+    "etf_return_read_allowed": false,
+    "full_history_download_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
