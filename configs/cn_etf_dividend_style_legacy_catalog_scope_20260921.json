@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_dividend_style_annual_cash_return_v1",
+  "stage": "legacy_title_catalog_reconciliation_only",
+  "basis": "The fixed annual-title query returned2013..2023full reports but no2008..2012annual reports; the same service returns a2007prospectus, so archive existence is not disproved. Inspect exactly one broader metadata catalog for the five missing report years, without changing the research start.",
+  "maximum_new_requests": 1,
+  "allowed_public_hosts": [
+    "query.sse.com.cn"
+  ],
+  "url": "https://query.sse.com.cn/commonQuery.do",
+  "params": {
+    "isPagination": "true",
+    "pageHelp.pageSize": 100,
+    "pageHelp.pageNo": 1,
+    "pageHelp.beginPage": 1,
+    "pageHelp.cacheSize": 1,
+    "pageHelp.endPage": 1,
+    "type": "inParams",
+    "sqlId": "COMMON_PL_JJXX_JJGG_NEW_L",
+    "TITLE": "",
+    "SECURITY_CODE": "510880",
+    "BULLETIN_TYPE": "",
+    "START_DATE": "2009-01-01",
+    "END_DATE": "2013-04-30",
+    "DATE_DESC": 1
+  },
+  "policy": "OneHTTPSGET, TLSverification, no retry/redirect,30seconddeadline,12MiBcap, exclusive claim. Metadata only; if more than100rows, retain truncation blocker instead of paging without new scope.",
+  "original_25request_scope_unchanged": true,
+  "returns_calculated": false,
+  "factor_generated": false,
+  "net_account_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}
