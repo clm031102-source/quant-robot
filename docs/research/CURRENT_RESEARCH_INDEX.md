@@ -21,7 +21,17 @@ quarters remain included. Historical curve availability and original vintages ar
 Ten economic studies are complete, zero strategies qualify and zero real forward days were added.
 General batches, net account for this rejected hypothesis, promotion and2026holdout stay closed.
 
-Latest source review: [export demand](cn_etf_export_demand_source_review_2026-09-22.md).
+Latest source review: [official gold reserve quantities](cn_etf_gold_reserve_source_review_2026-09-22.md).
+Two fixed June pilots report6194 and6795 ten-thousand ounces, distinct from USD/SDR valuation.
+Five retained originals total3297508bytes;44artifact fingerprints,7fixed protocols,4queries,4opens,
+request chains, table header spans and six selected quantity/valuation fields were independently checked.
+Directory pages visibly label the following January7; table pages carry that date in PubDate metadata
+only. Neither authenticates historical first availability. Independent review of three BPM6pages
+supports the stock/flow/reclassification distinction without certifying China's instrument breakdown.
+The source review is archived with no financial admission, signal generation or eleventh study.
+Do not repeat this bounded search or relaunch the closed real-rate or constant-allocation rules.
+
+Preceding source review: [export demand](cn_etf_export_demand_source_review_2026-09-22.md).
 The retained2023Jan-Feb announcement reports CNY export growth+0.9% and USD-6.8%; different
 release amounts imply-7.049752%, so currency, published growth and vintages cannot be substituted.
 Six IMFmethod sections distinguish FOBvaluation, customs clearance, publication lags and revisions.
