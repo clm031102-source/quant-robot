@@ -31,6 +31,15 @@ supports the stock/flow/reclassification distinction without certifying China's 
 The source review is archived with no financial admission, signal generation or eleventh study.
 Do not repeat this bounded search or relaunch the closed real-rate or constant-allocation rules.
 
+The fixed8bcaf59 follow-up used one already identified partial2019PDF and two distinct queries.
+Four originals(601172bytes),35artifact pins,7fixed protocols and4web requests were independently
+checked. The single-page PDF agrees with the June pilot but has no authenticated public carrier date.
+A2015official Q&A supports generally monthly reserve-asset publication by the following month's day7;
+the foreign-currency liquidity template has a separate month-end schedule. Neither is a certified
+date/version sequence or a revision ban. The same Q&A describes multi-year, multi-channel gold
+accumulation. A definite version demonstrably public before a frozen decision can suffice, including
+a verified later carrier; absolute first publication is unnecessary. No financial admission was granted.
+
 Preceding source review: [export demand](cn_etf_export_demand_source_review_2026-09-22.md).
 The retained2023Jan-Feb announcement reports CNY export growth+0.9% and USD-6.8%; different
 release amounts imply-7.049752%, so currency, published growth and vintages cannot be substituted.
