@@ -9,7 +9,14 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest source review: [A/H relative valuation](cn_etf_dual_listing_source_review_2026-09-22.md).
+Latest source review: [oil-price transmission](cn_etf_oil_transmission_source_review_2026-09-22.md).
+Direct monthly-oil-change transfer is suspended: early China evidence is insignificant and later
+G7 work distinguishes shock types. The China trend paper's exact full method remains unavailable.
+EIA monthly spot values are daily-price averages, and daily observation dates are not publication dates.
+Eight retained responses reconcile, with seven accepted originals and one403kept separate.
+No market test was run; nine actual economic studies and zero qualified strategies remain the totals.
+
+Preceding source review: [A/H relative valuation](cn_etf_dual_listing_source_review_2026-09-22.md).
 The primary empirical paper distinguishes issuer-level findings from insignificant aggregate-index terms.
 The direct transfer to mainland broad-ETF timing is therefore unsupported and closed at source review.
 Five originals and six reviewed page renders reconcile; no historical index corpus or market test was run.

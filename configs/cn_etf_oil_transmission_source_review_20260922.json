@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_oil_price_transmission_source_review_v1",
+  "stage": "source_review_suspended_without_market_test",
+  "capital_CNY": 10000,
+  "document": "docs/research/cn_etf_oil_transmission_source_review_2026-09-22.md",
+  "decision": "Suspend the direct aggregate oil-change transfer and the unspecified China trend implementation. The source review provides no new project evidence of positive or negative strategy EV.",
+  "source_pins": {
+    "initial_originals_ledger": {
+      "path": "data/reports/positive_ev_20260921/oil_transmission_review_20260922/method_source_ledger.json",
+      "sha256": "4023e659774605a36bdf4848623c4ee42007e80f7bb75f7fa7e64609f3d3c25a"
+    },
+    "EIA_definition_ledger": {
+      "path": "data/reports/positive_ev_20260921/oil_transmission_review_20260922/eia_definition_ledger.json",
+      "sha256": "6c6c3f6e73bc63f5518e276ff798ed20cfd0fa6919e8f1bce5af4dd1233983a9"
+    },
+    "source_review_verification": {
+      "path": "data/reports/positive_ev_20260921/oil_transmission_review_20260922/source_review_verification.json",
+      "sha256": "55eb0a3b3369feb08463d9cef3c9f4d58609a9f09d8ff7c21c1ff8e50d77c1d8"
+    }
+  },
+  "source_semantics": {
+    "retained_early_paper_version": "October2003 ERIM working paper, not the2008published version",
+    "China_2022_full_method_available": false,
+    "publisher_response": 403,
+    "author_publication_and_institution_pages_reviewed": true,
+    "independent_public_full_method_link_found": false,
+    "EIA_monthly_spot_field": "unweighted mean of daily closing spot observations, not month-end close",
+    "EIA_daily_observation_equals_publication_time": false,
+    "EIA_2013_method_stated_update_day": "Wednesday",
+    "historical_release_and_revision_chain_certified": false,
+    "generic_weekly_release_schedule_certifies_every_historical_spot_update": false
+  },
+  "reopening_requirements": [
+    "Readable primary China-trend methodology or a separately justified original mechanism; no guessed moving-average window claimed as replication.",
+    "Explicit signal price definition, currency, causal filter and input publication times, including historical-version assumptions.",
+    "Investable mainlandETF exposure, complete account costs and risk rules, fixed evaluation contract and independent validation evidence."
+  ],
+  "scope_consumption": {
+    "search_queries": 6,
+    "web_opens": 10,
+    "raw_requests": 8,
+    "HTTP200": 7,
+    "HTTP403": 1,
+    "accepted_PDF_originals": 4,
+    "accepted_HTML_originals": 3,
+    "reviewed_page_renders": 5,
+    "raw_retries": 0,
+    "paid_access_or_external_messages": 0
+  },
+  "exposure": {
+    "published_equity_results_seen": true,
+    "EIA_current_annual_table_1987_2025_seen": true,
+    "current_2026_energy_search_snippets_seen": true,
+    "local_2026_ETF_holdout_read": false,
+    "bulk_daily_or_monthly_oil_history_downloaded": false,
+    "context_completely_blind": false
+  },
+  "new_economic_experiments": 0,
+  "total_economic_experiments": 9,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "factor_batch_allowed": false,
+  "financial_execution_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "next": "Retain the exact missing China-trend method and historical publication dependencies. Stop this bounded oil source search and pursue a distinct candidate with a clear post-publication mechanism and account-cost feasibility; no repeated publisher request or sign/window search."
+}
