@@ -9,11 +9,17 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Current result count: ten return studies and two source-cadence screens in the CNY10000continuation,
+Current result count: ten return studies and three source-cadence screens in the CNY10000continuation,
 zero qualified net-positive-EV strategies and zero new real forward days. Earlier archived studies remain
 separate consumed evidence.
 
-Latest candidate decision: [credit premium cadence](cn_etf_credit_premium_cadence_2026-09-22.md).
+Latest candidate decision: [currency/gold cadence](cn_etf_currency_gold_cadence_2026-09-22.md) passes.
+40full quarters contain20selected quarters and10episodes;16later quarters contain7selected quarters and5new entries.
+All six criteria pass. Separate Fraction/calendar reconciliation checks2434daily states,189pins and7protocols.
+The [one-use gross study](cn_etf_currency_gold_gross_2026-09-22.md) now has exact admission under the unchanged
+proposal. No new candidate returns have yet been calculated; no account or promotion permission is implied.
+
+Preceding candidate decision: [credit premium cadence](cn_etf_credit_premium_cadence_2026-09-22.md).
 The fixed44-quarter screen has18selected quarters and8continuous episodes; the later16quarters have
 5selected quarters and3new episodes. Five later selected quarters miss the preregistered minimum of6.
 Four unknown quarters remain in both denominators. The hypothesis is consumed and closed before any
@@ -36,8 +42,8 @@ from2013Q3to2023Q3now have conditional H.10China quotes under the unchanged14cal
 selected source ages span4..10days. One observed2017markup change was repaired with a regression test;
 the15already-fetched originals were retained and only24unrequested URLscontinued,with zero networkretries.
 20synthetic tests and separate BeautifulSoup/calendar extraction reconcile all cells,endpoints,166pins
-and7frozen protocols. No currency changes,states,ETFoutcomes or new cadence screens computed.
-Next:freeze and admit one exact count screen. Archive revisions and historical release timing stay
+and7frozen protocols. The subsequent count screen has now passed; no new candidate ETFreturns yet computed.
+Next:run the separately frozen one-use gross diagnostic. Archive revisions and historical release timing stay
 conditional;source success is no netEV or promotion evidence.
 
 Preceding source preparation: [same-tenor credit premium](cn_etf_credit_premium_proposal_2026-09-22.md).
