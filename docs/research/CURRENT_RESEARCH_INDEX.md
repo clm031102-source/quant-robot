@@ -25,7 +25,17 @@ execution protocols and the registration/claim/result/closure chain against 30f3
 Static review found no important defect. The 2,672-state recount remains the original retained
 cross-implementation check; the integrator did not rerun it or access ETF outcome inputs.
 
-Latest source review: [dry-bulk freight mechanism](cn_etf_dry_bulk_mechanism_review_2026-09-22.md).
+Latest source review: [retail investor entry](cn_etf_investor_entry_source_review_2026-09-22.md).
+Zero of the two fixedJune2017/June2023monthly pilots have qualified originals and publication dates.
+Three official annual reports establish net eligible-population change rather than gross first-time
+entrants; the2017and2023population descriptions differ. Annual totals and later catalogue dates cannot
+be substituted for the missing monthly input. Five original requests succeed; no financial signal or
+return study is added. This source-stage deferral does not establish negativeEV.
+Independent integration verifies 32 artifact pins, seven protocols and five retained responses
+(2,112,063 bytes). Six selected PDF pages and four retained images support the stated definitions;
+24 transcribed fields and 14 within-report rounding identities reconcile. No new requests or signals ran.
+
+Preceding source review: [dry-bulk freight mechanism](cn_etf_dry_bulk_mechanism_review_2026-09-22.md).
 The bounded review retains four valid originals and one403response. The original predictive paper's
 full method and a qualified free historical series remain unavailable; a separate China wavelet paper
 does not supply an executable, costed ETF rule. Official2018weight changes, the retainedDecember2025
