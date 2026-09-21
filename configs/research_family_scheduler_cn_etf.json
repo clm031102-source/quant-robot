@@ -2044,5 +2044,22 @@
       "later_mean_positive"
     ],
     "next": "Preserve this consumed sovereign10Yminus1Yquarterly hypothesis as rejected. No sign, tenor, median-window, horizon, sample, missing-month or fee/risk rescue. Continue a distinct mechanism with independent validation evidence under the standingCNY10000mandate. General batches, netaccount for this hypothesis, promotion, holdout and live execution stay disabled."
+  },
+  "enterprise_liquidity_cadence_decision": {
+    "status": "authorized_once",
+    "registration_id": "bc036f02155a8c5022d90773dbb5e63e5357117216c6be384facd7f332a9c714",
+    "registration_path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/registration.json",
+    "registration_sha256": "a3f5288c393ac333a455b4848c06aa77b12b4c396c69d0cfa2c1d8d1b97b9b91",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_enterprise_liquidity_cadence_screen",
+    "ledger_path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/attempt_claim.json",
+    "source_cadence_only": true,
+    "returns_allowed": false,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
