@@ -9,6 +9,19 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
+Latest source review: [enterprise working-capital survey](cn_etf_enterprise_liquidity_source_review_2026-09-22.md).
+The published funds-turnover definition agrees across the 2013 Q1/Q2 questionnaire revision:
+good-condition share plus half the normal-condition share. Sample counts differ, and respondent
+composition or weights are not proven constant. Two Q4 pilot indices remain compatible with the
+rounded components; synthetic witnesses do not reconstruct respondents. The 2023 Q4 carrier is
+dated 2024-03-22, so the quarter label or PDF creation date cannot establish an earlier public clock.
+Independent review matched 72 artifact pins, seven protocols, ten raw attempts (seven originals,
+1,108,850 bytes; three retained TLS failures), seven queries and eight web requests. Eleven key pages
+were checked from originals and pinned images. Q1 and Q4 PBC carrier dates are not byte-authenticated
+to the inspected gov.cn PDFs. Query/extension timestamp limits and prior outcome-summary exposure
+remain explicit. No signal, return test or full-history admission is created by this source review.
+Ten economic studies, zero qualifying strategies and zero real forward days remain unchanged.
+
 Latest actual test: [sovereign term slope](cn_etf_term_structure_source_review_2026-09-22.md).
 The fixed quarterly study completed once and closed:44quarters,16selected,6positive,9selected
 episodes; selected gross mean-1.6256%. The2020onward slice has6selected,2positive,4episodes
