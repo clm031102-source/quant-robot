@@ -86,6 +86,13 @@ SHA-256：`c2abf4a552fe7f505befd24319721f4abb0c94614ecf629e6338daee83b0df56`。
 原11份响应的v1台账及哈希保持原样，v2显式链接其指纹。
 原件及衍生文件留在忽略的数据目录，Git只提交方案及轻量审查记录。
 
+集成任务独立复核了固定`597138e`台账中的23份响应、23个范围绑定、四份PCF字段及前一交易日。
+四份基础合同的72处摘录与PDF匹配，支付及结算变更关键页另经视觉核对。
+2024网页摘要将部分原件零值显示为“无”；这仅确认展示映射，未认证各版本额度的执行语义。
+独立证据存于`data/reports/project_progress_20260921/integration/cash_subscription_ledger_review_597138e.json`
+及同目录合同、目录和PCF审查文件。下列2013网页参考不计入这23份直接响应的独立归档认证。
+此次集成没有新增来源请求、读取收益序列或重跑已关闭研究。
+
 - [2015官方招募书](https://static.cninfo.com.cn/finalpage/2015-05-13/1201006732.PDF)
 - [深交所2014技术指南](https://www.szse.cn/www/marketServices/technicalservice/history/P020180328468159911968.pdf)
 - [基金官方身份及公开资料入口](https://www.efunds.com.cn/fund/159001.shtml)
