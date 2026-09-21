@@ -1,0 +1,681 @@
+{
+  "schema_version": 1,
+  "study_id": "cny_depreciation_gold_demand_quarterly_v1",
+  "created_at": "2026-09-21T23:14:31.323323+00:00",
+  "catalog_path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_release_dates.json",
+  "endpoints": [
+    {
+      "id": "20130923",
+      "quarter_end": "2013-09-30",
+      "release_date": "2013-09-23",
+      "url": "https://www.federalreserve.gov/releases/h10/20130923/"
+    },
+    {
+      "id": "20131230",
+      "quarter_end": "2013-12-31",
+      "release_date": "2013-12-30",
+      "url": "https://www.federalreserve.gov/releases/h10/20131230/"
+    },
+    {
+      "id": "20140324",
+      "quarter_end": "2014-03-31",
+      "release_date": "2014-03-24",
+      "url": "https://www.federalreserve.gov/releases/h10/20140324/"
+    },
+    {
+      "id": "20140623",
+      "quarter_end": "2014-06-30",
+      "release_date": "2014-06-23",
+      "url": "https://www.federalreserve.gov/releases/h10/20140623/"
+    },
+    {
+      "id": "20140929",
+      "quarter_end": "2014-09-30",
+      "release_date": "2014-09-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20140929/"
+    },
+    {
+      "id": "20141229",
+      "quarter_end": "2014-12-31",
+      "release_date": "2014-12-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20141229/"
+    },
+    {
+      "id": "20150330",
+      "quarter_end": "2015-03-31",
+      "release_date": "2015-03-30",
+      "url": "https://www.federalreserve.gov/releases/h10/20150330/"
+    },
+    {
+      "id": "20150629",
+      "quarter_end": "2015-06-30",
+      "release_date": "2015-06-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20150629/"
+    },
+    {
+      "id": "20150928",
+      "quarter_end": "2015-09-30",
+      "release_date": "2015-09-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20150928/"
+    },
+    {
+      "id": "20151228",
+      "quarter_end": "2015-12-31",
+      "release_date": "2015-12-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20151228/"
+    },
+    {
+      "id": "20160328",
+      "quarter_end": "2016-03-31",
+      "release_date": "2016-03-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20160328/"
+    },
+    {
+      "id": "20160627",
+      "quarter_end": "2016-06-30",
+      "release_date": "2016-06-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20160627/"
+    },
+    {
+      "id": "20160926",
+      "quarter_end": "2016-09-30",
+      "release_date": "2016-09-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20160926/"
+    },
+    {
+      "id": "20161227",
+      "quarter_end": "2016-12-31",
+      "release_date": "2016-12-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20161227/"
+    },
+    {
+      "id": "20170327",
+      "quarter_end": "2017-03-31",
+      "release_date": "2017-03-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20170327/"
+    },
+    {
+      "id": "20170626",
+      "quarter_end": "2017-06-30",
+      "release_date": "2017-06-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20170626/"
+    },
+    {
+      "id": "20170925",
+      "quarter_end": "2017-09-30",
+      "release_date": "2017-09-25",
+      "url": "https://www.federalreserve.gov/releases/h10/20170925/"
+    },
+    {
+      "id": "20171226",
+      "quarter_end": "2017-12-31",
+      "release_date": "2017-12-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20171226/"
+    },
+    {
+      "id": "20180326",
+      "quarter_end": "2018-03-31",
+      "release_date": "2018-03-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20180326/"
+    },
+    {
+      "id": "20180625",
+      "quarter_end": "2018-06-30",
+      "release_date": "2018-06-25",
+      "url": "https://www.federalreserve.gov/releases/h10/20180625/"
+    },
+    {
+      "id": "20180924",
+      "quarter_end": "2018-09-30",
+      "release_date": "2018-09-24",
+      "url": "https://www.federalreserve.gov/releases/h10/20180924/"
+    },
+    {
+      "id": "20181226",
+      "quarter_end": "2018-12-31",
+      "release_date": "2018-12-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20181226/"
+    },
+    {
+      "id": "20190325",
+      "quarter_end": "2019-03-31",
+      "release_date": "2019-03-25",
+      "url": "https://www.federalreserve.gov/releases/h10/20190325/"
+    },
+    {
+      "id": "20190624",
+      "quarter_end": "2019-06-30",
+      "release_date": "2019-06-24",
+      "url": "https://www.federalreserve.gov/releases/h10/20190624/"
+    },
+    {
+      "id": "20190923",
+      "quarter_end": "2019-09-30",
+      "release_date": "2019-09-23",
+      "url": "https://www.federalreserve.gov/releases/h10/20190923/"
+    },
+    {
+      "id": "20191230",
+      "quarter_end": "2019-12-31",
+      "release_date": "2019-12-30",
+      "url": "https://www.federalreserve.gov/releases/h10/20191230/"
+    },
+    {
+      "id": "20200330",
+      "quarter_end": "2020-03-31",
+      "release_date": "2020-03-30",
+      "url": "https://www.federalreserve.gov/releases/h10/20200330/"
+    },
+    {
+      "id": "20200629",
+      "quarter_end": "2020-06-30",
+      "release_date": "2020-06-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20200629/"
+    },
+    {
+      "id": "20200928",
+      "quarter_end": "2020-09-30",
+      "release_date": "2020-09-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20200928/"
+    },
+    {
+      "id": "20201228",
+      "quarter_end": "2020-12-31",
+      "release_date": "2020-12-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20201228/"
+    },
+    {
+      "id": "20210329",
+      "quarter_end": "2021-03-31",
+      "release_date": "2021-03-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20210329/"
+    },
+    {
+      "id": "20210628",
+      "quarter_end": "2021-06-30",
+      "release_date": "2021-06-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20210628/"
+    },
+    {
+      "id": "20210927",
+      "quarter_end": "2021-09-30",
+      "release_date": "2021-09-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20210927/"
+    },
+    {
+      "id": "20211227",
+      "quarter_end": "2021-12-31",
+      "release_date": "2021-12-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20211227/"
+    },
+    {
+      "id": "20220328",
+      "quarter_end": "2022-03-31",
+      "release_date": "2022-03-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20220328/"
+    },
+    {
+      "id": "20220627",
+      "quarter_end": "2022-06-30",
+      "release_date": "2022-06-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20220627/"
+    },
+    {
+      "id": "20220926",
+      "quarter_end": "2022-09-30",
+      "release_date": "2022-09-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20220926/"
+    },
+    {
+      "id": "20221227",
+      "quarter_end": "2022-12-31",
+      "release_date": "2022-12-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20221227/"
+    },
+    {
+      "id": "20230327",
+      "quarter_end": "2023-03-31",
+      "release_date": "2023-03-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20230327/"
+    },
+    {
+      "id": "20230626",
+      "quarter_end": "2023-06-30",
+      "release_date": "2023-06-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20230626/"
+    },
+    {
+      "id": "20230925",
+      "quarter_end": "2023-09-30",
+      "release_date": "2023-09-25",
+      "url": "https://www.federalreserve.gov/releases/h10/20230925/"
+    }
+  ],
+  "reused": {
+    "20131230": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20131230_canonical.html",
+      "sha256": "694630520434ce6155e722d9d04565284a765b35f1a25fe62e470e1b5602be1a"
+    },
+    "20230925": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20230925_canonical.html",
+      "sha256": "cd7b58e2bd9ac7441b87248f82018d7bd0d286f153e1cd6b7fb18112e58e97e3"
+    }
+  },
+  "requests": [
+    {
+      "id": "20130923",
+      "quarter_end": "2013-09-30",
+      "release_date": "2013-09-23",
+      "url": "https://www.federalreserve.gov/releases/h10/20130923/"
+    },
+    {
+      "id": "20140324",
+      "quarter_end": "2014-03-31",
+      "release_date": "2014-03-24",
+      "url": "https://www.federalreserve.gov/releases/h10/20140324/"
+    },
+    {
+      "id": "20140623",
+      "quarter_end": "2014-06-30",
+      "release_date": "2014-06-23",
+      "url": "https://www.federalreserve.gov/releases/h10/20140623/"
+    },
+    {
+      "id": "20140929",
+      "quarter_end": "2014-09-30",
+      "release_date": "2014-09-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20140929/"
+    },
+    {
+      "id": "20141229",
+      "quarter_end": "2014-12-31",
+      "release_date": "2014-12-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20141229/"
+    },
+    {
+      "id": "20150330",
+      "quarter_end": "2015-03-31",
+      "release_date": "2015-03-30",
+      "url": "https://www.federalreserve.gov/releases/h10/20150330/"
+    },
+    {
+      "id": "20150629",
+      "quarter_end": "2015-06-30",
+      "release_date": "2015-06-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20150629/"
+    },
+    {
+      "id": "20150928",
+      "quarter_end": "2015-09-30",
+      "release_date": "2015-09-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20150928/"
+    },
+    {
+      "id": "20151228",
+      "quarter_end": "2015-12-31",
+      "release_date": "2015-12-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20151228/"
+    },
+    {
+      "id": "20160328",
+      "quarter_end": "2016-03-31",
+      "release_date": "2016-03-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20160328/"
+    },
+    {
+      "id": "20160627",
+      "quarter_end": "2016-06-30",
+      "release_date": "2016-06-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20160627/"
+    },
+    {
+      "id": "20160926",
+      "quarter_end": "2016-09-30",
+      "release_date": "2016-09-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20160926/"
+    },
+    {
+      "id": "20161227",
+      "quarter_end": "2016-12-31",
+      "release_date": "2016-12-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20161227/"
+    },
+    {
+      "id": "20170327",
+      "quarter_end": "2017-03-31",
+      "release_date": "2017-03-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20170327/"
+    },
+    {
+      "id": "20170626",
+      "quarter_end": "2017-06-30",
+      "release_date": "2017-06-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20170626/"
+    },
+    {
+      "id": "20170925",
+      "quarter_end": "2017-09-30",
+      "release_date": "2017-09-25",
+      "url": "https://www.federalreserve.gov/releases/h10/20170925/"
+    },
+    {
+      "id": "20171226",
+      "quarter_end": "2017-12-31",
+      "release_date": "2017-12-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20171226/"
+    },
+    {
+      "id": "20180326",
+      "quarter_end": "2018-03-31",
+      "release_date": "2018-03-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20180326/"
+    },
+    {
+      "id": "20180625",
+      "quarter_end": "2018-06-30",
+      "release_date": "2018-06-25",
+      "url": "https://www.federalreserve.gov/releases/h10/20180625/"
+    },
+    {
+      "id": "20180924",
+      "quarter_end": "2018-09-30",
+      "release_date": "2018-09-24",
+      "url": "https://www.federalreserve.gov/releases/h10/20180924/"
+    },
+    {
+      "id": "20181226",
+      "quarter_end": "2018-12-31",
+      "release_date": "2018-12-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20181226/"
+    },
+    {
+      "id": "20190325",
+      "quarter_end": "2019-03-31",
+      "release_date": "2019-03-25",
+      "url": "https://www.federalreserve.gov/releases/h10/20190325/"
+    },
+    {
+      "id": "20190624",
+      "quarter_end": "2019-06-30",
+      "release_date": "2019-06-24",
+      "url": "https://www.federalreserve.gov/releases/h10/20190624/"
+    },
+    {
+      "id": "20190923",
+      "quarter_end": "2019-09-30",
+      "release_date": "2019-09-23",
+      "url": "https://www.federalreserve.gov/releases/h10/20190923/"
+    },
+    {
+      "id": "20191230",
+      "quarter_end": "2019-12-31",
+      "release_date": "2019-12-30",
+      "url": "https://www.federalreserve.gov/releases/h10/20191230/"
+    },
+    {
+      "id": "20200330",
+      "quarter_end": "2020-03-31",
+      "release_date": "2020-03-30",
+      "url": "https://www.federalreserve.gov/releases/h10/20200330/"
+    },
+    {
+      "id": "20200629",
+      "quarter_end": "2020-06-30",
+      "release_date": "2020-06-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20200629/"
+    },
+    {
+      "id": "20200928",
+      "quarter_end": "2020-09-30",
+      "release_date": "2020-09-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20200928/"
+    },
+    {
+      "id": "20201228",
+      "quarter_end": "2020-12-31",
+      "release_date": "2020-12-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20201228/"
+    },
+    {
+      "id": "20210329",
+      "quarter_end": "2021-03-31",
+      "release_date": "2021-03-29",
+      "url": "https://www.federalreserve.gov/releases/h10/20210329/"
+    },
+    {
+      "id": "20210628",
+      "quarter_end": "2021-06-30",
+      "release_date": "2021-06-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20210628/"
+    },
+    {
+      "id": "20210927",
+      "quarter_end": "2021-09-30",
+      "release_date": "2021-09-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20210927/"
+    },
+    {
+      "id": "20211227",
+      "quarter_end": "2021-12-31",
+      "release_date": "2021-12-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20211227/"
+    },
+    {
+      "id": "20220328",
+      "quarter_end": "2022-03-31",
+      "release_date": "2022-03-28",
+      "url": "https://www.federalreserve.gov/releases/h10/20220328/"
+    },
+    {
+      "id": "20220627",
+      "quarter_end": "2022-06-30",
+      "release_date": "2022-06-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20220627/"
+    },
+    {
+      "id": "20220926",
+      "quarter_end": "2022-09-30",
+      "release_date": "2022-09-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20220926/"
+    },
+    {
+      "id": "20221227",
+      "quarter_end": "2022-12-31",
+      "release_date": "2022-12-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20221227/"
+    },
+    {
+      "id": "20230327",
+      "quarter_end": "2023-03-31",
+      "release_date": "2023-03-27",
+      "url": "https://www.federalreserve.gov/releases/h10/20230327/"
+    },
+    {
+      "id": "20230626",
+      "quarter_end": "2023-06-30",
+      "release_date": "2023-06-26",
+      "url": "https://www.federalreserve.gov/releases/h10/20230626/"
+    }
+  ],
+  "max_requests": 39,
+  "max_bytes_per_response": 3000000,
+  "retries": 0,
+  "redirects": false,
+  "TLS_validation": true,
+  "canonical_URL_policy": "Catalogue-linked URLs originally301to same-host slash form; bothpilotredirectsretained. Use that observed canonical directoryform foreachnewlistedrelease,noautomaticredirects.",
+  "pins": [
+    {
+      "path": "configs/cn_etf_currency_gold_proposal_20260922.json",
+      "sha256": "e6160c95bfbeba77f1153a2be02fc6965d39f23e84c4797b8d7e6f469a631b76"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/alfred_series_notes.html",
+      "sha256": "8b43401cbad2a9d5134a712126c4dbd32156a23f56efcac90d7f008320305388"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_announcements.html",
+      "sha256": "3cd29d65286e8c130cead5fe5dba38d25bc78cf24ae52972355cf8808df110a0"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_country_method.html",
+      "sha256": "c6a19714d088b05bf8ee1f4d8052feba1cf9703195602cdd1c2bb2e7d19e312c"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_release_index.html",
+      "sha256": "df4f670924978a16f0b2d3a2c63afc6bc3341b56235632506571200e3840c8e5"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fred_series_notes.html",
+      "sha256": "7a215163c32d7405f8559566d1dfc3a964f0313974152c046767f73aa119e87a"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/gold_demand_background.html",
+      "sha256": "9da80fcf588b6ba1e7dda129d49f8c5beec9fb594aebd7103325009334c09db5"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20131230.html",
+      "sha256": "71c11e2dd1168252e82f5eea0ad2162c2f8b2b392875f0273ab190a036c7bf64"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20131230_canonical.html",
+      "sha256": "694630520434ce6155e722d9d04565284a765b35f1a25fe62e470e1b5602be1a"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20230925.html",
+      "sha256": "0e5a3ae162b4ca87db3c922845f7529edfd7d665b971c0f3be057faaa9248b4d"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20230925_canonical.html",
+      "sha256": "cd7b58e2bd9ac7441b87248f82018d7bd0d286f153e1cd6b7fb18112e58e97e3"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/alfred_series_notes.receipt.json",
+      "sha256": "398d190302bcf2f098265321ce859eb30a9844d1e623f26ca807d208f944afca"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_announcements.receipt.json",
+      "sha256": "da7830e3b98e0101da4bbae53cf981ceecb62868c235a7d7a9ba3132f5550354"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_country_method.receipt.json",
+      "sha256": "58599bdb2eead29bbbb06505cc90688782c4f77f12da94a154078dc9c8f7ac15"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_release_dates.receipt.json",
+      "sha256": "871c5561d978396ba6839b1ca65a7b3f4c9524b282c786a8fd6ec8f84db1a176"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_release_index.receipt.json",
+      "sha256": "6e9f8082923fb5a86e8827a4e5ddbe3551f01bd2d4f0eae55172bf9586bc54fe"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fred_series_notes.receipt.json",
+      "sha256": "98e38cdbc384a4907e9145b029382d44540a29ca9dd4909314b3ca11725a3d11"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/gold_demand_background.receipt.json",
+      "sha256": "f0285e9b2bd6bc01ae5085f2be743a096b9b063ebc858b227d95dbd46a276247"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20131230.receipt.json",
+      "sha256": "1809d7b1ca8d68bd39ca524d1941e35ce0a59a9ad5e1f355027990d0bd303a01"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20131230_canonical.receipt.json",
+      "sha256": "f867ea8d351745bba0e8729ba762ab5d9c82d8e29de21e11bb97cf06eef7662f"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20230925.receipt.json",
+      "sha256": "15417e4bc623998d6ca433fe67b8b72547c7a95b57d52ba718453356e0dd1903"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20230925_canonical.receipt.json",
+      "sha256": "379fca7846b35b374eede149e68e1f175451af7a9bdd4d86757da998393755bb"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/alfred_series_notes.claim.json",
+      "sha256": "17bcce98e2c963fe050b01652359a542ea6baad815640bc6e7820cfcf6b24156"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_announcements.claim.json",
+      "sha256": "65161f03c372cf88649e5d117c8871591e8885dbc5e4b087e58633986ddd9af9"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_country_method.claim.json",
+      "sha256": "5f9027ca64075656df3e52eadb39fdc9cf0201bf550214f6b63f94d12341f338"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_release_dates.claim.json",
+      "sha256": "ba7aca78eaeae325acd3d5acb33a507fc21f3ce353029e022d3117d346fd85f4"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_release_index.claim.json",
+      "sha256": "f625ccda9b607b4db86227cf987ddd2186a29624c5daefe536d1b5f9e6386a4e"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fred_series_notes.claim.json",
+      "sha256": "0803c004772532a25707a223f4d059f456bfffd01edb428cae3183083b07c81f"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/gold_demand_background.claim.json",
+      "sha256": "7dcb8511a08667978692eb2b2f3516b26eff516c8af8e55192e5e5be26fdf129"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20131230.claim.json",
+      "sha256": "80da41fdb61a509739438c319b1d4504bb2c375655735b07c955756821d3d241"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20131230_canonical.claim.json",
+      "sha256": "165b906010f7c24ff8e189e0339c24a65d72d72f95381a5a375b78dedfdc9f65"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20230925.claim.json",
+      "sha256": "8d52debe0544851f4f1b06191df1856d802bfb877528adccad384fa313dbea3d"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_20230925_canonical.claim.json",
+      "sha256": "a37bf62f8b7577e2936a93101990379e50dd536af80023fa0a88c00a197b3e77"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/scope.json",
+      "sha256": "bf47b38ac1b6b60d6f7d623fb920c415dee72198337c44aa7f8f8c1cad7d02ac"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_parsed.json",
+      "sha256": "b28d78ce99722a749c048722ffd11de53b5556af9e9df1eca7ca6188f8172b95"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/pilot_parser_format_repair.json",
+      "sha256": "8bd1191372cea78546b2a7ec26f895e79f1b9f1517413d79d70943127e05cfff"
+    },
+    {
+      "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/fed_release_dates.json",
+      "sha256": "e8d4c7efafe10b8378c1a843ef36913d8fc4f5d15f686ca7105c2c28ba9d830b"
+    },
+    {
+      "path": "src/quant_robot/data/sources/h10_currency_history.py",
+      "sha256": "2dd28aa58cc8320852b9846833de7c354daca5a1dea76e72693af46b75aa9d41"
+    },
+    {
+      "path": "scripts/collect_cn_etf_currency_gold_history.py",
+      "sha256": "0b8ffbc3f25bfda99535f9a864fdb4fe0d8aebfabca86a5c199574253e06f8b5"
+    },
+    {
+      "path": "scripts/collect_cn_etf_term_structure_history.py",
+      "sha256": "a18b2e740387868eea8d1a6f3bf6ee0a6742b9d1f78bcf25488fd3bc8deac5fe"
+    },
+    {
+      "path": "scripts/bootstrap.py",
+      "sha256": "39a14c82d67266884ff6506b41bd3d6c435a1627e82f4ee930601d5504d0da29"
+    }
+  ],
+  "gate_path": "data/reports/positive_ev_20260922/currency_gold_mechanism/preparation_pm_gate/quant_pm_startup_gate_pack.json",
+  "source_phase_only": true,
+  "currency_changes_calculated": false,
+  "signals_generated": false,
+  "signal_generation_allowed": false,
+  "financial_execution_allowed": false,
+  "ETF_outcomes_read": false,
+  "historical_vintage_certified": false,
+  "historical_release_time_certified": false
+}
