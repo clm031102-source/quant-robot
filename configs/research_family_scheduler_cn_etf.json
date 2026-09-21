@@ -1606,5 +1606,21 @@
     "sign_flip_rescue_allowed": false,
     "threshold_or_window_rescue_allowed": false,
     "next": "Preserve this fixed closed study and reusable original source corpus. Review a different economic mechanism with enough genuinely separate observations before new admission; no fee-case tuning, account or paper promotion here."
+  },
+  "us_variance_risk_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "deeac185ffe5c2943ef7bb5a1344a2fa335e1c5185c4ec67e4d41e9d3afbf532",
+    "registration_path": "data/reports/positive_ev_20260921/us_variance_risk_diagnostic/registration.json",
+    "registration_sha256": "517d2d192e8cbbb7b9b1b629f4d0292887f20ecbdd6f2ee06d7889952fb2d65c",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_us_variance_risk_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/us_variance_risk_diagnostic/attempt_claim.json",
+    "conditional_gross_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
