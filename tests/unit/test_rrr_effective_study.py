@@ -82,11 +82,13 @@ class RRREffectiveStudyTests(unittest.TestCase):
             study.preflight(self.root, self.family, lambda: gate)
 
     def test_event_ledger_cannot_be_swapped_through_new_registration(self):
-        self.packet['inputs']['event_ledger']['sha256']='0'*64
+        replacement=b'{"replacement":true}'
+        (self.root/self.inputs['event_ledger']['path']).write_bytes(replacement)
+        self.packet['inputs']['event_ledger']['sha256']=sha256(replacement)
         raw=canonical(study.build_registration(**{k:self.packet[k] for k in ('inputs','code_files','branch','environment')}))
         (self.root/study.REGISTRATION).write_bytes(raw)
         self.family[study.DECISION]=study.admission(json.loads(raw),raw)
-        with self.assertRaisesRegex(ValueError,'Pinned file changed'):
+        with self.assertRaisesRegex(ValueError,'Source identities differ from frozen proposal'):
             study.execute(self.root,self.family,self.gate)
         self.assertFalse((self.root/study.DIRECTORY/'attempt_claim.json').exists())
 
