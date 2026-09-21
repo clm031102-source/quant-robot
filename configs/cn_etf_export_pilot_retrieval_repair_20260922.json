@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "stage": "bounded_source_pilot_retrieval_repair_only",
+  "proposal_path": "configs/cn_etf_export_acceleration_proposal_20260922.json",
+  "proposal_sha256": "6f11a83368849eca729d12fb8b862d0708ca0a23a5cdd1a421bf9e4d261e59a6",
+  "reason": "Both attempted public Chinese originals failed with SSLEOF through the inherited environment-proxy path. Two certificate-verified direct TLS handshakes then succeeded without HTTP. The four-query merged search also did not locate2013Q1, while the opened2023NDRC overview lacks explicit GACC attribution. Finish only the same four source-format pilot slots using this new transport evidence and two precise missing-period lookups; do not change economic rules or replace quarters.",
+  "transport_evidence": {
+    "path": "data/reports/positive_ev_20260921/export_acceleration_pilot_20260922/tls_diagnostic.json",
+    "sha256": "b42e3e15c46b6fe429d9629183677511cb3ba6093342bd5443cc1b204e906178"
+  },
+  "prior_attempts_retained": true,
+  "prior_queries_retained": true,
+  "initial_budget_record_preserved": true,
+  "same_reference_periods": ["2012Q1", "2013Q1", "2022Q2", "2023Q2"],
+  "additional_search_queries": [
+    "2013 一季度 海关 出口 美元 2013-04",
+    "2023 上半年 按美元计价 海关统计 出口"
+  ],
+  "cumulative_search_query_cap": 6,
+  "cumulative_web_open_cap": 6,
+  "cumulative_raw_attempt_cap": 6,
+  "remaining_raw_attempts": 4,
+  "new_raw_transport": "Per-request temporary requests.Session with trust_env=False and TLS certificate verification enabled; no global proxy or security changes.",
+  "explicit_transport_retries": [
+    "https://saintdenis.china-consulate.gov.cn/chn/zlgxw/201204/t20120417_4186802.htm",
+    "https://data.mofcom.gov.cn/article/zxtj/202208/58450.html"
+  ],
+  "other_new_raw_requests": "At most one discovered official source each for2013Q1and2023Q2. Preserve missing or unqualified slots at the cap; no further pilot retries or substitute periods.",
+  "automatic_retries": 0,
+  "automatic_redirects": false,
+  "max_bytes_each": 5000000,
+  "formula_sign_currency_lag_horizon_sample_and_screen_changed": false,
+  "source_value_comparison_or_signal_allowed": false,
+  "full_history_collection_allowed": false,
+  "financial_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false
+}

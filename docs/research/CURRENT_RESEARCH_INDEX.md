@@ -28,9 +28,19 @@ Six IMFmethod sections distinguish FOBvaluation, customs clearance, publication 
 Eight retained attempts include six originals(138841bytes) and twoTLSfailures; government releases
 are retained web text, not local originalHTML. Fifteen support pins, seven protocols, eight release
 fields and three nonmarket cost cashflow identities were independently checked. Historical versions
-and first publication times remain uncertified. No trading hypothesis or financial test is registered.
+and first publication times remain uncertified. This source-definition stage did not register a financial test.
 The no-distribution ideal roundtrip price hurdle under the existing main fee scenario is1.207237%;
 it does not set an annualized, whole-account, or dividend-inclusive trading requirement.
+
+Current proposal: [announced USD export growth improvement](cn_etf_export_acceleration_proposal_2026-09-22.md).
+The rule was fixed before its four-period pilot: compare each quarter's directly announced cumulative
+USD growth with the prior year's same-quarter release; update only after quarter end plus 45 calendar days.
+Independent review of four original HTML files, six raw attempts, eight support pins and seven
+protocols confirms two conditional sources and two unknowns. Retained query-result strings cannot
+fully certify exact search-call counts or pre-search amendment timing. The bounded 46-quarter history manifest
+freezes those four slots and allows source collection for the remaining 42, with no signals or financial
+execution. Exact same-date Decimal conflicts remain unknown; later carried-in episodes cannot count
+toward the three new later-slice starts. Reused ETF history remains exposed. No eleventh test has run.
 
 Preceding source review: [IPO activity](cn_etf_ipo_activity_source_review_2026-09-22.md).
 The old subscription-prefunding channel changed in2016. FRBSF appendix regressions explain IPO

@@ -1,0 +1,383 @@
+{
+  "schema_version": 1,
+  "stage": "fixed_history_source_collection_only",
+  "study_id": "announced_USD_export_growth_acceleration_quarterly_v1",
+  "proposal": {
+    "path": "configs/cn_etf_export_acceleration_proposal_20260922.json",
+    "sha256": "6f11a83368849eca729d12fb8b862d0708ca0a23a5cdd1a421bf9e4d261e59a6",
+    "commit": "abef4f0bec17a6b544cb0afac53bd0e5753b8c83"
+  },
+  "pilot_proof": {
+    "path": "data/reports/positive_ev_20260921/export_acceleration_pilot_20260922/pilot_verification.json",
+    "sha256": "fa8c186131c41c0ea62f258afb7a174d8c9e944462754b9de32bf80c275c8ece"
+  },
+  "pilot_result": {
+    "status": "pilot_complete_with_two_unknown_slots",
+    "eligible_slots": 2,
+    "unknown_slots": 2,
+    "counts": {
+      "search_queries": 6,
+      "web_opens": 3,
+      "raw_attempts": 6,
+      "raw_HTTP200": 4,
+      "raw_TLS_failures": 2,
+      "explicit_changed_transport_retries": 2,
+      "automatic_retries": 0,
+      "TLS_only_diagnostic_handshakes": 2
+    },
+    "retained_raw_bytes": 64449
+  },
+  "admission_reason": "The fixed pilot demonstrates one early and one late qualifying original format. Two ambiguous slots remain unknown. The proposal did not require all four pilot slots to qualify; missing values were explicitly permitted. Finish the remaining42reference quarters under a bounded manifest without changing currency, timing, economic hypothesis or financial screen.",
+  "existing_pilot_slots_are_final_for_this_study": true,
+  "no_additional_search_or_replacement_for_pilot_slots": true,
+  "reference_slots": [
+    {
+      "reference_quarter": "2012Q1",
+      "mode": "reuse_frozen_pilot",
+      "observation": {
+        "reference_quarter": "2012Q1",
+        "file": "direct_2012q1.html",
+        "sha256": "7f2ba898e8599d0c870c6791921ba57e89ee31c24a102b4b90fc1f6271b840d0",
+        "cutoff_date": "2012-05-15",
+        "selected_growth_percent": "7.6",
+        "carrier_date": "2012-04-10",
+        "growth_as_printed": "7.6",
+        "status": "conditional_source_eligible",
+        "date_note": "Visible page date2012/04/10; URL contains20120417; preserve both and do not interpret URL as a publication clock."
+      }
+    },
+    {
+      "reference_quarter": "2012Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2012年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2012年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2012Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2012年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2012年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2012Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2012年 全年 海关 出口 美元 同比",
+      "fallback_query": "2012年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2013Q1",
+      "mode": "reuse_frozen_pilot",
+      "observation": {
+        "reference_quarter": "2013Q1",
+        "file": "direct_2013q1.html",
+        "sha256": "8bc13199a084dd076da9865c13b3059d7f114e7f7522518aa3806d40f142e11a",
+        "cutoff_date": "2013-05-15",
+        "selected_growth_percent": null,
+        "carrier_date": "2013-04-19",
+        "growth_as_printed": "18.4",
+        "status": "unknown_currency_basis",
+        "reason": "RMB amount plus parenthetical USD equivalent and exchange-factor-removed growth; no primary definition yet certifies this phrase as the frozen nominalUSDgrowth field. Do not derive from amounts or silently reinterpret as real growth."
+      }
+    },
+    {
+      "reference_quarter": "2013Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2013年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2013年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2013Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2013年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2013年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2013Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2013年 全年 海关 出口 美元 同比",
+      "fallback_query": "2013年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2014Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2014年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2014年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2014Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2014年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2014年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2014Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2014年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2014年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2014Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2014年 全年 海关 出口 美元 同比",
+      "fallback_query": "2014年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2015Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2015年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2015年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2015Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2015年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2015年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2015Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2015年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2015年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2015Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2015年 全年 海关 出口 美元 同比",
+      "fallback_query": "2015年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2016Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2016年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2016年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2016Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2016年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2016年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2016Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2016年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2016年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2016Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2016年 全年 海关 出口 美元 同比",
+      "fallback_query": "2016年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2017Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2017年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2017年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2017Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2017年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2017年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2017Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2017年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2017年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2017Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2017年 全年 海关 出口 美元 同比",
+      "fallback_query": "2017年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2018Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2018年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2018年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2018Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2018年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2018年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2018Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2018年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2018年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2018Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2018年 全年 海关 出口 美元 同比",
+      "fallback_query": "2018年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2019Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2019年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2019年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2019Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2019年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2019年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2019Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2019年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2019年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2019Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2019年 全年 海关 出口 美元 同比",
+      "fallback_query": "2019年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2020Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2020年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2020年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2020Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2020年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2020年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2020Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2020年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2020年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2020Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2020年 全年 海关 出口 美元 同比",
+      "fallback_query": "2020年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2021Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2021年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2021年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2021Q2",
+      "mode": "bounded_source_collection",
+      "initial_query": "2021年 上半年 海关 出口 美元 同比",
+      "fallback_query": "2021年 上半年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2021Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2021年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2021年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2021Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2021年 全年 海关 出口 美元 同比",
+      "fallback_query": "2021年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2022Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2022年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2022年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2022Q2",
+      "mode": "reuse_frozen_pilot",
+      "observation": {
+        "reference_quarter": "2022Q2",
+        "file": "direct_2022q2.html",
+        "sha256": "49d6b29547173732f53cfbb14add9f45ff2ee7c5c4852cbd47259d6869b5e993",
+        "cutoff_date": "2022-08-14",
+        "selected_growth_percent": "14.2",
+        "carrier_date": "2022-08-11",
+        "growth_as_printed": "14.2",
+        "status": "conditional_source_eligible",
+        "date_note": "Publisher HTML literal var publishTime supplies displayed date; extracted without executing script. Image filename or URL month not used as date."
+      }
+    },
+    {
+      "reference_quarter": "2022Q3",
+      "mode": "bounded_source_collection",
+      "initial_query": "2022年 前三季度 海关 出口 美元 同比",
+      "fallback_query": "2022年 前三季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2022Q4",
+      "mode": "bounded_source_collection",
+      "initial_query": "2022年 全年 海关 出口 美元 同比",
+      "fallback_query": "2022年 全年 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2023Q1",
+      "mode": "bounded_source_collection",
+      "initial_query": "2023年 一季度 海关 出口 美元 同比",
+      "fallback_query": "2023年 一季度 海关统计 按美元计价 出口 增长"
+    },
+    {
+      "reference_quarter": "2023Q2",
+      "mode": "reuse_frozen_pilot",
+      "observation": {
+        "reference_quarter": "2023Q2",
+        "file": "direct_2023q2.html",
+        "sha256": "c327d5e6cf16d47be72393f53b9544ee23bf0ff09e5ce70f9e915b5fa5ce7d36",
+        "cutoff_date": "2023-08-14",
+        "selected_growth_percent": null,
+        "carrier_date": "2023-07-28",
+        "growth_as_printed": "-3.2",
+        "status": "unknown_GACC_attribution",
+        "reason": "NDRC public overview contains value and date but no explicit GACC attribution required by the proposal; no raw-source substitution or inferred attribution."
+      }
+    }
+  ],
+  "budget": {
+    "new_reference_slots": 42,
+    "initial_queries_per_new_slot": 1,
+    "fallback_queries_per_new_slot": 1,
+    "max_total_search_queries": 84,
+    "max_raw_requests_per_new_slot": 2,
+    "max_total_raw_requests": 84,
+    "max_web_opens": 42,
+    "max_bytes_per_response": 5000000,
+    "automatic_retries": 0,
+    "automatic_redirects": false
+  },
+  "search_domains": [
+    "gov.cn",
+    "customs.gov.cn",
+    "mofcom.gov.cn",
+    "scio.gov.cn"
+  ],
+  "search_procedure": "Run the fixed initial query for every new slot and retain all results. Within returned official results, take up to two candidate releases that explicitly concern the target national cumulative period, ordered by apparent carrier date then URL; dates outside the cutoff do not qualify. A fixed fallback query is allowed only when no eligible original has been established, and consumes the same two-original cap. Do not query reported numbers, ETF returns or alternative periods. Each network claim precedes its request. No redirects or same-URL retries; preserve failures.",
+  "transport": "Temporary requests.Session trust_env=False, TLS certificate verification enabled, based on retained successful pilot transport; no machine-wide proxy or security changes.",
+  "selection": "Use the earliest qualifying carrier in this bounded retained manifest, not a claim of globally earliest publication. If same-date earliest qualified originals disagree, the slot is unknown. Later versions remain retained and cannot replace the earliest value. Search snippets alone never supply a value. A retained full web rendering may be used only if clearly labelled as not original bytes; raw originals are preferred.",
+  "exact_conflict_rule": "Parse the printed percentage as Decimal, treating trailing zeros, leading plus, ordinary/fullwidth percent punctuation and explicit increase/decrease sign words as formatting only. Any unequal normalized Decimal values among the earliest same-date qualified sources, or an internal conflict in a carrier, make the slot unknown. No numerical tolerance or rounding-based reconciliation.",
+  "late_episode_rule": "Report all later-slice overlapping selected episodes, carried-in episodes and new starts separately. An episode already selected before2020Q1is carried-in and does not count toward the predeclared minimum3later episodes; at least3new starts within the later slice are required. This conservative clarification is fixed before signal construction.",
+  "missing_policy": "Retain all46reference slots, including the two frozen pilot unknowns and any collection failures. No interpolation, CNY/month-only substitution, amount-derived growth, period replacement or cutoff extension.",
+  "historical_vintage": "Current historical carrier labels remain conditional reconstructed evidence; neither source hashes nor retrieval success certify immutable first publication.",
+  "total_economic_experiments": 10,
+  "qualified_strategies": 0,
+  "authorization": {
+    "fixed_history_source_collection_allowed": true,
+    "signal_generation_allowed": false,
+    "financial_execution_allowed": false,
+    "general_factor_batch_allowed": false,
+    "paper_promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
