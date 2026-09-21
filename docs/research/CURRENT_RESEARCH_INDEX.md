@@ -25,7 +25,17 @@ execution protocols and the registration/claim/result/closure chain against 30f3
 Static review found no important defect. The 2,672-state recount remains the original retained
 cross-implementation check; the integrator did not rerun it or access ETF outcome inputs.
 
-Latest source review: [enterprise working-capital history](cn_etf_enterprise_liquidity_history_2026-09-22.md).
+Latest source review: [dry-bulk freight mechanism](cn_etf_dry_bulk_mechanism_review_2026-09-22.md).
+The bounded review retains four valid originals and one403response. The original predictive paper's
+full method and a qualified free historical series remain unavailable; a separate China wavelet paper
+does not supply an executable, costed ETF rule. Official2018weight changes, the retainedDecember2025
+publication clock and historical-restatement policy prevent silent same-day or immutable-series assumptions.
+This is a source-stage deferral, not a negative-EV finding; no signals, return joins or new study were run.
+Independent integration review matches 27 artifact pins, seven protocols, three original HTMLs and
+four specified GMB pages. Five raw responses total 1,338,707 bytes, including a retained 263-byte failure.
+Web-ledger completeness and the fifth request transport implementation are not independently certified.
+
+Preceding source review: [enterprise working-capital history](cn_etf_enterprise_liquidity_history_2026-09-22.md).
 The fixed48-quarter corpus yields47original reports and46within the2023publication cutoff;2012Q3is
 missing and the current2023Q3carrier is dated2024-03-22. All99new requests succeed and47printed levels
 are visually checked. Legacy definitions are algebraically compatible; sample/vintage assumptions remain.
