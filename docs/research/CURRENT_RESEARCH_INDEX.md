@@ -9,6 +9,12 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
+Next source-only review: fixed annual dividend-style exposure to510880, proposal9764f8d,
+legacy-title scope129d979 and two-date repair scopeb442f4e. The integration review matched
+29retained requests,16annual reports,16cash events and16annual intervals. No sixth outcome
+or execution admission is claimed here. Annual frequency, incomplete historical vintages,
+index-method revisions and unverified payment dates remain limitations; no paper promotion.
+
 Latest actual test: [broad RMB RRR implementation events](cn_etf_rrr_effective_event_review_2026-09-21.md).
 Fifteen fixed events passed current official-source reconciliation against12annual policy reports.
 The main5CNYminimum/10bpslippage endpoint diagnostic earned+116.20CNYtotal,7/15positive(46.67%).
