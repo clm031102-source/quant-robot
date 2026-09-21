@@ -146,4 +146,4 @@
 
 另一个有界静态审查未发现重要正确性缺陷，覆盖44/16季度、连续12月缺失传播、精确中位数、分红权益、连续阶段、暴露匹配D及配对区块实现。现有合成测试未独立重建非退化bootstrap分位数，也未逐项隔离十项筛查；本次验收不扩大为全路径证明。根任务没有重算真实信号、收益或bootstrap，没有执行研究CLI或保留的复核脚本。
 
-独立凭据位于`data/reports/project_progress_20260921/integration/`：`term_structure_runtime_review_69fccef.json`（SHA-256 `f593c771e19e5f9792844b2c1635e2949eae5fa3bb693b9ec89d317a5159eabd`）及`term_structure_closed_retained_review_9b5c71a.json`（`e13609c819a8715e6e08ebd30e5399570530a0ac68da805fddb7d80c5db2cd0f`）。关闭已验收；集成阶段50项合成及相关回归测试通过，3,409文件审计、编译和维护基线通过。一次测试命令误写两个模块名，修正实际路径后相关24项通过，先前已通过的26项未重跑。尚待远端矩阵与合并，不改变合格策略0项及新增真实前向0日。
+独立凭据位于`data/reports/project_progress_20260921/integration/`：`term_structure_runtime_review_69fccef.json`（SHA-256 `f593c771e19e5f9792844b2c1635e2949eae5fa3bb693b9ec89d317a5159eabd`）及`term_structure_closed_retained_review_9b5c71a.json`（`e13609c819a8715e6e08ebd30e5399570530a0ac68da805fddb7d80c5db2cd0f`）。关闭已验收；集成阶段50项合成及相关回归测试通过，3,409文件审计、编译和维护基线通过。尚待远端矩阵与合并，不改变合格策略0项及新增真实前向0日。
