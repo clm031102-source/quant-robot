@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "study_id": "domestic_sovereign_10y_1y_slope_quarterly_v1",
+  "stage": "economic_proposal_source_pilot_only",
+  "capital_CNY": 10000,
+  "economic_hypothesis": "A relatively steep domestic sovereign yield curve can accompany weak current conditions or accommodative short rates and a higher subsequent equity risk premium. Test a steep-curve state against later mainland broad-ETF returns. Expected growth, inflation, policy and term-premium changes can invalidate this sign; this is an original falsifiable proxy, not a replication or a claim of profitable predictability.",
+  "distinct_from_previous_work": "Same-currency government10yminus1yYTM, not SHIBORbank funding spread, LPRminusSHIBOR, corporate credit spread, oil price or ETF price/volume. Old state-conditioned stock signals and prior exact studies remain consumed. Shared macro risk and reusedETFoutcomes prevent a claim of statistical independence.",
+  "source": {
+    "curve": "ChinaBond Government Bond Yield Curve",
+    "provider": "CCDC public CGB Yield Curve and Others history form",
+    "curve_identifier": "hzsylqx",
+    "tenors_years": [1, 10],
+    "measure": "fitted yield to maturity, percent per annum; not spot rates, forward rates or executable quotes",
+    "MOF_curve_interchangeable": false,
+    "historical_values_scope_if_later_admitted": ["2011-12-01", "2023-09-30"],
+    "month_end_selection": "Last available row dated in that calendar month, no more than7calendar days before month end. Both1yand10y must be present on that same row. Unknown otherwise; no cross-date tenor joins, interpolation or carry across missing months.",
+    "timing_assumption": "The currently reconstructed monthly-end curve values are assumed available by the end of that calendar month for conditional historical falsification only. Current publisher statement says business-day17:30Beijing publication. Historical values, precise release clocks and revision chain remain unverified; no certified point-in-time claim.",
+    "execution_clock": "First mainlandETFexchange-session open strictly after the calendar quarter end; never the curve observation day's open. A later source-readiness failure stops or records unknown under the frozen rule, never backdates source publication."
+  },
+  "signal": {
+    "slope": "same-date10yYTM minus1yYTM, in percentage points",
+    "decision_months": [3, 6, 9, 12],
+    "condition": "Current quarter-end month's slope strictly exceeds the median of the preceding12consecutive calendar-month slopes, excluding the current month. Even-sample median is the mean of the middle two values. Equality selects cash.",
+    "missing_input": "Any missing current month or any of the12preceding months produces unknown/cash. Retain that quarter in all denominators and unconditional comparator.",
+    "parameter_search_allowed": false
+  },
+  "proposed_fixed_diagnostic": {
+    "asset": "510300.SH",
+    "decision_years": [2013, 2023],
+    "later_slice_start": "2020-01-01",
+    "intervals": "First exchange open after each quarter end to the next corresponding open; first decision follows2012Q4, last follows2023Q3, terminal is first2024exchange open.44planned nonoverlapping quarters; missing-source quarters remain cash/unknown.",
+    "return": "RawETFopen-to-open return plus declared cash distributions for entitlement acquired at or before record date and disposed after it; no dividend reinvestment. Exact price/calendar/action pins and event conventions must be frozen before any actual financial computation.",
+    "primary_effect": "D=sum((z-zbar)*log1p(interval_gross_return))/sum(interval_sessions); zbar=sum(z*interval_sessions)/sum(interval_sessions); z=1selected,0knowncashorunknown. This is duration-matched conditional gross timing contribution, not net account PnL.",
+    "uncertainty": "5000paired circular block resamples of4consecutive quarterly intervals; recompute zbar and D per draw; seed20260922; linear2.5/97.5percentiles. No other block lengths or horizons selected after viewing results.",
+    "necessary_screen": {
+      "minimum_full_selected_intervals": 16,
+      "minimum_full_selected_episodes": 6,
+      "minimum_later_selected_intervals": 6,
+      "minimum_later_selected_episodes": 3,
+      "both_slices_need_known_selected_and_known_unselected": true,
+      "full_effect_interval_lower_above_zero": true,
+      "full_selected_mean_above_zero": true,
+      "later_selected_mean_above_zero": true,
+      "later_effect_above_zero": true
+    },
+    "episode": "A maximal run of selected adjacent quarters, not one independent trade per quarter. Report partial carry-in episodes for later slice.",
+    "counting": "Gross positive-quarter frequency is descriptive and not completed-trade net win rate. The future account must preserve continuous holdings across unchanged signals and apply lot sizes, fees, liquidity and risk limits.",
+    "outcome_exposure": "Overlapping2013..2023ETFhistory is already exposed through prior studies. The later chronological slice is a stability check, not an untouched out-of-sample claim. Local2026ETFholdout remains sealed.",
+    "stop_rule": "At most one new economic diagnostic may be admitted later. A necessary-screen failure closes this exact hypothesis without sign, tenor, median-window, horizon, period, source-vintage or risk-policy rescue. A pass only permits separate frozen net-account review, never direct promotion."
+  },
+  "cost_and_account_requirements": {
+    "account_config": "configs/cn_etf_research_account.json",
+    "max_single_position_all_in_CNY": 1000,
+    "primary_minimum_fee_CNY_per_leg": 5,
+    "primary_slippage_bps_per_side": 10,
+    "fee_scenarios_CNY": [0, 5, 10],
+    "slippage_scenarios_bps": [0, 10, 30],
+    "quarterly_review_implies_forced_roundtrip": false,
+    "risk_policy_changes_allowed_to_rescue": false,
+    "actual_broker_fees_confirmed": false,
+    "full_account_contract_frozen": false
+  },
+  "authorization": {
+    "source_pilot_only": true,
+    "max_pilot_requests": 2,
+    "historical_corpus_collection_allowed": false,
+    "signal_generation_allowed": false,
+    "financial_execution_allowed": false,
+    "general_factor_batch_allowed": false,
+    "paper_promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
