@@ -2276,5 +2276,21 @@
     "qualified_strategies": 0,
     "new_forward_days": 0,
     "next_stage": "Freeze the full same-capital account and exact source/code admission before running it; no gross rerun."
+  },
+  "currency_gold_account_decision": {
+    "status": "authorized_once",
+    "registration_id": "cb67f206590a0d2abd6276b0a583149de73f2cb032e78083a48160df622950ec",
+    "registration_path": "data/reports/positive_ev_20260922/currency_gold_account/registration.json",
+    "registration_sha256": "4efdacfec2aaa748fdc264dcd33ee31473beb0dd2d5f808d909fff9e536237ec",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_currency_gold_net_account",
+    "ledger_path": "data/reports/positive_ev_20260922/currency_gold_account/attempt_claim.json",
+    "conditional_account_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": true,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
