@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.gui.control_center import build_control_center_snapshot, run_verification_gate
 from quant_robot.gui.research_access import GuiResearchAccessDenied
 from quant_robot.gui.paper_inputs import prepare_gui_paper_inputs
@@ -127,7 +128,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     market=_first(query, "market", "CN_ETF"),
                     limit=int(_first(query, "limit", "3")),
                     as_of_date=_optional(query, "as_of_date"),
-                    portfolio_value=float(_first(query, "portfolio_value", "100000")),
+                    portfolio_value=float(_first(query, "portfolio_value", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                     default_top_n=int(_first(query, "top_n", "2")),
                     max_asset_weight=float(_first(query, "max_asset_weight", "0.4")),
                     max_market_weight=float(_first(query, "max_market_weight", "1")),
@@ -291,7 +292,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         max_market_weight=float(_first(query, "max_market_weight", "1")),
                         max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
                         min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                        portfolio_value=float(_first(query, "portfolio_value", "100000")),
+                        portfolio_value=float(_first(query, "portfolio_value", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                     )
                 )
                 return
@@ -309,7 +310,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     max_market_weight=float(_first(query, "max_market_weight", "1")),
                     max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
                     min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                    portfolio_value=float(_first(query, "portfolio_value", "100000")),
+                    portfolio_value=float(_first(query, "portfolio_value", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                 )
                 _record_operation(
                     workflow_id="signal_snapshot",
@@ -336,7 +337,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         top_n=int(_first(query, "top_n", "2")),
                         start_date=_optional(query, "start_date"),
                         end_date=_optional(query, "end_date"),
-                        initial_cash=float(_first(query, "initial_cash", "100000")),
+                        initial_cash=float(_first(query, "initial_cash", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                         commission_bps=float(_first(query, "commission_bps", "5")),
                         minimum_commission=float(_first(query, "minimum_commission", "0")),
                         **_paper_execution_inputs(query),
@@ -365,7 +366,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     rebalance_interval=int(_first(query, "rebalance_interval", "1")),
                     start_date=_optional(query, "start_date"),
                     end_date=_optional(query, "end_date"),
-                    initial_cash=float(_first(query, "initial_cash", "100000")),
+                    initial_cash=float(_first(query, "initial_cash", str(CURRENT_RESEARCH_CAPITAL_CNY))),
                     commission_bps=float(_first(query, "commission_bps", "5")),
                     minimum_commission=float(_first(query, "minimum_commission", "0")),
                     **_paper_execution_inputs(query),

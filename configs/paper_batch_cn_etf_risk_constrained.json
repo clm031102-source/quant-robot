@@ -4,7 +4,7 @@
   "data_root": "data/processed/etf_csv",
   "output_dir": "data/reports/paper_batch_cn_etf_risk_constrained",
   "max_candidates": 12,
-  "initial_cash": 100000,
+  "initial_cash": 10000,
   "commission_bps": 5,
   "slippage_bps": 5,
   "market_impact_bps": 2,

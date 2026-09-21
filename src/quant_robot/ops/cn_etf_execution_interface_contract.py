@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
+
 
 BOUNDARY_KEYS = (
     "broker_connection_allowed",
@@ -50,8 +52,11 @@ def build_cn_etf_execution_interface_contract_readiness(
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
     blockers: list[str] = []
-    if config.get("schema_version") != 1:
+    version = config.get("schema_version")
+    if type(version) is not int or version not in (1, 2):
         blockers.append("schema_version_mismatch")
+    if version == 2 and config.get("as_of_date") != "2026-09-21":
+        blockers.append("account_contract_date_mismatch")
     if config.get("purpose") != "execution_interface_readiness_without_external_access":
         blockers.append("purpose_mismatch")
     broker = _mapping(config.get("broker"))
@@ -81,7 +86,7 @@ def build_cn_etf_execution_interface_contract_readiness(
     if order.get("duplicate_intent_policy") != "reject_same_idempotency_key":
         blockers.append("idempotency_policy_mismatch")
     risk = _mapping(config.get("risk_contract"))
-    if not _valid_risk_contract(risk):
+    if not _valid_risk_contract(risk, version):
         blockers.append("risk_contract_mismatch")
     paper = _mapping(config.get("paper_gates"))
     if (
@@ -121,6 +126,7 @@ def build_cn_etf_execution_interface_contract_readiness(
         "market_contract": dict(market),
         "order_intent_schema": dict(order),
         "risk_contract": dict(risk),
+        "fee_evidence": dict(_mapping(config.get("fee_evidence"))),
         "paper_gates": dict(paper),
         "risk_controls": dict(controls),
         "required_broker_onboarding_inputs": list(
@@ -142,10 +148,12 @@ def build_cn_etf_execution_interface_contract_readiness(
     }
 
 
-def _valid_risk_contract(risk: Mapping[str, Any]) -> bool:
+def _valid_risk_contract(risk: Mapping[str, Any], version: int) -> bool:
+    capital = ({"minimum": 1000, "maximum": 3000} if version == 1 else
+               {"minimum": CURRENT_RESEARCH_CAPITAL_CNY, "maximum": CURRENT_RESEARCH_CAPITAL_CNY})
     return (
-        risk.get("capital_cny") == {"minimum": 1000, "maximum": 3000}
-        and risk.get("commission_bps_per_side") == 0.5
+        risk.get("capital_cny") == capital
+        and risk.get("commission_bps_per_side") == (0.5 if version == 1 else 5.0)
         and risk.get("slippage_bps_per_side") == 10.0
         and risk.get("minimum_commission_cny_stress") == 5.0
         and risk.get("absolute_max_drawdown") == 0.4

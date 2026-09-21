@@ -16,6 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
 from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
@@ -41,7 +42,7 @@ def run_signal_snapshot(
     max_market_weight: float = 1.0,
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.0,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
     positions_csv: str | Path | None = None,
     rotation_membership_root: str | Path | None = None,
     rotation_membership_required: bool = False,
@@ -109,7 +110,7 @@ def main() -> None:
     parser.add_argument("--max-market-weight", default=1.0, type=float)
     parser.add_argument("--max-gross-exposure", default=1.0, type=float)
     parser.add_argument("--min-cash-weight", default=0.0, type=float)
-    parser.add_argument("--portfolio-value", default=100000.0, type=float)
+    parser.add_argument("--portfolio-value", default=CURRENT_RESEARCH_CAPITAL_CNY, type=float)
     parser.add_argument("--positions-csv")
     parser.add_argument("--rotation-membership-root")
     parser.add_argument("--rotation-membership-required", action="store_true")

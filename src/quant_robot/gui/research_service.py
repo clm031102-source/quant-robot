@@ -10,6 +10,7 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.gui.daily_trade_factors import (
@@ -465,7 +466,7 @@ def build_daily_trade_advisory_snapshot(
     market: str = PRIMARY_FACTOR_MARKET,
     limit: int = 3,
     as_of_date: str | None = None,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
     default_top_n: int = 2,
     max_asset_weight: float = 0.4,
     max_market_weight: float = 1.0,
@@ -1816,7 +1817,7 @@ def run_demo_signal_snapshot(
     max_market_weight: float = 1.0,
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.0,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
 ) -> dict[str, Any]:
     return run_gui_signal_snapshot(
         source="demo_fixture",
@@ -1845,7 +1846,7 @@ def run_gui_signal_snapshot(
     max_market_weight: float = 1.0,
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.0,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float = CURRENT_RESEARCH_CAPITAL_CNY,
 ) -> dict[str, Any]:
     source_name = _normalize_gui_source(source)
     snapshot = generate_signal_snapshot(
@@ -1888,7 +1889,7 @@ def run_demo_paper_simulation(
     top_n: int = 2,
     start_date: str | None = None,
     end_date: str | None = None,
-    initial_cash: float = 100000.0,
+    initial_cash: float = CURRENT_RESEARCH_CAPITAL_CNY,
     commission_bps: float = 5.0,
     slippage_bps: float = 5.0,
     max_asset_weight: float = 1.0,
@@ -1942,7 +1943,7 @@ def run_gui_paper_simulation(
     rebalance_interval: int = 1,
     start_date: str | None = None,
     end_date: str | None = None,
-    initial_cash: float = 100000.0,
+    initial_cash: float = CURRENT_RESEARCH_CAPITAL_CNY,
     commission_bps: float = 5.0,
     slippage_bps: float = 5.0,
     max_asset_weight: float = 1.0,

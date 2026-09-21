@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.paper.economics import (
     VALUATION_MODEL,
     EXECUTION_ECONOMICS_FIELDS,
@@ -311,7 +312,7 @@ def _execution_params(
     parameters = {
         "valuation_model": VALUATION_MODEL,
         "corporate_actions_fingerprint": None,
-        "initial_cash": 100000.0, "commission_bps": 5.0, "minimum_commission": 0.0,
+        "initial_cash": CURRENT_RESEARCH_CAPITAL_CNY, "commission_bps": 5.0, "minimum_commission": 0.0,
         "slippage_bps": 5.0, "market_impact_bps": 0.0, "max_participation_rate": None,
     }
     request = profile_pack.get("config", profile_pack.get("request", {}))

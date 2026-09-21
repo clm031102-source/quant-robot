@@ -906,7 +906,7 @@ function buildDailyTradeAdvisoryParams() {
     limit: "3",
     top_n: valueOf("signal-top-n") || "2",
     as_of_date: valueOf("daily-trade-as-of") || valueOf("signal-as-of"),
-    portfolio_value: valueOf("daily-trade-portfolio-value") || valueOf("paper-initial-cash") || "100000",
+    portfolio_value: valueOf("daily-trade-portfolio-value") || valueOf("paper-initial-cash") || "10000",
     manual_available_cash: valueOf("daily-manual-available-cash"),
     risk_profile_id: valueOf("daily-trade-risk-profile") || "balanced_20dd",
     current_positions: valueOf("daily-current-positions"),
@@ -935,7 +935,7 @@ function buildPaperParams() {
     end_date: valueOf("paper-end-date"),
     as_of_date: operationDate,
     run_date: operationDate,
-    initial_cash: valueOf("paper-initial-cash") || "100000",
+    initial_cash: valueOf("paper-initial-cash") || "10000",
     commission_bps: valueOf("paper-commission-bps") || "5",
     minimum_commission: valueOf("paper-minimum-commission") || "0",
     market_impact_bps: valueOf("paper-impact-bps") || "0",
@@ -7157,7 +7157,7 @@ async function runCurrentPositionAction(actionId, button = null) {
 function applyPaperFlatPositionTemplate() {
   setValue("daily-current-positions", PAPER_FLAT_POSITION_TEMPLATE);
   if (!valueOf("daily-manual-available-cash")) {
-    setValue("daily-manual-available-cash", valueOf("daily-trade-portfolio-value") || "100000");
+    setValue("daily-manual-available-cash", valueOf("daily-trade-portfolio-value") || "10000");
   }
   markManualFormOverride("paper_flat_position_template");
   dispatchDailyInputChanged("daily-current-positions");
@@ -14005,8 +14005,8 @@ function gateThresholdValue(item = {}, paperRequest = {}) {
 function paperInitialCash(paperRequest = {}) {
   const requested = Number(paperRequest.initial_cash);
   if (Number.isFinite(requested)) return requested;
-  const inputValue = Number(valueOf("paper-initial-cash") || 100000);
-  return Number.isFinite(inputValue) ? inputValue : 100000;
+  const inputValue = Number(valueOf("paper-initial-cash") || 10000);
+  return Number.isFinite(inputValue) ? inputValue : 10000;
 }
 
 function matchedExecutionReceiptCount(item = {}, executionReceipts = [], researchRequest = {}, paperRequest = {}) {
@@ -14812,7 +14812,7 @@ function operationForButton(buttonId) {
     "run-paper": {
       workflow_id: "paper_simulation",
       label: "Run local paper simulation",
-      detail: () => `${valueOf("paper-market-select") || "ALL"} / TopN=${valueOf("paper-top-n") || "2"} / 初始资金=${valueOf("paper-initial-cash") || "100000"}`,
+      detail: () => `${valueOf("paper-market-select") || "ALL"} / TopN=${valueOf("paper-top-n") || "2"} / 初始资金=${valueOf("paper-initial-cash") || "10000"}`,
       safety: "local simulated fills only; no broker, account, or order side effects",
     },
   };

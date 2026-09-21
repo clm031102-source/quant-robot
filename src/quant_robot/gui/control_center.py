@@ -12,13 +12,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
+from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
 from quant_robot.gui.operation_ledger import (
     build_daily_closure_ledger_snapshot,
     build_operation_ledger_snapshot,
     build_pre_live_master_gate,
     build_server_capital_observation_gate,
 )
-
 
 SAFETY_NOTICE = "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
 GUI_AUDIT_PACKET_PATH = Path("data/reports/gui_control_center_audit/gui_control_center_audit.json")
@@ -286,7 +286,7 @@ def _form_defaults(backtest: dict[str, Any]) -> dict[str, Any]:
             "limit": 3,
             "top_n": backtest["top_n"],
             "as_of_date": backtest["end_date"],
-            "portfolio_value": 100000,
+            "portfolio_value": CURRENT_RESEARCH_CAPITAL_CNY,
             "risk_profile_id": "balanced_20dd",
             "max_asset_weight": 0.4,
             "max_market_weight": 1,
@@ -303,7 +303,7 @@ def _form_defaults(backtest: dict[str, Any]) -> dict[str, Any]:
             "rebalance_interval": backtest["rebalance_interval"],
             "start_date": backtest["start_date"],
             "end_date": backtest["end_date"],
-            "initial_cash": 100000,
+            "initial_cash": CURRENT_RESEARCH_CAPITAL_CNY,
             "commission_bps": 5,
             "slippage_bps": 5,
             "max_asset_weight": 0.4,

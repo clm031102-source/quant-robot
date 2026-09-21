@@ -2,6 +2,13 @@
 
 Last updated: 2026-09-21
 
+Current continuation: [CNY 10,000 research mandate](positive_ev_mandate_2026-09-21.md),
+branch `codex/factor-review-positive-ev-20260921`. This working branch combines the
+September implementation and progress review. Current account defaults are CNY 10,000;
+historical frozen evidence remains unchanged. The existing shared hourly task retains its
+original owner and now includes this continuation index; later results must be assessed
+against the mandate's evidence criteria.
+
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue

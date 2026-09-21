@@ -926,7 +926,7 @@ class GuiSnapshotTests(unittest.TestCase):
         handoff = bridge["paper_simulation_handoff"]
         self.assertEqual(handoff["stage"], "daily_signal_paper_simulation_handoff")
         self.assertEqual(handoff["recommended_request"]["market"], "CN_ETF")
-        self.assertEqual(handoff["recommended_request"]["initial_cash"], 100000.0)
+        self.assertEqual(handoff["recommended_request"]["initial_cash"], 10000.0)
         self.assertIn("factor", handoff["recommended_request"])
         self.assertIn("factor_windows", handoff["recommended_request"])
         self.assertIn("top_n", handoff["recommended_request"])
@@ -1635,7 +1635,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(result["form_defaults"]["signal"]["factor"], result["backtest"]["factor"])
         self.assertEqual(result["form_defaults"]["signal"]["as_of_date"], result["backtest"]["end_date"])
         self.assertEqual(result["form_defaults"]["paper"]["factor"], result["backtest"]["factor"])
-        self.assertEqual(result["form_defaults"]["paper"]["initial_cash"], 100000)
+        self.assertEqual(result["form_defaults"]["paper"]["initial_cash"], 10000)
         self.assertEqual(result["form_defaults"]["paper"]["max_market_weight"], 1)
         self.assertEqual(result["form_defaults"]["paper"]["max_gross_exposure"], 1)
         self.assertGreaterEqual(len(result["method"]["steps"]), 6)
