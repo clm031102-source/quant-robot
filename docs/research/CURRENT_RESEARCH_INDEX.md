@@ -9,6 +9,13 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
+Latest source review: [A/H relative valuation](cn_etf_dual_listing_source_review_2026-09-22.md).
+The primary empirical paper distinguishes issuer-level findings from insignificant aggregate-index terms.
+The direct transfer to mainland broad-ETF timing is therefore unsupported and closed at source review.
+Five originals and six reviewed page renders reconcile; no historical index corpus or market test was run.
+The retained HSI method is September2017version1.2, not certified as the current methodology.
+This adds zero economic experiments; the cumulative count remains nine, with zero qualified strategies.
+
 Latest actual test: [electricity activity](cn_etf_real_activity_source_review_2026-09-22.md).
 The fixed2017..2023gross study completed once:76intervals,29selected,17positive(58.62%),
 mean selected gross+1.2358%,8continuous selected episodes. The2021onward slice has13selected,
