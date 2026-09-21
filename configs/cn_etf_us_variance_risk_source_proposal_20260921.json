@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "study_id": "us_variance_insurance_gap_cn_equity_quarterly_v1",
+  "status": "fixed_economic_proposal_source_review_only",
+  "authority": "Project lead autonomous proposal under CNY10000 mandate; no independent approval claimed.",
+  "primary_market": "CN_ETF",
+  "asset_id": "CN_ETF_XSHG_510300",
+  "economic_prediction": "A positive US option-implied minus backward realized variance gap proxies compensation for global uncertainty, which may also support subsequent Chinese equity returns. Test positive gross selected returns and a positive exposure-matched selection effect; neither the transfer nor the sign is established for China.",
+  "method_basis": {
+    "url": "https://www.federalreserve.gov/pubs/feds/2011/201152/index.html",
+    "version": "Bollerslev, Marrone, Xu and Zhou, December2011 FEDS2011-52",
+    "sections": "3.1 daily squared-return monthly measurement;3.3 capitalization-weighted six-country global measure;2.2-2.3 finite-sample and overlap limitations",
+    "not_replication": "This is an autonomous single-US-proxy to China hypothesis, not the paper's six-country capital-weighted index or a replication of the2009 intraday estimator. The paper does not include China or establish a profitable zero-threshold long-only rule.",
+    "counterexamples": [
+      "Chinese capital controls, local cash-flow shocks or segmentation can break the cross-market channel",
+      "A realized-variance proxy is not conditional expected variance and may reverse sign in crises",
+      "Positive variance insurance compensation need not imply positive equity returns or timing alpha",
+      "Selling volatility and buying an ETF have different cash flows; only the latter is in scope"
+    ]
+  },
+  "fixed_signal": {
+    "observation_dates": "Last US trading session of December, March, June and September immediately before each entry quarter",
+    "formula": "x_m = VIX_close_m^2 /12 - sum_over_US_sessions_in_calendar_month_m((100*ln(SPX_close_d/SPX_close_previous_US_session))^2)",
+    "unit": "percent-squared monthly approximation; annualVIX/12 conversion and variable calendar-month lengths are explicit approximations",
+    "selected": "Strictly x_m>0; zero or negative cash. Missing inputs are blockers, never cash or imputed zero.",
+    "entry": "Second CN exchange session of January, April, July or October at raw open. Compute after the first CN session closes, using only the completed prior US calendar month; timezone and actual publication conventions must be reviewed before admission.",
+    "exit": "Next scheduled quarterly entry anchor; continue holdings across adjacent selected quarters in any later account simulation, without synthetic free monthly rebalancing.",
+    "parameter_search_allowed": false
+  },
+  "fixed_window": {
+    "entry_quarters_first": "2013-01",
+    "terminal_exit_quarter": "2024-04",
+    "rationale": "First full calendar year after510300's2012 launch through the last full calendar-quarter endpoint before the existing2024-06-28 research cutoff. No selection based on new outcomes.",
+    "expected_nonoverlapping_intervals": 45,
+    "later_subset_first": "2020-01",
+    "expected_later_intervals": 17,
+    "US_source_start": "2012-11-01",
+    "US_source_end": "2023-12-31",
+    "new_ETF_return_access_allowed": false,
+    "new_2013_2019_ETF_source_collection_allowed": false
+  },
+  "deduplication": "Distinct from closed domestic ETF realized-volatility cross-sectional factors,50ETF option-volume relative activity, and cross-border overnight price/NAV translation. Some global risk information may overlap labor and other macro states; statistical independence is unverified. Do not reopen any consumed authorization.",
+  "required_source_review": [
+    "Official VIX index identity, annualization, historical methodological breaks and original download path",
+    "SPX price-index identity, dates and daily close measurement, official US session completeness and paired close coverage",
+    "Actual publication clock separated from current retrieval timestamp; historical revisions remain explicit",
+    "510300 launch and2013-2024 adjusted/raw price, corporate-action and CN-calendar authorities before any expanded outcome use"
+  ],
+  "initial_source_scope": {
+    "public_text_targets": [
+      "https://www.federalreserve.gov/pubs/feds/2011/201152/index.html",
+      "https://www.cboe.com/tradable-products/vix/vix-historical-data"
+    ],
+    "maximum_new_HTTP_requests": 2,
+    "request_method": "GET,public HTTPS,certificate validation on,no automatic retries or redirects,max2MiB,response deadline30seconds",
+    "purpose": "Retain method and original source index; discover actual data links without downloading numeric history",
+    "credentials_used": false,
+    "history_download_requires_separate_bound_scope": true
+  },
+  "preregistration_limits": "Formula, direction, quarter phase and period fixed before new US factor inputs or new ETF outcome reads.2020-2024ETF outcomes were used in previous studies, complete search history remains unverified; do not claim pristine OOS.",
+  "account": "CNY10000, maxCNY1000 position; existing loss and paper-drawdown limits retained. Minimum commission0/5/10 and slippage0/10/30bp scenarios; main5CNY/10bp. Source access does not authorize an account run.",
+  "next": "Only source/method review now. Freeze complete inputs, uncertainty/count requirements and one execution allowance before computing real signals or joining outcomes. Close or pause on a concrete source/method failure; no sign, phase, horizon or window rescue after actual execution.",
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}
