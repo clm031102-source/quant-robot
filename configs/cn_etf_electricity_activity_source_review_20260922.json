@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "study_id": "cn_electricity_activity_risk_source_review_v1",
-  "stage": "source_definition_review",
+  "stage": "fixed_economic_definition_history_source_reconciliation",
   "capital_CNY": 10000,
   "document": "docs/research/cn_etf_real_activity_source_review_2026-09-22.md",
-  "current_status": "original_method_and_three_CN_release_definitions_reviewed_further_source_contract_required",
+  "current_status": "eight_definition_originals_verified_fixed_proxy_and_184_release_originals_retained_monthly_reconciliation_pending",
   "original_method": "Da, Huang and Yun (2017): U.S. per capita industrial electricity year-over-year growth, with historical vintages and reporting lag. Chinese secondary-industry growth is not an automatic replication.",
   "input_decisions": {
     "industrial_and_secondary_separate": true,
@@ -13,7 +13,8 @@
     "use_each_release_printed_comparable_growth_as_candidate_input": true,
     "cross_release_level_ratio_replacement_allowed": false,
     "missing_month_zero_fill_allowed": false,
-    "late_detailed_fields_backdated_to_early_summary_allowed": false
+    "late_detailed_fields_backdated_to_early_summary_allowed": false,
+    "domestic_proxy": "printed national secondary-sector monthly electricity YoY; own Chinese proxy, not US per-capita replication"
   },
   "source_pins": {
     "materialization_scope": {
@@ -27,9 +28,29 @@
     "source_definition_verification": {
       "path": "data/reports/positive_ev_20260921/next_mechanism_review_20260922/source_definition_verification.json",
       "sha256": "9c22fd22a8728c209e6d3fbfe4e726e6428ef3d1f8763d9aa144eada1527aa61"
+    },
+    "year_start_definition_verification": {
+      "path": "data/reports/positive_ev_20260921/electricity_definition_20260922/definition_verification.json",
+      "sha256": "a6815af7fb41cc23631e81f49b6f7c40116b619214bb0876668099e773e503e8"
+    },
+    "economic_proposal": {
+      "path": "configs/cn_etf_electricity_activity_proposal_20260922.json",
+      "sha256": "01e9992934657a3960c4879b3874a6c4b40943709a1763c5704fab0b8b465a78"
+    },
+    "history_source_scope": {
+      "path": "configs/cn_etf_electricity_history_source_scope_20260922.json",
+      "sha256": "e3d7e673bd5502f1e28f32c04736f83074720d8637c9cc296de330369764e932"
+    },
+    "history_manifest": {
+      "path": "data/reports/positive_ev_20260921/electricity_history_sources_20260922/source_manifest.json",
+      "sha256": "fb96f8797a4dcbcfe4d23ce77e382b2f86de9a191bf4796f2fab9f5af27e4021"
+    },
+    "history_inventory_verification": {
+      "path": "data/reports/positive_ev_20260921/electricity_history_sources_20260922/source_inventory_verification.json",
+      "sha256": "c7c4e7ad5549536d024f3d02613f46be41324df3f241f149189765c59395bb09"
     }
   },
-  "next": "Freeze a bounded original-source definition/calendar review of year-start reporting and classification/comparability changes before complete history collection. Establish one explicit domestic activity proxy and conservative public availability rule; only then freeze a single economic hypothesis,benchmark,costs,account and rejection criteria before outcomes.",
+  "next": "Reconcile all131reference months from2013-01through2023-11, exact monthly columns, inline images and the remaining observed attachment, explicit unavailable cells, precision and conservative dates. Verify source readiness and freeze the exact event/outcome implementation before one-use financial admission; preserve the fixed36-observation median rule and2017..2023window.",
   "existing_reference": "Labor-risk results and reused ETF history are already exposed. Physical activity is a distinct input; statistical independence and fresh out-of-sample evidence remain unproven.",
   "repurchase_decision": "Existing stock buyback event families remain closed. One cumulative cash disclosure does not qualify an ETF aggregate.",
   "financial_rules_frozen": false,
@@ -38,5 +59,11 @@
   "financial_outcomes_computed": false,
   "paper_promotion_allowed": false,
   "final_holdout_allowed": false,
-  "live_boundary_allowed": false
+  "live_boundary_allowed": false,
+  "economic_signal_and_gross_screen_contract_frozen": true,
+  "complete_account_execution_contract_frozen": false,
+  "history_originals_retained": 184,
+  "history_new_release_requests": 177,
+  "history_reused_originals": 7,
+  "all131months_qualified": false
 }
