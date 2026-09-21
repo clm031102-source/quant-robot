@@ -1,5 +1,6 @@
 import contextlib
 from datetime import datetime, timezone
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -10,6 +11,7 @@ from unittest.mock import patch
 
 from scripts import capture_chinabond_observation as bond_cli
 from scripts import capture_tushare_moneyflow_observation as flow_cli
+from scripts import review_tushare_moneyflow_asof as review_cli
 from quant_robot.data.sources import chinabond_observation as bond
 from quant_robot.data.sources import tushare_moneyflow_observation as flow
 from tests.unit.test_chinabond_observation import Session as BondSession, page
@@ -94,6 +96,70 @@ class ForwardObservationWorktreeTests(unittest.TestCase):
                         self.assertEqual((code, result["status"]), (1, "rejected"))
                 gate.assert_not_called()
                 self.assertFalse((self.primary / "data").exists())
+
+    def test_moneyflow_asof_worktree_reads_shared_receipts_and_retains_shared_reviews(self):
+        with patch.object(flow, "_utc_now", return_value=datetime(2025, 1, 2, 11, 10, tzinfo=timezone.utc)), \
+                patch.object(flow, "_new_session", return_value=Session([Response(payload())])), \
+                patch.object(flow_cli, "require_env_secret", return_value=TOKEN), \
+                patch.object(flow_cli, "run_quant_pm_startup_gate", return_value=self.ready):
+            self.assertEqual(self.invoke(flow_cli, self.linked)[0], 0)
+        completion = self.primary / flow.ARCHIVE / "2025-01-02/completion.json"
+        for name, cutoff, expected_code in (("early", "11:00:00", 1), ("late", "11:15:00", 0)):
+            with self.subTest(cutoff=name):
+                scope = self.linked / (name + ".json")
+                scope.write_text(json.dumps({
+                    "schema_version": 1, "purpose": "moneyflow_asof_source_review",
+                    "as_of": f"2025-01-02T{cutoff}+00:00", "trade_dates": ["20250102"],
+                    "symbols": ["600584.SH", "000063.SZ"],
+                    "receipts": [{"path": str(completion),
+                                  "sha256": hashlib.sha256(completion.read_bytes()).hexdigest()}],
+                }), encoding="utf-8")
+                def gate(**kwargs):
+                    self.assertEqual(Path.cwd(), self.linked)
+                    self.assertEqual(kwargs["branch"], self.args[-1])
+                    return self.ready
+                with patch.object(Path, "cwd", return_value=self.linked), \
+                        patch.object(review_cli, "run_quant_pm_startup_gate", side_effect=gate), \
+                        patch.object(flow, "_new_session", side_effect=AssertionError("read-only review")), \
+                        contextlib.redirect_stdout(io.StringIO()) as printed:
+                    code = review_cli.main([*self.args, "--scope", str(scope),
+                                            "--output", f"data/reports/review-{name}"])
+                summary = json.loads(printed.getvalue())
+                self.assertEqual(code, expected_code, summary)
+                self.assertEqual(summary.get("archive_repo_root"), str(self.primary.resolve()))
+                result_path = self.primary / f"data/reports/review-{name}/result.json"
+                result = json.loads(result_path.read_bytes())
+                self.assertEqual(result["source_selection_complete"], name == "late")
+                self.assertEqual(result["unknown_cells"], 2 if name == "early" else 0)
+        self.assertFalse((self.linked / "data").exists())
+
+    def test_moneyflow_asof_rejects_broken_identity_before_gate_or_reader(self):
+        broken = Path(self.temp, "broken-reader")
+        broken.mkdir()
+        (broken / ".git").write_text("gitdir: missing\n", encoding="utf-8")
+        with patch.object(Path, "cwd", return_value=broken), \
+                patch.object(review_cli, "run_quant_pm_startup_gate") as gate, \
+                patch.object(review_cli, "read_moneyflow_asof") as read, \
+                contextlib.redirect_stdout(io.StringIO()) as printed:
+            code = review_cli.main([*self.args, "--scope", "unused.json", "--output", "data/reports/unused"])
+        self.assertEqual((code, json.loads(printed.getvalue())["status"]), (1, "rejected"))
+        gate.assert_not_called()
+        read.assert_not_called()
+        self.assertFalse((broken / "data").exists())
+
+    def test_moneyflow_asof_rejects_output_outside_shared_reports(self):
+        scope = self.linked / "scope.json"
+        scope.write_text("{}", encoding="utf-8")
+        with patch.object(Path, "cwd", return_value=self.linked), \
+                patch.object(review_cli, "run_quant_pm_startup_gate") as gate, \
+                patch.object(review_cli, "read_moneyflow_asof") as read, \
+                contextlib.redirect_stdout(io.StringIO()) as printed:
+            code = review_cli.main([*self.args, "--scope", str(scope),
+                "--output", str(self.linked / "data/reports/not-shared")])
+        self.assertEqual((code, json.loads(printed.getvalue())["status"]), (1, "rejected"))
+        gate.assert_not_called()
+        read.assert_not_called()
+        self.assertFalse((self.linked / "data").exists())
 
     def test_broken_worktree_identity_fails_before_gate_or_credentials(self):
         broken = Path(self.temp, "broken")

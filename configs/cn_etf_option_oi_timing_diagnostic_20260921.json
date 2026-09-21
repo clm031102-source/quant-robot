@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "study_id": "sse50_option_relative_activity_monthly_v1",
+  "stage": "targeted_source_timing_diagnostic",
+  "reason": "New evidence: 2020-01-02 call/put volumes match exactly, but provider OI differs. Test one specific explanation: provider oi may be previous-session rather than same-session OI.",
+  "evidence": "data/reports/positive_ev_20260921/admission_review/reconciliation.json",
+  "target_date": "2019-12-31",
+  "compare_to_provider_date": "2020-01-02",
+  "underlying": "510050.SH",
+  "endpoint": "https://query.sse.com.cn/commonQuery.do",
+  "params": {
+    "isPagination": "true",
+    "sqlId": "COMMON_SSE_ZQPZ_YSP_QQ_SJTJ_MRTJ_CX",
+    "tradeDate": "20191231",
+    "pageHelp.pageSize": 25,
+    "pageHelp.cacheSize": 1,
+    "pageHelp.pageNo": 1
+  },
+  "max_requests": 1,
+  "max_response_bytes": 2000000,
+  "retries": 0,
+  "redirects": false,
+  "acceptance": "Both previous-session official call and put OI must equal existing provider 2020-01-02 oi. A match is one-date evidence of lag, not global repair authority. No match leaves cause unresolved; do not choose more lags.",
+  "boundaries": {
+    "original_probe_scope_closed": true,
+    "factor_generation": false,
+    "etf_returns": false,
+    "holdout": false,
+    "credentials": false
+  }
+}
