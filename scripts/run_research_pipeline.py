@@ -17,6 +17,7 @@ from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manife
 from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.research.cn_etf_entrypoint_access import require_registered_cn_etf_entrypoint
 from quant_robot.storage.processed_bars import load_processed_bars
 
 DEFAULT_MARKETS = ("CN", "CN_ETF", "HK", "US", "CRYPTO")
@@ -170,6 +171,7 @@ def load_research_bars(
         return load_demo_market_bars()
     if source != "processed-bars":
         raise ValueError(f"Unsupported research source: {source}")
+    require_registered_cn_etf_entrypoint(source, market)
     _enforce_cn_stock_research_pipeline_inputs(
         source=source,
         market=market,

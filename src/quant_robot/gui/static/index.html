@@ -825,8 +825,26 @@
               <label>佣金 bps
                 <input id="paper-commission-bps" type="number" min="0" max="100" value="5">
               </label>
+              <label>最低佣金情景（元/笔）
+                <input id="paper-minimum-commission" type="number" min="0" step="0.1" value="5">
+                <small>5元为待核实假设；0表示无最低佣金情景。</small>
+              </label>
               <label>滑点 bps
                 <input id="paper-slippage-bps" type="number" min="0" max="100" value="5">
+              </label>
+              <label>冲击成本情景（bps）
+                <input id="paper-impact-bps" type="number" min="0" step="0.1" value="0">
+              </label>
+              <label>成交参与率上限
+                <input id="paper-participation-rate" type="number" min="0.000001" max="1" step="any" placeholder="0.01表示1%">
+                <small>留空表示此情景未限制；固定持有对照必须填写。</small>
+              </label>
+              <label>权益声明文件（可选）
+                <input id="paper-actions-path" type="text" placeholder="本地JSON文件路径">
+              </label>
+              <label>固定持有清单（可选）
+                <input id="paper-fixed-hold-path" type="text" placeholder="本地JSON文件路径">
+                <small>对照沿用相同资金、费用、权益和日期，需选择CN_ETF。</small>
               </label>
               <label>单资产上限
                 <input id="paper-max-asset-weight" type="number" min="0.05" max="1" step="0.05" value="0.4">
@@ -851,6 +869,8 @@
           </section>
 
           <div class="metric-grid compact metric-card-grid" id="paper-metrics"></div>
+          <section class="panel"><h3>完整模拟记录</h3><div id="paper-archive" class="status-list"></div></section>
+          <section class="panel"><h3>与固定持有账户比较</h3><div id="paper-comparison" class="status-list"></div></section>
           <div class="page-grid two-grid">
             <section class="panel chart-panel">
               <div class="panel-head"><h3>模拟净值</h3><span class="tag">equity_curve.csv</span></div>

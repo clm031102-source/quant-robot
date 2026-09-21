@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 import pandas as pd
 
 
@@ -247,6 +249,24 @@ _FUND_NAV_NUMERIC_COLUMNS = [
 ]
 
 
+def _scale_decimal_units(values: pd.Series, power: int) -> pd.Series:
+    """Shift declared decimal units before the final float storage conversion.
+
+    This avoids introducing binary multiplication residue. It neither rounds
+    base units nor reconstructs original provider text from an existing float.
+    """
+    def scale(value):
+        try:
+            number = Decimal(str(value))
+            if not number.is_finite():
+                return float(number)
+            parts = number.as_tuple()
+            return float(Decimal((parts.sign, parts.digits, parts.exponent + power)))
+        except (InvalidOperation, ValueError, TypeError, OverflowError):
+            return float('nan')
+    return values.map(scale).astype(float)
+
+
 def map_tushare_daily(frame: pd.DataFrame) -> pd.DataFrame:
     output_columns = ["symbol", "date", "open", "high", "low", "close", "volume", "amount"]
     if frame.empty:
@@ -261,8 +281,8 @@ def map_tushare_daily(frame: pd.DataFrame) -> pd.DataFrame:
             "high": pd.to_numeric(frame["high"], errors="coerce"),
             "low": pd.to_numeric(frame["low"], errors="coerce"),
             "close": pd.to_numeric(frame["close"], errors="coerce"),
-            "volume": pd.to_numeric(frame["vol"], errors="coerce") * 100.0,
-            "amount": pd.to_numeric(frame["amount"], errors="coerce") * 1000.0,
+            "volume": _scale_decimal_units(frame["vol"], 2),
+            "amount": _scale_decimal_units(frame["amount"], 3),
         }
     )
     return mapped[output_columns].sort_values(["symbol", "date"]).reset_index(drop=True)

@@ -14,7 +14,8 @@ from quant_robot.ops.factor_batch_readiness_gate import (
 )
 from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
 from quant_robot.storage.dataset_store import DatasetStore
-from scripts.run_paper_simulation import run_simulation
+from scripts.run_paper_simulation import run_simulation, _attach_processed_cn_etf_rotation_membership
+from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation
 
 
 class PaperSimulationCliTests(unittest.TestCase):
@@ -62,7 +63,7 @@ class PaperSimulationCliTests(unittest.TestCase):
             self.assertEqual(result["request"]["moneyflow_input_root"], str(moneyflow_root))
             self.assertGreater(len(result["fills"]), 0)
 
-    def test_processed_cn_etf_simulation_auto_uses_rotation_membership(self):
+    def test_rotation_membership_config_filters_synthetic_simulation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "store"
             bars = load_demo_market_bars()
@@ -81,9 +82,7 @@ class PaperSimulationCliTests(unittest.TestCase):
                 {"market": "CN_ETF"},
             )
 
-            result = run_simulation(
-                source="processed-bars",
-                data_root=root,
+            config = PaperSimulationConfig(
                 market="CN_ETF",
                 factor_name="momentum_2",
                 factor_windows=(2,),
@@ -91,6 +90,8 @@ class PaperSimulationCliTests(unittest.TestCase):
                 start_date="2024-01-04",
                 end_date="2024-01-10",
             )
+            config = _attach_processed_cn_etf_rotation_membership(config, 'processed-bars', root)
+            result = run_paper_simulation(cn_etf, config)
 
             self.assertEqual({row["asset_id"] for row in result["intents"]}, {"CN_ETF_XSHG_510300"})
             self.assertEqual(result["request"]["rotation_membership_root"], str(root))

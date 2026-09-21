@@ -1,0 +1,33 @@
+{
+  "symbol": "510330.SH",
+  "start_date": "2019-01-01",
+  "end_date": "2024-06-28",
+  "title_filter": "",
+  "pages": [
+    {
+      "page": 1,
+      "path": "data\\reports\\etf_monetization_20260911\\official_peer_coverage\\chinaamc_all_page1.html",
+      "sha256": "fd092f9da1e43354b0ddff4dcc75c7c2952f470dd18b3b9949f389ddc3643bc8"
+    },
+    {
+      "page": 2,
+      "path": "data\\reports\\etf_monetization_20260911\\official_peer_coverage\\chinaamc_all_page2.html",
+      "sha256": "809faa70f57722ab546c85a9f0bf9224020dcbd0e0fc7f22ac2664e2e1ecbe28"
+    },
+    {
+      "page": 3,
+      "path": "data\\reports\\etf_monetization_20260911\\official_peer_coverage\\chinaamc_all_page3.html",
+      "sha256": "c6a48170aee9b14b569e5e9b59891edb93dd4051507862def62fb88de0acdb4a"
+    },
+    {
+      "page": 4,
+      "path": "data\\reports\\etf_monetization_20260911\\official_peer_coverage\\chinaamc_all_page4.html",
+      "sha256": "574ab6adb041f7752c74d79ac0dbc8f0feeaafd11393692458fb19dde28fa345"
+    },
+    {
+      "page": 5,
+      "path": "data\\reports\\etf_monetization_20260911\\official_peer_coverage\\chinaamc_all_page5.html",
+      "sha256": "8f8f49a563fdc0e84a372f4ba0cb33d5ada6580cd2647c1e6db85221fcc1b4e5"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ from quant_robot.data.quality import validate_market_data
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.portfolio.constraints import PortfolioConstraints, apply_portfolio_constraints
 from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
+from quant_robot.storage.input_provenance import describe_calculation_inputs
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,7 @@ def generate_signal_snapshot(bars: pd.DataFrame, config: SignalPipelineConfig) -
     validate_market_data(filtered)
     as_of_date = _resolve_as_of_date(filtered, config)
     factors = compute_basic_factors(filtered, windows=config.factor_windows)
-    return _build_signal_snapshot(filtered, factors, config, as_of_date)
+    return _build_signal_snapshot(filtered, factors, config, as_of_date, factor_source="technical")
 
 
 def generate_signal_snapshot_from_factors(
@@ -44,13 +45,14 @@ def generate_signal_snapshot_from_factors(
     factors: pd.DataFrame,
     config: SignalPipelineConfig,
     validate: bool = True,
+    factor_source: str | None = None,
 ) -> dict[str, Any]:
     filtered = _filter_bars(bars, config)
     if validate:
         validate_market_data(filtered)
     as_of_date = _resolve_as_of_date(filtered, config)
     factor_frame = _filter_factor_rows(factors, config)
-    return _build_signal_snapshot(filtered, factor_frame, config, as_of_date)
+    return _build_signal_snapshot(filtered, factor_frame, config, as_of_date, factor_source=factor_source)
 
 
 def _build_signal_snapshot(
@@ -58,6 +60,8 @@ def _build_signal_snapshot(
     factors: pd.DataFrame,
     config: SignalPipelineConfig,
     as_of_date: Any,
+    *,
+    factor_source: str | None = None,
 ) -> dict[str, Any]:
     selected = _latest_factor_slice(factors, config.factor_name, as_of_date)
     selected = filter_signals_to_cn_etf_rotation_membership(
@@ -83,7 +87,9 @@ def _build_signal_snapshot(
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
             "as_of_date": str(as_of_date),
             "signal_date": str(signal_date),
-            "request": _config_dict(config, portfolio_scope),
+            "request": {**_config_dict(config, portfolio_scope), "factor_source": factor_source},
+            "input_provenance": describe_calculation_inputs(filtered, selected,
+                artifact_role="signal_snapshot", factor_role="latest_membership_filtered_ranking_input"),
             "constraints": asdict(constraints),
             "target_gross_exposure": target_gross,
             "cash_weight": cash_weight,
@@ -95,7 +101,8 @@ def _build_signal_snapshot(
 
 def write_signal_snapshot(result: dict[str, Any], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(result["targets"]).to_csv(output_dir / "targets.csv", index=False)
+    pd.DataFrame(result["targets"], columns=None if result["targets"] else
+        ["asset_id", "market", "target_weight", "signal_date", "latest_price"]).to_csv(output_dir / "targets.csv", index=False)
     manifest = {key: value for key, value in result.items() if key != "targets"}
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -142,16 +149,23 @@ def _resolve_portfolio_scope(config: SignalPipelineConfig) -> str:
 def _attach_latest_prices(targets: pd.DataFrame, bars: pd.DataFrame, as_of_date: Any) -> pd.DataFrame:
     if targets.empty:
         return targets.assign(latest_price=pd.Series(dtype=float))
+    if "close" not in bars.columns:
+        raise ValueError("Signal reference prices require raw close")
     available = bars[pd.to_datetime(bars["date"]).dt.date <= as_of_date].sort_values(["asset_id", "date"])
+    # Research-adjusted prices must not determine cash values or share quantities.
     prices = (
         available.groupby("asset_id", as_index=False, group_keys=False)
-        .tail(1)[["asset_id", "adj_close"]]
-        .rename(columns={"adj_close": "latest_price"})
+        .tail(1)[["asset_id", "close"]]
+        .rename(columns={"close": "latest_price"})
     )
     merged = targets.merge(prices, on="asset_id", how="left")
-    if merged["latest_price"].isna().any():
-        missing = sorted(merged.loc[merged["latest_price"].isna(), "asset_id"].astype(str).unique())
-        raise ValueError("Missing latest prices for signal targets: " + ", ".join(missing))
+    merged["latest_price"] = pd.to_numeric(merged["latest_price"], errors="coerce")
+    invalid = ~merged["latest_price"].map(
+        lambda value: pd.notna(value) and math.isfinite(float(value)) and value > 0
+    )
+    if invalid.any():
+        missing = sorted(merged.loc[invalid, "asset_id"].astype(str).unique())
+        raise ValueError("Missing finite positive raw close for signal targets: " + ", ".join(missing))
     merged["signal_date"] = merged["date"]
     return merged
 

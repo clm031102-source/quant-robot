@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Protocol
 
@@ -115,6 +116,7 @@ def build_etf_moneyflow_baskets_from_fund_portfolio(
     portfolio: pd.DataFrame,
     eligible_etf_symbols: list[str] | tuple[str, ...] | None = None,
 ) -> pd.DataFrame:
+    """Normalize observed rows for inspection; this does not certify full holdings."""
     if portfolio.empty:
         return pd.DataFrame(columns=ETF_MONEYFLOW_BASKET_COLUMNS)
     _require_columns(portfolio, ["fund_symbol", "known_date", "stock_symbol"], "Tushare fund_portfolio")
@@ -134,13 +136,22 @@ def build_etf_moneyflow_baskets_from_fund_portfolio(
         source = source[source["fund_symbol"].isin(eligible)].copy()
     if source.empty:
         return pd.DataFrame(columns=ETF_MONEYFLOW_BASKET_COLUMNS)
+    if source["period_end_date"].isna().any() or (source["period_end_date"] > source["known_date"]).any():
+        raise ValueError("Tushare fund_portfolio contains invalid period_end_date values")
+    publication_key = ["fund_symbol", "known_date"]
+    if source.groupby(publication_key)["period_end_date"].nunique().gt(1).any():
+        raise ValueError("Tushare fund_portfolio publication mixes report periods")
+    if source.duplicated([*publication_key, "stock_symbol"]).any():
+        raise ValueError("Tushare fund_portfolio contains duplicate stock observations")
     for column in ["mkv", "amount", "stk_mkv_ratio", "stk_float_ratio"]:
         source[column] = pd.to_numeric(source[column], errors="coerce") if column in source.columns else pd.NA
-    source["weight_basis"] = source["mkv"].where(source["mkv"] > 0, source["stk_mkv_ratio"])
-    source = source[pd.to_numeric(source["weight_basis"], errors="coerce") > 0].copy()
-    if source.empty:
-        return pd.DataFrame(columns=ETF_MONEYFLOW_BASKET_COLUMNS)
+    valid_mkv = source["mkv"].map(lambda value: pd.notna(value) and math.isfinite(value) and value > 0)
+    if not valid_mkv.all():
+        raise ValueError("Tushare fund_portfolio requires finite positive mkv for every observed row")
+    source["weight_basis"] = source["mkv"]
     source["group_weight_sum"] = source.groupby(["fund_symbol", "known_date"], sort=False)["weight_basis"].transform("sum")
+    if not source["group_weight_sum"].map(math.isfinite).all():
+        raise ValueError("Tushare fund_portfolio mkv sum is not finite")
     source["weight"] = source["weight_basis"] / source["group_weight_sum"].where(source["group_weight_sum"] > 0)
     next_known = _next_known_date_by_fund(source)
     source["end_date"] = [
@@ -229,6 +240,8 @@ def _validate_baskets(frame: pd.DataFrame) -> None:
 def _quality_report(raw: pd.DataFrame, baskets: pd.DataFrame, market: str) -> dict[str, object]:
     if baskets.empty:
         return {
+            "research_ready": False,
+            "source_status": "unverified_reported_holdings",
             "raw_rows": int(len(raw)),
             "rows": 0,
             "market": market,
@@ -241,6 +254,8 @@ def _quality_report(raw: pd.DataFrame, baskets: pd.DataFrame, market: str) -> di
         }
     known_dates = pd.to_datetime(baskets["known_date"])
     return {
+        "research_ready": False,
+        "source_status": "unverified_reported_holdings",
         "raw_rows": int(len(raw)),
         "rows": int(len(baskets)),
         "market": market,

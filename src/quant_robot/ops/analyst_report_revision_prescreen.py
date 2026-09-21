@@ -56,7 +56,7 @@ def default_analyst_report_candidate_specs() -> list[AnalystReportCandidateSpec]
             family="analyst_expectation_revision",
             formula_template="latest_target_price / signal_close - 1",
             direction="higher_is_better",
-            required_fields=("report_date", "tp", "min_price", "max_price"),
+            required_fields=("report_date", "min_price", "max_price"),
             windows=(60,),
             economic_rationale="Sell-side target-price upside is a direct external expectation signal, unlike old price-volume proxies.",
             public_reference_tags=refs,
@@ -89,7 +89,7 @@ def default_analyst_report_candidate_specs() -> list[AnalystReportCandidateSpec]
             family="analyst_expectation_revision",
             formula_template="cs_z(target_upside)+cs_z(np_revision)+cs_z(eps_revision)+cs_z(rating_delta)",
             direction="higher_is_better",
-            required_fields=("report_date", "tp", "np", "eps", "rating"),
+            required_fields=("report_date", "min_price", "max_price", "np", "eps", "rating"),
             windows=(90,),
             economic_rationale="Combines independent analyst report dimensions while still using one frozen formula before testing.",
             public_reference_tags=refs,
@@ -322,9 +322,11 @@ def _daily_report_snapshot(reports: pd.DataFrame) -> pd.DataFrame:
     frame = reports.copy()
     frame["report_date"] = pd.to_datetime(frame["report_date"])
     frame["rating_score"] = frame["rating"].map(_rating_score)
-    frame["target_price"] = pd.to_numeric(frame["tp"], errors="coerce").combine_first(
-        (pd.to_numeric(frame["min_price"], errors="coerce") + pd.to_numeric(frame["max_price"], errors="coerce")) / 2.0
-    )
+    # report_rc.tp is predicted total profit in CNY10,000, not a target price.
+    low = pd.to_numeric(frame["min_price"], errors="coerce")
+    high = pd.to_numeric(frame["max_price"], errors="coerce")
+    valid = low.gt(0) & high.ge(low) & low.lt(float("inf")) & high.lt(float("inf"))
+    frame["target_price"] = (low / 2.0 + high / 2.0).where(valid)
     grouped = (
         frame.groupby(["asset_id", "symbol", "market", "report_date"], as_index=False)
         .agg(

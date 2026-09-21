@@ -8,7 +8,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 - Review and ordered acceptance criteria: [project progress review](project_progress_review_2026-09-21.md).
 - Source baseline: `main` at `30ea14d`, including the 2026-07-29 NAV review and invalidation.
-- Unmerged topic baseline: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c`; 141 commits and 423 changed files beyond `main`. Its offline accounting/execution and prospective source-receipt work must be included in progress assessments but is not yet integrated into `main`.
+- Imported topic baseline: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c`; 141 commits and 423 changed files beyond `main`. Its offline accounting/execution and prospective source-receipt work is included in this review branch. It is not yet integrated into `main`.
 - Topic branch continuation authority: `docs/research/etf_monetization_execution_plan_2026-09-11.md` on that branch, plus the local `data/reports/etf_monetization_20260911/progress.json`. Its consumed monthly, household, month-start, and fiscal study authorizations remain consumed; the earlier mainline entries below cannot reopen them.
 - Current research authority: `configs/research_family_scheduler_cn_etf.json`, especially `last_decision`; earlier sections below preserve dated evidence and do not independently authorize another run.
 - Current mode: `family_rotation_review_only`; zero active primary families and zero allocated primary budget. The Quant PM gate is ready for `factor_review`, while factor batches remain blocked.
@@ -24,6 +24,15 @@ Purpose: this is the first file to read after syncing the repository on any work
 - The one permitted execution was consumed. Late older NAV selection, an unimplemented neutralization contract, and unbound bar/lifecycle/calendar authorities invalidate the result.
 - Metrics are non-governing; the family remains closed at zero budget without a valid pass-or-reject conclusion. No corrected rerun or holdout rescue is allowed.
 - Any future independent hypothesis must bind all input authorities and freeze the actual neutralization formula before labels are read.
+
+## Current ETF Deployment Work
+
+- Current task branch: `codex/factor-review-etf-monetization-20260911`; office desktop, commits and pushes authorized. This entry does not claim that the branch has been merged into `main`.
+- Authoritative execution plan: [CN_ETF deployment plan](etf_monetization_execution_plan_2026-09-11.md), including acceptance gates, stall diagnosis, direction changes, and hourly reporting.
+- Research status: follow `configs/research_family_scheduler_cn_etf.json`. Its latest decision closes the invalidated delayed-NAV family; no primary family is active. Do not rerun closed candidates or interpret earlier paper-ready records as current profitability evidence.
+- Current deliverable: offline minimum commission, daily risk observation, raw-price execution and a synthetic-tested dividend/share-conversion ledger, with frozen evidence through promotion and Daily Ops. See [accounting scope and next source audit](cn_etf_paper_execution_accounting_2026-09-11.md). Real-source completeness remains unverified and blocks strict ETF promotion.
+- 2026-09-12 source audit: all 1,121,050 scoped bar records reconcile to retained raw prices/amounts over 1,087 sessions, but all adjusted-price values are raw copies and two malformed symbols block qualification. Four bounded dividend/adjustment requests returned empty responses despite an official known dividend; pause repeated source requests and continue independent offline order recovery/reconciliation work. See the same accounting note for evidence and limits.
+- The subsequent dated source-access and research entries remain historical evidence. They do not authorize new factor batches, final-holdout reads, broker connections, account reads, or orders.
 
 ## Current CN ETF External-Data Unlock
 

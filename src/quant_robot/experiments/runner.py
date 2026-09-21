@@ -22,6 +22,8 @@ from quant_robot.factors.etf_theme_breadth import compute_etf_theme_breadth_fact
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.research.experiment_attempt import ExperimentAttemptRecorder
+from quant_robot.research.trial_identity import TRIAL_IDENTITY_FIELDS, bind_experiment_trial_ids
 from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
 from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
 from quant_robot.storage.cn_etf_theme_map import load_cn_etf_theme_map
@@ -222,27 +224,35 @@ def run_experiment_grid(
     cached = _load_completed_grid(config, reproducibility)
     if cached is not None:
         return cached
-    precomputed_factors = None
-    if config.precompute_factor_matrix:
-        precomputed_factors = (
-            precomputed_factor_factory()
-            if precomputed_factor_factory is not None
-            else _precompute_factor_matrix(bars, config)
-        )
-    research_input_cache: dict[tuple[Any, ...], Any] | None = {} if config.reuse_research_inputs else None
-    rows = [
-        _run_case(bars, config, case, precomputed_factors, research_input_cache)
-        for case in build_experiment_cases(config)
-    ]
-    leaderboard = _rank_rows(rows, config.rank_by)
-    result = {
-        "config": _config_dict(config),
-        "reproducibility": reproducibility,
-        "summary": _summary(leaderboard),
-        "leaderboard": leaderboard,
-    }
-    if config.output_dir is not None:
-        _write_grid_artifacts(config.output_dir, result, leaderboard)
+    cases = build_experiment_cases(config)
+    with ExperimentAttemptRecorder(config.output_dir, reproducibility, _config_dict(config),
+            [case.case_id for case in cases]) as attempt:
+        precomputed_factors = None
+        if config.precompute_factor_matrix:
+            precomputed_factors = (
+                precomputed_factor_factory()
+                if precomputed_factor_factory is not None
+                else _precompute_factor_matrix(bars, config)
+            )
+        research_input_cache: dict[tuple[Any, ...], Any] | None = {} if config.reuse_research_inputs else None
+        rows = []
+        for case in cases:
+            attempt.start_case(case.case_id)
+            row = _run_case(bars, config, case, precomputed_factors, research_input_cache)
+            rows.append(row)
+            attempt.finish_case(str(row["status"]))
+        attempt.set_phase("aggregate")
+        leaderboard = bind_experiment_trial_ids(_rank_rows(rows, config.rank_by), reproducibility["fingerprint"])
+        result = {
+            "config": _config_dict(config),
+            "reproducibility": reproducibility,
+            "summary": _summary(leaderboard),
+            "leaderboard": leaderboard,
+        }
+        if config.output_dir is not None:
+            attempt.set_phase("export")
+            _write_grid_artifacts(config.output_dir, result, leaderboard)
+        attempt.complete()
     return result
 
 
@@ -282,6 +292,12 @@ def _load_completed_grid(
     if int(summary.get("cases", len(leaderboard))) != len(expected_case_ids):
         return None
     if not _completed_case_artifacts_exist(config, expected_case_ids):
+        return None
+    if any(not isinstance(row, dict) or not all(key in row for key in TRIAL_IDENTITY_FIELDS) for row in leaderboard):
+        return None
+    try:
+        leaderboard = bind_experiment_trial_ids(leaderboard, cached_reproducibility["fingerprint"])
+    except ValueError:
         return None
     return {
         "config": manifest.get("config", _config_dict(config)),

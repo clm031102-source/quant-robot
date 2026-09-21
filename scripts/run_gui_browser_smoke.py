@@ -1234,8 +1234,8 @@ def run_gui_browser_smoke(
             "checks": len(checks),
             "passed": passed,
             "failed": failed,
-            "desktop_viewport": "verified by Browser during release validation",
-            "mobile_viewport": "390x844 verified by Browser during release validation",
+            "desktop_viewport": "not verified by this HTTP and source-contract check",
+            "mobile_viewport": "not verified by this HTTP and source-contract check",
         },
         "checks": checks,
         "safety": {

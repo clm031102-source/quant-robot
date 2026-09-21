@@ -1,4 +1,5 @@
 import unittest
+from decimal import Decimal, localcontext
 
 import pandas as pd
 
@@ -24,6 +25,36 @@ from quant_robot.data.sources.tushare_mapping import (
 
 
 class TushareMappingTests(unittest.TestCase):
+    @staticmethod
+    def unit_frame(volume,amount):
+        return pd.DataFrame({'ts_code':['510300.SH']*len(volume),'trade_date':['20200107']*len(volume),
+            'open':[4]*len(volume),'high':[4]*len(volume),'low':[4]*len(volume),'close':[4]*len(volume),
+            'vol':volume,'amount':amount})
+
+    def test_daily_unit_scaling_does_not_add_binary_multiplication_residue(self):
+        source=self.unit_frame([4649595.14,34658146.70],[2109910.834,8447914.072])
+        result=map_tushare_daily(source)
+        self.assertEqual(result['volume'].tolist(),[464959514.0,3465814670.0])
+        self.assertEqual(result['amount'].tolist(),[2109910834.0,8447914072.0])
+
+    def test_daily_unit_scaling_preserves_fractional_base_units_without_rounding(self):
+        result=map_tushare_daily(self.unit_frame(['.0105','0.00123456789'],['.001005','0.00123456789']))
+        self.assertEqual(result['volume'].tolist(),[1.05,.123456789])
+        self.assertEqual(result['amount'].tolist(),[1.005,1.23456789])
+
+    def test_daily_decimal_unit_scaling_is_independent_of_caller_decimal_context(self):
+        with localcontext() as ctx:
+            ctx.prec=2
+            result=map_tushare_daily(self.unit_frame([Decimal('4649595.14')],[Decimal('8447914.072')]))
+        self.assertEqual(result.loc[0,'volume'],464959514.0)
+        self.assertEqual(result.loc[0,'amount'],8447914072.0)
+
+    def test_daily_missing_unit_values_are_not_replaced_with_zero(self):
+        source=self.unit_frame([None,'bad',pd.NA,float('nan')],[None,'bad',pd.NA,float('nan')])
+        result=map_tushare_daily(source)
+        self.assertTrue(result['volume'].isna().all())
+        self.assertTrue(result['amount'].isna().all())
+
     def test_map_daily_returns_standard_empty_frame_for_empty_provider_response(self):
         result = map_tushare_daily(pd.DataFrame())
 

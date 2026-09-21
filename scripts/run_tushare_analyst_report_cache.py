@@ -13,6 +13,7 @@ ensure_workspace_imports()
 
 from quant_robot.data.adapters.tushare_adapter import TushareAdapter  # noqa: E402
 from quant_robot.data.ingest.tushare_analyst_reports import (  # noqa: E402
+    REPORT_RC_DOCUMENTED_ROW_LIMIT,
     _date_to_tushare,
     _date_windows,
     run_tushare_analyst_report_cache,
@@ -43,7 +44,7 @@ SKIP_QUOTA_REQUIRES_PROCESSED_WRITES_BLOCKER = "skip_quota_preflight_requires_pr
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Cache Tushare report_rc analyst reports with resume and PIT-safe normalization. "
+            "Cache Tushare report_rc analyst reports using legacy normalization; historical availability is not certified. "
             "By default this command runs local quota preflight first and exits 3 when blocked."
         ),
         epilog=(
@@ -63,7 +64,7 @@ def main() -> None:
         default=3660.0,
         help="Sleep between provider request windows.",
     )
-    parser.add_argument("--max-rows-per-window", type=int, default=5000, help="Warn when a provider window reaches this row count.")
+    parser.add_argument("--max-rows-per-window", type=int, default=REPORT_RC_DOCUMENTED_ROW_LIMIT, help="Warn at the smaller of this raw-row threshold and the documented 3000-row limit; this does not verify completeness.")
     parser.add_argument("--no-resume", action="store_true", help="Do not reuse existing processed window files.")
     parser.add_argument("--no-write-processed", action="store_true", help="Run without writing normalized processed outputs.")
     parser.add_argument(

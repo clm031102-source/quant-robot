@@ -17,6 +17,7 @@ dependencies = [
 parquet = ["pyarrow>=15,<25"]
 reports = ["matplotlib>=3.8,<4"]
 public-web = ["lxml>=5,<7", "openpyxl>=3.1,<4", "requests>=2.31,<3"]
+pdf-sources = ["pypdf>=6,<7"]
 data = ["akshare>=1.15,<2", "tushare>=1.4,<2", "yfinance>=0.2,<1", "ccxt>=4.0,<5"]
 
 [tool.setuptools.packages.find]

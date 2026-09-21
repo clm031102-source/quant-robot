@@ -5,34 +5,17 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from quant_robot.gui.paper_result_archive import operation_result_fields
+
+from quant_robot.gui.paper_request_identity import (
+    PAPER_REQUEST_SIGNATURE_KEYS, _request_signature, _signature_mismatch_keys,
+    _canonical_signature_value, _json_safe,
+)
 
 
 LEDGER_PATH = Path("data/reports/gui_operation_ledger/gui_operation_ledger.json")
 MAX_LEDGER_ENTRIES = 50
 SAFETY_NOTICE = "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
-PAPER_REQUEST_SIGNATURE_KEYS = (
-    "source",
-    "market",
-    "factor_name",
-    "factor_windows",
-    "top_n",
-    "rebalance_interval",
-    "initial_cash",
-    "commission_bps",
-    "slippage_bps",
-    "max_asset_weight",
-    "max_market_weight",
-    "max_gross_exposure",
-    "min_cash_weight",
-    "max_drawdown_guard",
-    "guard_cooldown_periods",
-    "as_of_date",
-    "run_date",
-    "same_parameter_lock_id",
-    "same_parameter_request_id",
-    "case_id",
-    "risk_profile_id",
-)
 SMALL_CAPITAL_OBSERVATION_LIMITS = {
     "max_initial_capital": 10000.0,
     "max_single_order_notional": 1000.0,
@@ -874,7 +857,7 @@ def _build_entry(
         "status": status,
         "command": command,
         "request": _json_safe(request),
-        "metrics": _json_safe(metrics),
+        **operation_result_fields(result),
         "request_summary": _request_summary(request),
         "metric_summary": _metric_summary(metrics, result),
         "stage": result.get("stage", ""),
@@ -940,16 +923,6 @@ def _request_summary(request: dict[str, Any]) -> str:
     return " / ".join(parts)
 
 
-def _json_safe(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {str(key): _json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(item) for item in value]
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return value
-    if isinstance(value, Path):
-        return str(value)
-    return str(value)
 
 
 def _metric_summary(metrics: dict[str, Any], result: dict[str, Any]) -> str:
@@ -1277,61 +1250,10 @@ def _same_parameter_request_id(request: dict[str, Any], index: int) -> str:
     return f"top3-paper-{index:03d}"
 
 
-def _request_signature(request: dict[str, Any]) -> dict[str, Any]:
-    if not isinstance(request, dict):
-        return {}
-    source: dict[str, Any] = dict(request)
-    if not source.get("factor_name") and source.get("factor") not in {None, ""}:
-        source["factor_name"] = source.get("factor")
-    signature: dict[str, Any] = {}
-    for key in PAPER_REQUEST_SIGNATURE_KEYS:
-        value = source.get(key)
-        if value is None or value == "":
-            continue
-        signature[key] = _canonical_signature_value(key, value)
-    return signature
 
 
-def _signature_mismatch_keys(actual: dict[str, Any], expected: dict[str, Any]) -> list[str]:
-    mismatches: list[str] = []
-    for key, expected_value in expected.items():
-        if actual.get(key) != expected_value:
-            mismatches.append(key)
-    return mismatches
 
 
-def _canonical_signature_value(key: str, value: Any) -> Any:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return round(float(value), 10)
-    text = str(value).strip()
-    if key == "market":
-        return text.upper()
-    if key == "factor_windows":
-        if isinstance(value, (list, tuple)):
-            return ",".join(str(item).strip() for item in value if str(item).strip())
-        return text.replace(" ", "")
-    if key in {
-        "top_n",
-        "rebalance_interval",
-        "initial_cash",
-        "commission_bps",
-        "slippage_bps",
-        "max_asset_weight",
-        "max_market_weight",
-        "max_gross_exposure",
-        "min_cash_weight",
-        "max_drawdown_guard",
-        "guard_cooldown_periods",
-    }:
-        try:
-            return round(float(text), 10)
-        except ValueError:
-            return text
-    if isinstance(value, (dict, list, tuple)):
-        return json.dumps(_json_safe(value), sort_keys=True, ensure_ascii=False)
-    return text
 
 
 def _closure_next_action(rows: list[dict[str, Any]]) -> str:

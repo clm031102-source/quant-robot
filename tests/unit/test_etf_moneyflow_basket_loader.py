@@ -9,6 +9,26 @@ from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
 
 
 class EtfMoneyflowBasketLoaderTests(unittest.TestCase):
+    def test_loader_blocks_legacy_tushare_rows_even_with_a_claimed_approval_flag(self):
+        for claimed in (None, True):
+            with self.subTest(claimed=claimed), tempfile.TemporaryDirectory() as tmp:
+                frame = pd.DataFrame({"source": ["tushare_fund_portfolio"], "weight": [1.0]})
+                if claimed is not None:
+                    frame["factor_generation_allowed"] = claimed
+                DatasetStore(tmp).write_frame(frame, "metadata/etf_moneyflow_baskets", {"market": "CN_ETF"})
+                with self.assertRaisesRegex(ValueError, "unverified.*holdings"):
+                    load_etf_moneyflow_baskets(tmp, "CN_ETF")
+
+    def test_nested_unverified_partition_cannot_hide_behind_other_baskets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, source in (("fixture", "fixture_basket"), ("legacy", "tushare_fund_portfolio")):
+                DatasetStore(Path(tmp) / name).write_frame(
+                    pd.DataFrame({"source": [source], "weight": [1.0]}),
+                    "metadata/etf_moneyflow_baskets", {"market": "CN_ETF"},
+                )
+            with self.assertRaisesRegex(ValueError, "unverified.*holdings"):
+                load_etf_moneyflow_baskets(tmp, "CN_ETF")
+
     def test_loader_accepts_store_root_metadata_root_or_nested_search_root(self):
         with tempfile.TemporaryDirectory() as tmp:
             search_root = Path(tmp)

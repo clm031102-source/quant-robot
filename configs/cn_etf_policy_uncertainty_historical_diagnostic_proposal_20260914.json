@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "proposal_id": "policy_uncertainty_monthly_median_historical_diagnostic_v1",
+  "economic_hypothesis_id": "policy_uncertainty_monthly_median_v1",
+  "status": "design_review_only_not_admitted",
+  "new_independent_hypothesis_claimed": false,
+  "primary_market": "CN_ETF",
+  "symbol": "510300.SH",
+  "source_document": "docs/research/cn_etf_policy_uncertainty_historical_diagnostic_2026-09-14.md",
+  "signal": {
+    "vintage_cutoff_calendar_days_before_anchor": 7,
+    "observation": "latest_available_month_in_the_original_frozen_vintage",
+    "comparator": "median_of_the_preceding_12_calendar_months_in_that_vintage",
+    "z": "1_if_latest_less_than_or_equal_to_comparator_else_0",
+    "missing_input_action": "stop_with_incomplete_evidence_no_imputation_or_dropping",
+    "freshness_filter_added": false,
+    "parameter_search_allowed": false
+  },
+  "window": {
+    "first_anchor_month": "2020-01",
+    "last_anchor_month": "2024-06",
+    "anchor": "first_session_of_month_in_the_fingerprinted_calendar",
+    "expected_anchors": 54,
+    "expected_complete_intervals": 53,
+    "label": "analytical_total_return_index_at_next_anchor_close_divided_by_current_anchor_close_minus_one",
+    "final_anchor_new_signal_or_trade": false,
+    "expand_or_drop_intervals": false
+  },
+  "source_use": {
+    "calendar_sha256": "dbecac271ded4b95da6234658742177569405c477097ec1b780914ebddcaa11a",
+    "source_join_evidence": "data/reports/etf_monetization_20260911/joint_source_review_20260914/result.json",
+    "price_basis": "cash_actions_ex_close_reinvestment_v1",
+    "price_basis_meaning": "hypothetical_fractional_units_gross_cash_reinvested_at_ex_date_close",
+    "gross_cash_observations_sha256": "eb7fd0268ddf0e6934902d962c140d13057b0d8d38d766f0798156e7ca17ab8b",
+    "residual_assumption": "no_unlisted_unit_conversion_in_the_bounded_window_not_proven_by_net_share_balance",
+    "late_reports": "retrospective_source_audit_only_never_predictor_inputs",
+    "provider_adjustment_factor_used": false,
+    "source_contract_requires_separate_use_specific_review": true,
+    "use_specific_review_status": "conditional_analytical_use_review_complete_not_execution_admission",
+    "use_specific_review_evidence": "data/reports/etf_monetization_20260911/candidate_execution_contract_20260914/historical_source_use_review.json",
+    "global_source_audit_verified": false
+  },
+  "primary_diagnostic": {
+    "formula": "mean((z_t - mean(z))*R_t)",
+    "interpretation": "gross_monthly_selection_differential_against_ex_post_same_mean_monthly_exposure",
+    "comparator_is_executable_strategy": false,
+    "cash_interest_assumption": "0",
+    "exposure_matching": "monthly_observation_weight_not_daily_time_or_risk_matching",
+    "reject_if": "primary_diagnostic_less_than_or_equal_to_zero_or_signal_is_constant",
+    "positive_result": "eligible_for_review_of_a_separate_account_study_only_not_promotion"
+  },
+  "secondary_descriptive_outputs": [
+    "all_53_anchor_pairs_and_input_vintage_identities_including_missingness",
+    "signal_ones_zeros_and_switch_count",
+    "mean_z_times_R_and_mean_z_times_mean_R",
+    "per_calendar_year_contributions_to_the_one_primary_diagnostic_without_subgroup_selection"
+  ],
+  "cost_and_risk_limits": {
+    "gross_diagnostic_only": true,
+    "actual_fee_or_net_account_result_computed": false,
+    "capital_cny_unchanged": "10000",
+    "max_position_cny_unchanged": "1000",
+    "daily_loss_cny_unchanged": "60",
+    "max_drawdown_unchanged": "0.08",
+    "illustrative_full_1000_cny_round_trip_commission_without_minimum": "1",
+    "illustrative_full_1000_cny_round_trip_commission_with_5_cny_minimum": "10",
+    "illustrative_commission_scope": "two_independent_1000_cny_legs_at_5bps_each_no_other_fees_spread_slippage_or_price_change",
+    "minimum_commission_confirmed": false,
+    "whole_lots_fills_intraday_risk_settlement_and_terminal_liquidation_simulated": false,
+    "risk_compliance_certified": false
+  },
+  "admission_requirements": [
+    "separate_use_specific_source_review_and_fingerprints_of_all_inputs",
+    "exact_signal_and_label_implementation_verified_with_synthetic_examples",
+    "dedicated_hash_bound_preregistration_and_explicit_single_attempt_authorization",
+    "durable_execution_claim_before_reading_labels_or_computing_signals",
+    "shared_economic_hypothesis_identity_and_prior_search_history_limitations_retained"
+  ],
+  "inference": {
+    "p_values_or_confidence_intervals_allowed": false,
+    "formal_positive_ev_claim_allowed": false,
+    "complete_search_history_verified": false,
+    "independent_hypothesis_total": null,
+    "nominal_HAC_shortcut_allowed": false
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "outcome_read_allowed": false,
+    "source_collection_allowed": false,
+    "once_only_attempt_authorization_issued": false,
+    "2026_holdout_allowed": false,
+    "paper_account_run_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "promotion_allowed": false
+  }
+}

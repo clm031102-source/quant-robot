@@ -63,6 +63,13 @@ class TushareAdapter(MarketDataAdapter):
         raw = self._call(self.client.fund_daily, trade_date=_date_to_tushare(trade_date))
         return map_tushare_daily(raw)
 
+    def fetch_provider_daily_by_trade_date(self, trade_date: str, *, market: str) -> pd.DataFrame:
+        """Return SDK fields in provider units for capture before normalization."""
+        if market not in {'CN', 'CN_ETF'}:
+            raise ValueError('unsupported provider daily market')
+        method = self.client.fund_daily if market == 'CN_ETF' else self.client.daily
+        return self._call(method, trade_date=_date_to_tushare(trade_date))
+
     def fetch_daily_basic_by_trade_date(self, trade_date: str) -> pd.DataFrame:
         raw = self._call(self.client.daily_basic, trade_date=_date_to_tushare(trade_date))
         return map_tushare_daily_basic(raw)

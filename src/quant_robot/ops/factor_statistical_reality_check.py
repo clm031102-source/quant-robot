@@ -9,6 +9,7 @@ from statistics import NormalDist
 from typing import Any, Iterable
 
 import pandas as pd
+from quant_robot.research.trial_identity import TRIAL_IDENTITY_FIELDS, statistical_inference_scope
 
 
 STAGE = "factor_statistical_reality_check"
@@ -297,6 +298,7 @@ def build_factor_statistical_reality_check(
     embargo_observations: int = 0,
 ) -> dict[str, Any]:
     experiments = experiments.copy() if isinstance(experiments, pd.DataFrame) else pd.DataFrame(experiments)
+    inference_scope = statistical_inference_scope(experiments, case_column)
     metric_name = metric_column or _first_existing_column(experiments, DEFAULT_METRIC_COLUMNS)
     observation_name = observations_column or _first_existing_column(experiments, DEFAULT_OBSERVATION_COLUMNS)
     p_value_name = p_value_column or _first_existing_column(experiments, DEFAULT_P_VALUE_COLUMNS)
@@ -395,6 +397,7 @@ def build_factor_statistical_reality_check(
     report = {
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
+        "inference_scope": inference_scope,
         "summary": summary,
         "rows": ranked_rows,
         "cpcv_splits": cpcv_splits,
@@ -462,6 +465,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Stage: {report.get('stage', STAGE)}",
         f"- Rows: {summary.get('rows', 0)}",
         f"- Hypotheses: {summary.get('hypothesis_count', 0)}",
+        "- Inference scope: provided experiment rows; complete research history is not verified.",
         f"- Metric: {summary.get('metric_column')}",
         f"- Observations: {summary.get('observations_column')}",
         f"- p-value: {summary.get('p_value_column')}",
@@ -542,6 +546,8 @@ def _scored_rows(
             {
                 "source_row": int(index),
                 "case_id": str(row.get(case_column, index)) if case_column in experiments.columns else str(index),
+                "source_case_id": str(row.get("case_id", "")),
+                **{key: row[key] for key in TRIAL_IDENTITY_FIELDS if key in row},
                 "factor_name": str(row.get("factor_name", "")),
                 "metric_column": metric_column,
                 "observed_sharpe": observed_sharpe,

@@ -465,7 +465,7 @@ class ResearchPipelineTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "ambiguous processed bars"):
                 load_processed_bars(search_root, "CN", recursive=True)
 
-    def test_research_cli_loader_supports_all_processed_markets(self):
+    def test_research_cli_stock_packets_do_not_authorize_all_market_etf_access(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "store"
             bars = load_demo_market_bars()
@@ -476,16 +476,13 @@ class ResearchPipelineTests(unittest.TestCase):
                     {"frequency": "1d", "market": market, "year": "2024"},
                 )
 
-            result = load_research_bars(
-                "processed-bars",
-                root,
-                "ALL",
-                startup_gate_packet=_write_startup_gate(Path(tmp)),
-                data_manifest_packet=_write_data_manifest(Path(tmp), root),
-                factor_batch_readiness_gate_packet=_write_factor_batch_readiness_gate(Path(tmp), ready=True),
-            )
-
-            self.assertEqual(set(result["market"]), {"CN", "CN_ETF", "HK", "US", "CRYPTO"})
+            with self.assertRaisesRegex(ValueError, 'CN_ETF.*registered'):
+                load_research_bars(
+                    "processed-bars", root, "ALL",
+                    startup_gate_packet=_write_startup_gate(Path(tmp)),
+                    data_manifest_packet=_write_data_manifest(Path(tmp), root),
+                    factor_batch_readiness_gate_packet=_write_factor_batch_readiness_gate(Path(tmp), ready=True),
+                )
 
     def test_research_cli_loader_requires_ready_factor_batch_readiness_for_cn_processed_bars(self):
         with tempfile.TemporaryDirectory() as tmp:

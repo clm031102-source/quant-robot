@@ -44,7 +44,7 @@ class CnStockDataManifestCliTests(unittest.TestCase):
                     json.dumps(
                         {
                             "stage": stage,
-                            "generated_at": pd.Timestamp.today().date().isoformat(),
+                            "generated_at": pd.Timestamp.now(tz="UTC").isoformat(),
                             "status": "review_required",
                             "source_root": "data/processed/demo",
                             "summary": {},

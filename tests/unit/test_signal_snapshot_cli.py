@@ -12,7 +12,8 @@ from quant_robot.ops.factor_batch_readiness_gate import (
 )
 from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
 from quant_robot.storage.dataset_store import DatasetStore
-from scripts.run_signal_snapshot import run_signal_snapshot
+from scripts.run_signal_snapshot import run_signal_snapshot, _attach_processed_cn_etf_rotation_membership
+from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot
 
 
 class SignalSnapshotCliTests(unittest.TestCase):
@@ -33,7 +34,7 @@ class SignalSnapshotCliTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "rebalance_plan.csv").exists())
             self.assertTrue((Path(tmp) / "manifest.json").exists())
 
-    def test_run_signal_snapshot_loads_all_processed_markets(self):
+    def test_cn_stock_packets_do_not_authorize_all_market_etf_access(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "store"
             bars = load_demo_market_bars()
@@ -44,22 +45,15 @@ class SignalSnapshotCliTests(unittest.TestCase):
                     {"frequency": "1d", "market": market, "year": "2024"},
                 )
 
-            result = run_signal_snapshot(
-                source="processed-bars",
-                data_root=root,
-                market="ALL",
-                factor_name="momentum_2",
-                factor_windows=(2,),
-                top_n=2,
-                startup_gate_packet=_write_startup_gate(Path(tmp)),
-                data_manifest_packet=_write_data_manifest(Path(tmp), root),
-                factor_batch_readiness_gate_packet=_write_factor_batch_readiness_gate(Path(tmp), ready=True),
-            )
+            with self.assertRaisesRegex(ValueError, 'CN_ETF.*registered'):
+                run_signal_snapshot(
+                    source="processed-bars", data_root=root, market="ALL",
+                    startup_gate_packet=_write_startup_gate(Path(tmp)),
+                    data_manifest_packet=_write_data_manifest(Path(tmp), root),
+                    factor_batch_readiness_gate_packet=_write_factor_batch_readiness_gate(Path(tmp), ready=True),
+                )
 
-            self.assertEqual(result["request"]["portfolio_scope"], "global")
-            self.assertGreaterEqual(len({row["market"] for row in result["targets"]}), 1)
-
-    def test_processed_cn_etf_snapshot_auto_uses_rotation_membership(self):
+    def test_rotation_membership_config_filters_synthetic_snapshot(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "store"
             bars = load_demo_market_bars()
@@ -78,15 +72,15 @@ class SignalSnapshotCliTests(unittest.TestCase):
                 {"market": "CN_ETF"},
             )
 
-            result = run_signal_snapshot(
-                source="processed-bars",
-                data_root=root,
+            config = SignalPipelineConfig(
                 market="CN_ETF",
                 factor_name="momentum_2",
                 factor_windows=(2,),
                 top_n=4,
                 as_of_date="2024-01-08",
             )
+            config = _attach_processed_cn_etf_rotation_membership(config, 'processed-bars', root)
+            result = generate_signal_snapshot(cn_etf, config)
 
             self.assertEqual({row["asset_id"] for row in result["targets"]}, {"CN_ETF_XSHG_510300"})
             self.assertEqual(result["request"]["rotation_membership_root"], str(root))
