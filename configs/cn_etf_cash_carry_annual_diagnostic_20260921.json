@@ -114,7 +114,7 @@
   "income": {
     "basis": "Official Aclass incomeUnit is daily or explicitly aggregated closed-calendar-run income per100physical shares. Shares are100CNYeach. Do not use incomeRatio or prices.",
     "entitlement": "From next open session after entry through exit date inclusive. These boundaries cannot split a closed-calendar-run aggregate.",
-    "allowed_date_shapes": "Every open session has one row. A closed-calendar run must have either every daily row or exactly one row on its final calendar day. Other partial shapes fail metadata admission; never fill missing income with zero or carry it forward. Group semantics remain a disclosed assumption if the official endpoint does not label the span.",
+    "allowed_date_shapes": "Every open session has one row. Each closed run has either all daily rows, one final-day aggregate, or partitions ending at December31and the run final day. Any other partial shape fails source admission. Year-end partition semantics are an inference from dates, conditional on the separately fixed seven-day identity checks; do not assume disjoint sums from dates alone.",
     "decimal": "Parse signed finite four-decimal income values only inside the later registered one-use execution. Preserve negative amounts. No annual fund-operation fee subtraction because disclosed income is already fund net realized income.",
     "daily_rounding_allowance_CNY_per_calendar_day": [
       0,
@@ -122,7 +122,23 @@
     ],
     "primary_daily_rounding_allowance_CNY": 0.01,
     "rounding_status": "Pro-rata cash less the stated per-calendar-day allowance is a declared stress model, not a certified lower bound on individual clearing allocation. Do not label it actual account cash.",
-    "payment_timing": "2015monthly and2023-06-05daily payment rules retained. This first diagnostic sums earned income without reinvestment and does not claim exact cash availability or payment-transfer charges."
+    "payment_timing": "2015monthly and2023-06-05daily payment rules retained. This first diagnostic sums earned income without reinvestment and does not claim exact cash availability or payment-transfer charges.",
+    "seven_day_consistency": {
+      "formula": "For Aclass, seven-day income per100shares = incomeRatio_in_percentage_points *700/365. Compare with sum of report-period incomeUnit values covering the same7calendar days, with no partial period allowed.",
+      "check_end_dates": [
+        "2015-01-12",
+        "2017-01-03",
+        "2018-01-02",
+        "2019-01-02",
+        "2023-01-03",
+        "2024-01-02"
+      ],
+      "basis": "First ordinary Friday-to-Monday probe and the first open day after each of the five irregular cross-year closures identified by date-only metadata. No endpoint chosen by income values.",
+      "absolute_tolerance_income_unit": "0.00005*7 +0.0005*700/365",
+      "tolerance_basis": "Official four-decimal income and three-decimal percentage annualized-yield rounding; arithmetic error propagation, not empirical fitting.",
+      "failure": "Stop with source inconsistency; compute no annual strategyPnL and do not try alternate scaling, holiday overlap or dates to rescue the candidate.",
+      "access": "Only inside the later claimed, fingerprinted one-use execution. No income values inspected while amending this source shape."
+    }
   },
   "criteria": {
     "all_nine_opportunities_filled": true,
@@ -238,5 +254,30 @@
   "calendar": {
     "path": "data/reports/positive_ev_20260921/labor_risk_diagnostic/inputs/calendar.csv",
     "sha256": "dbecac271ded4b95da6234658742177569405c477097ec1b780914ebddcaa11a"
+  },
+  "source_semantics_amendment": {
+    "reason": "Date-only full archive contains2658rows,no missing open sessions,462closedruns,including five partial runs split atDecember31. All fixed opportunity dates, fees, allowance and decision thresholds are unchanged; income values remain opaque.",
+    "date_review": {
+      "path": "data/reports/positive_ev_20260921/cash_carry_annual_sources/date_coverage_review.json",
+      "sha256": "7f4ff464007c3d1cfab4de381ed208b73a0ef61d5241bf1b0ef9466a97c01b50"
+    },
+    "quota_schema": {
+      "path": "data/reports/positive_ev_20260921/cash_carry_review/schema_review/quota_technical_schema.pdf",
+      "sha256": "28b2336cb58c6545133e6ff014297f59d0e92f00ba197c527f85182e4de227f9"
+    },
+    "active_quota_notice": {
+      "path": "data/reports/positive_ev_20260921/cash_carry_review/schema_review/quota_actual_controls_2013.pdf",
+      "sha256": "aed51fa2bad2bbb45a23bd26c8d216068f5621a414ad27029329768fe29d25d4"
+    },
+    "income_formula_sources": [
+      {
+        "path": "data/reports/positive_ev_20260921/cash_carry_review/prospectus_2015.pdf",
+        "sha256": "adff66f8c78c03a68a2ce16d50f6badbd37e387836b381d49a03a69064ea2481"
+      },
+      {
+        "path": "data/reports/positive_ev_20260921/cash_carry_review/prospectus_2023.pdf",
+        "sha256": "019c396b6f48cf3f26f2a0a6de87b5f9c2879cd91c91e3db24585efa65ca7efe"
+      }
+    ]
   }
 }
