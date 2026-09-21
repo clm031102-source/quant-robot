@@ -13,10 +13,12 @@ Current result count: ten economic studies in the CNY10000continuation, zero qua
 strategies and zero new real forward days. Earlier archived studies remain separate consumed evidence.
 
 Latest source review: [enterprise working-capital survey](cn_etf_enterprise_liquidity_source_review_2026-09-22.md).
-Two official reports support the field definition and rounding compatibility. The2013Q2questionnaire
-revision still needs field-specific review, and the2023Q4official carrier is dated2024-03-22.
+Two pilot reports support the field definition and rounding compatibility. A follow-up comparison of
+the2013Q1/Q2originals confirms the field's published definition is unchanged across the questionnaire
+revision, while sample counts differ. Dated2013carriers are identified; the2023Q4carrier is dated2024-03-22.
 The prospective hypothesis remains at source review; no signal, return test or full-history admission.
-Three complete originals and six visually reviewed pages are retained with all transport failures.
+Seven complete originals and eleven visually reviewed pages across both stages are retained with
+all three earlier transport failures. Historical sample/vintage and full release coverage remain unresolved.
 
 Latest capital-fit review: [credit bond ETF511220](cn_etf_credit_bond_lot_review_2026-09-22.md).
 The fixed2020-01-02close implies9667.70CNYfor100units under primary costs. This fits the10000account

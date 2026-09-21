@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "review_id": "enterprise_working_capital_survey_two_quarter_pilot_20260922",
-  "stage": "source_pilot_complete_financial_admission_pending",
+  "stage": "source_pilot_and_field_definition_check_complete_financial_admission_pending",
   "parent_commit": "83581e3",
   "capital_CNY": 10000,
   "single_position_all_in_CNY": 1000,
@@ -28,7 +28,10 @@
       "index_percent": "57.3",
       "good_normal_difficult_percent": ["32.7", "49.1", "18.2"],
       "document_date": "2013-12-18",
-      "public_landing_date_authenticated": false,
+      "government_hosted_pdf_historical_publication_authenticated": false,
+      "PBC_landing_url": "https://www.pbc.gov.cn/diaochatongjisi/116219/116227/2804674/index.html",
+      "PBC_landing_declared_at": "2013-12-19 08:34:38",
+      "PBC_attachment_byte_matched_to_government_hosted_pdf": false,
       "population": "5900plus industrial enterprises excludingTibet"
     },
     {
@@ -46,13 +49,33 @@
   ],
   "rounding_check": "Both published index values are compatible with exhaustive underlying shares rounding to the published components. Retain the official index; synthetic witnesses are mathematical examples, not recovered respondent data.",
   "unresolved": [
-    "2013Q2questionnaire revision is explicitly documented; effect on this particular field is not yet established.",
-    "2013Q4dated public landing and full quarterly publication coverage are not authenticated.",
+    "The field-specific published definition agrees before/after2013Q2; sample composition and respondent weights are not proven constant.",
+    "DatedPBCcarriers for2013Q1/Q2/Q4are identified, but full quarterly publication coverage and theQ4cross-hostPDFbyte match remain unauthenticated.",
     "Current originals and laterLast-Modifiedheaders do not certify immutable historical vintages.",
     "Industrial survey population is not the510300constituent set; sample composition, weights and response history remain unknown.",
     "A complete outcome window, inference contract and financial admission are not yet frozen."
   ],
-  "next_source_decision": "Check original questionnaire definitions immediately around2013Q2and dated carriers. Only after that decision consider a bounded historical schedule and a separate fixed test; do not substitute50as a growth threshold or fill old quarters from later tables.",
+  "next_source_decision": "Design a separately bounded historical publication schedule for the unchanged candidate field and direction, retaining sample/vintage caveats. Do not substitute50as a growth threshold, fill old quarters from later tables, rerun consumed hypotheses or declare source qualification to be financial admission.",
+  "method_break_followup": {
+    "scope_path": "data/reports/positive_ev_20260922/enterprise_liquidity_method_break/scope.json",
+    "scope_sha256": "7e0a9b9b04fd4b8507e33360516bc1798439d0b15a4db68dd98cadb0e5849e56",
+    "verification_path": "data/reports/positive_ev_20260922/enterprise_liquidity_method_break/method_verification.json",
+    "verification_sha256": "c3963e2f0acbb198f2f024cac9ee2e0ee6272b2ce4c601353e5a069e32361a97",
+    "manifest_path": "data/reports/positive_ev_20260922/enterprise_liquidity_method_break/manifest.json",
+    "manifest_sha256": "b15e8ae4ba6fd6a0a9f62766b72500915a4c68a339eb0f3ceabe1494d712b586",
+    "published_definitions_equal_after_layout_normalization": true,
+    "Q1_report_sha256": "c3e4d523b83ec384dae7ef2b8e4b0084d41dc267063f6d0d627a58e3f7138931",
+    "Q2_report_sha256": "3b01fac7d4a21425997c82949eeef678adf8a8c3da1cbed78f6fec5ccca6b9bf",
+    "population_Q1_Q2": ["5700plus", "5800plus"],
+    "sample_or_vintage_invariance_proven": false,
+    "search_queries": 4,
+    "search_extension_recorded": true,
+    "web_requests": 4,
+    "raw_requests": 4,
+    "raw_success": 4,
+    "raw_success_bytes": 570095,
+    "additional_visual_pages": 5
+  },
   "requests": {
     "search_queries": 3,
     "web_requests": 4,
