@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_equity_gold_risk_diversification_v1",
+  "status": "fixed_conditional_account_execution_before_outcomes",
+  "authority": "Existing autonomous CNY10000project-lead mandate; explicit source-use self-review, not independent approval",
+  "source_review": {
+    "path": "data/reports/positive_ev_20260921/equity_gold_review/account_input_review.json",
+    "sha256": "22bdda5047a33185cbfac32f3b08e3156ac8f741ce9909500e5ee0273947d700"
+  },
+  "input_binding": {
+    "path": "data/reports/positive_ev_20260921/equity_gold_review/account_input_binding.json",
+    "sha256": "3c609d3347d52f2ae2ef2710b1da7d829a85192dfd71e75688f99c6e4fa467dc"
+  },
+  "financial_method": {
+    "path": "configs/cn_etf_equity_gold_account_method_20260921.json",
+    "sha256": "7eb0aec34d7886bf93ed3394544ded298ffd35f2c6ba08889d06eee7594ae62b"
+  },
+  "execution_clarification": {
+    "path": "configs/cn_etf_equity_gold_execution_clarification_20260921.json",
+    "sha256": "cb985bb9896581089a83afc9f5710cdb35b05be94d0c17625f3be2d694b7c7ed"
+  },
+  "account_engine": "src/quant_robot/paper/annual_allocation.py",
+  "cases": "Nine frozen fee/slippage scenarios, each including the paired and two standalone continuous accounts; shared zero-interest cash reference. These are one predeclared hypothesis, not27independent discoveries.",
+  "statistics": "Unchanged financial checks and circular2-year5000draws seed20260921; standard linear2.5/97.5percentquantiles. Annual contribution includes final2024liquidation delta in2023while reporting it separately. Completed asset-position net PnLandwinfrequency are descriptive; they do not replace annualscreencriteria.",
+  "source_acceptance": "Conditional use of rawSSEprices and candidate share-volume units, with140pinned input roles. Both assets have2454calendar sessions;7768common OHLCvalues agree.222volume/amounttaildifferences remain a failed strictcomparison, not a certified unit or source audit. Retain unknown historical flags/depth,vintageandactualinvestorfees. No change to provider historicaldata.",
+  "exposure": "Original financial method precedes new dailypricepaths; execution clarification follows source numericalquality review but precedes any account outcomes. Public2026gold excerpts and incidentalhistoricalNAValso exposed; not pristineOOS. Local2026ETFholdout remains sealed.",
+  "execution": {
+    "max_executions": 1,
+    "claim_before_account_calculation": true,
+    "all_scenarios_and_failures_retained": true,
+    "conditional_historical_account_allowed": true,
+    "general_factor_batch_allowed": false,
+    "forward_paper_allowed": false,
+    "promotion_allowed": false,
+    "holdout_2026_allowed": false,
+    "live_boundary_allowed": false
+  },
+  "failure_policy": "Preserve claimed failures and results. No changed dates,assets,riskrules,fees,weights,thresholds or outcome-driven rerun. Any engineering correction requires its own explicit evidence before execution; no implied retry."
+}
