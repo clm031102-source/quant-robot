@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "economic_hypothesis_id": "enterprise_funds_turnover_annual_improvement_v1",
+  "status": "fixed_before_full_history_collection_not_financial_admission",
+  "parent_commit": "20f2315",
+  "authority": "Project lead autonomous review under the standing user mandate; no independent human reviewer claimed.",
+  "capital_CNY": 10000,
+  "asset": "510300.SH",
+  "mechanism": {
+    "hypothesis": "Improved reported corporate working-capital conditions relative to the same quarter one year earlier may foreshadow delayed improvement in repayment risk and cashflows relevant to broad Chinese equities.",
+    "failure_mechanisms": [
+      "Immediate capitalization of public information",
+      "Lower required risk premium after improved conditions",
+      "Survey industrial firms are not the ETF constituent set",
+      "Changing survey composition and surviving historical versions"
+    ],
+    "not_replication_or_known_alpha": true
+  },
+  "source": {
+    "field": "Official published PBC enterprise survey资金周转指数level, in percentage points",
+    "reference_start": "2011Q4",
+    "reference_end": "2023Q3",
+    "reference_quarters": 48,
+    "publication_cutoff": "2023-12-31",
+    "use_original_quarter_reports": true,
+    "no_backtable_fill": true,
+    "availability": "Maximum explicit date among official catalogue, article body publication time, and report's declared release date, at end of that date. Metadata creation, URL migration and HTTP headers are not release clocks. Unresolved date/title/field conflicts remain unavailable. Current bytes being unchanged at the declared historical date is an unverified conditional-exploration assumption.",
+    "version": "One dated issuer landing per quarter with its directly linked report. Retain conflicting versions and resolve them before field admission; no financial-result-based version choice.",
+    "definition": "Good response share plus half of normal response share. Use the printed official level, not rounded-component reconstruction.2013Q1/Q2definitions agree but sample changes remain."
+  },
+  "signal": {
+    "formula": "For the latest reportquarter q visible before a decision, select equity iff its printed index strictly exceeds the printed index in the original report for q-4, also already visible. Equality is known cash. Missing either original, ambiguous identity/method or expiration is unknown/cash.",
+    "events": "Initialize at the first exchange session of2013using only reports available by2012-12-31. Thereafter act at the first exchange-session open strictly after a new latest-quarter publication date. Same-day reports are installed together; only the latest quarter generates a decision. Older-quarter releases update history for future decisions but generate no retroactive trades.",
+    "expiration": "Expire a carried state at the first exchange-session open strictly after latest-report publication date+124calendar days unless superseded by a newer eligible report.124days is a fixed one-quarter-plus-about-one-month freshness allowance; no alternative expiration search.",
+    "unknowns": "Cash exposure; remain in calendar time and all comparator denominators.",
+    "real_signal_generation_allowed": false
+  },
+  "planned_diagnostic": {
+    "decision_start": "2013-01-01",
+    "decision_end": "2023-12-31",
+    "terminal_exit": "2024-01-02",
+    "later_slice_start": "2020-01-01",
+    "return": "Raw510300open-to-open plus entitled cash distributions, no reinvestment. Exact input pins and entitlement conventions must be frozen before execution.",
+    "primary_effect": "D=sum((z-zbar)*log1p(y))/sum(n), zbar=sum(n*z)/sum(n), with n=intervalsessions and z=1selected,otherwise0. Recalculate exposure andDper draw.",
+    "uncertainty": "5000paired circular-block resamples of4consecutive release/expiration intervals; seed20260922; linear2.5/97.5percentiles. Report variable interval lengths. Conditional exploratory uncertainty, not multiple-testing corrected EV proof.",
+    "necessary_screen": {
+      "minimum_full_selected_intervals": 16,
+      "minimum_full_selected_episodes": 6,
+      "minimum_later_selected_intervals": 6,
+      "minimum_later_selected_episodes": 3,
+      "both_slices_require_known_selected_and_known_unselected": true,
+      "full_selected_mean_above_zero": true,
+      "later_selected_mean_above_zero": true,
+      "later_effect_above_zero": true,
+      "full_effect_95pct_interval_lower_above_zero": true
+    },
+    "episode": "Adjacent selected intervals without cash/unknown interruption are one episode. Disclose any later-slice carry-in; it is not a new independent entry.",
+    "account_followup": "Only after the fixed gross screen passes may a separate full continuous account be admitted under unchanged CNY10000/CNY1000all-in and0/5/10minimum commission by0/10/30bpslippage scenarios. Consecutive selected states do not force roundtrips.",
+    "outcome_exposure": "2013..2023ETFoutcomes are exposed by previous studies; later slice is descriptive stability, not untouchedOOS. Local2026ETFholdout remains sealed.",
+    "no_rescue": "No reverse sign, alternative field, comparison quarter, expiration, horizon, price endpoint, later split, block length, minimum count, fee or risk rescue after execution."
+  },
+  "source_collection": {
+    "phase": "Catalogue inventory now; freeze exact article/PDFrequest corpus from inventory before collection.",
+    "catalogue_pages": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "maximum_new_catalogue_requests": 8,
+    "maximum_catalogue_bytes_each": 2000000,
+    "transport": "requests trust_env=false,TLSverify=true,no automatic retry or redirect",
+    "full_article_PDF_corpus_authorized": false
+  },
+  "authorization": {
+    "source_catalogue_only": true,
+    "full_history_values_allowed": false,
+    "signal_generation_allowed": false,
+    "financial_execution_allowed": false,
+    "general_factor_batch_allowed": false,
+    "final_holdout_allowed": false,
+    "broker_or_order_allowed": false
+  }
+}

@@ -20,6 +20,10 @@ Independent review matched 72 artifact pins, seven protocols, ten raw attempts (
 were checked from originals and pinned images. Q1 and Q4 PBC carrier dates are not byte-authenticated
 to the inspected gov.cn PDFs. Query/extension timestamp limits and prior outcome-summary exposure
 remain explicit. No signal, return test or full-history admission is created by this source review.
+The fixed 48-quarter proposal `847c0bf` currently authorizes catalogue inventory only. Independent
+review found no catalogue-stage blocker; later-boundary clipping/carry-in counts and the precise
+selected-mean formula must be clarified before financial admission. The implementation must also
+preserve newer-report supersession and coalesce coincident events without artificial cash breaks.
 Ten economic studies, zero qualifying strategies and zero real forward days remain unchanged.
 
 Latest actual test: [sovereign term slope](cn_etf_term_structure_source_review_2026-09-22.md).
