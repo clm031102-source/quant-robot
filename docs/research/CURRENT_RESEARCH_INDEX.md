@@ -10,13 +10,17 @@ original owner and now includes this continuation index; later results must be a
 against the mandate's evidence criteria.
 
 Current source work: [electricity activity and repurchase review](cn_etf_real_activity_source_review_2026-09-22.md).
-The original electricity-risk paper and three Chinese release pages have been reviewed; five selected
-original documents, including one repurchase disclosure, were preserved and fingerprinted. Monthly
-and cumulative usage, industrial and secondary-industry categories, and page/body dates differ.
-Two separately published monthly levels do not reconstruct the later printed growth under a simple
-rounding model; preserve each release's comparable growth instead of silently replacing it.
-Next establish the domestic variable, year-start reporting, classification changes and public timing
-before freezing one economic test. This is source progress, not a ninth outcome or new strategy.
+The domestic proxy and economic contract are fixed: printed monthly secondary-sector electricity YoY
+below its prior36valid-observation median,2017..2023decisions,2013..2023source history, conservative
+publication timing and62-day expiration. No sign/window/sample search or new financial execution.
+Eight definition originals verify February monthly/YTD separation and the2018classification adjustment.
+The source corpus now contains184official releases:177new successful requests plus7reused originals.
+An early linked Word table recovers2013February monthly-16.59%, distinct from cumulative+4.21%.
+Current/legacy catalogue recovery and source hashes are checked;5stale catalogue URLs returned404.
+All131reference months, inline images, attachment completeness and date/precision reconciliation still
+require qualification.86originals contain secondary-sector HTML table rows; this is not86qualifiedmonths.
+Current-page historical equality remains unverified. No local2026ETFholdout or financial state was read.
+This is source/contract progress, not a ninth economic result or a profitable strategy.
 Prior stock buyback variants remain closed; one cumulative disclosure does not establish an ETF aggregate.
 
 Latest actual test: [fixed equity plus gold continuous account](cn_etf_equity_gold_review_2026-09-21.md).

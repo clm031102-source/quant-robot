@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "economic_hypothesis_id": "national_secondary_electricity_low_activity_v1",
+  "created_at": "2026-09-21T16:53:28.035Z",
+  "status": "fixed_economic_source_contract_before_history_expansion_not_financial_admission",
+  "primary_market": "CN_ETF",
+  "asset_id": "CN_ETF_XSHG_510300",
+  "authority": "Project lead autonomous self-review under the user's CNY10000 mandate; no independent reviewer claimed.",
+  "mechanism": {
+    "hypothesis": "Unusually weak physical production activity relative to its recent history may accompany a higher subsequent equity risk premium. Test low printed Chinese secondary-sector electricity growth against subsequent CSI300 ETF returns.",
+    "primary_method_url": "https://academicweb.nd.edu/~zda/Pred_EG.pdf",
+    "primary_method_sha256": "bde15fa6a69ded83908c8c98145a0dd7e8613630fc8bbab4c0cfdd91e4239c0b",
+    "domestic_transfer": "Own domestic proxy, not replication of US per-capita industrial electricity growth or the paper's fitted forecasting regression.",
+    "distinct_input": "National physical electricity usage, not labor-force survey, ETF price pattern or stock moneyflow. Shared cyclical-risk explanation and reused ETF outcomes prevent a claim of statistical independence.",
+    "counterexamples": [
+      "Weather, lunar holiday shifts and electrification can alter monthly electricity without priced business risk.",
+      "Industry composition and2018classification changes can shift the distribution.",
+      "A higher risk premium need not yield positive absolute net returns after implementation costs."
+    ]
+  },
+  "input": {
+    "field": "Official national secondary-sector monthly electricity consumption year-over-year growth, in printed percentage points",
+    "exclude": [
+      "industrial-only growth",
+      "total electricity",
+      "provincial growth",
+      "YTD growth",
+      "annual growth without an explicit December monthly field",
+      "per-capita reconstruction",
+      "cross-release level-ratio reconstruction"
+    ],
+    "reference_period_start": "2013-01",
+    "reference_period_end": "2023-11",
+    "publication_cutoff": "2023-12-31",
+    "release_selection": "For each reference month choose the earliest conservative publication date among retained qualifying NEA national release originals; tie uses exact monthly-summary title before detailed table, then lexicographic URL. The selected field must actually exist in that release. Retain subsequent conflicting versions for audit; do not backdate later fields.",
+    "date_rule": "Availability date is the latest explicit date among the selected page publication date, body release date, and linking official catalogue date. URL migration folders are not publication dates. Ambiguous years or dates stop source qualification. Earliest possible market use is next exchange session strictly after availability date.",
+    "version_rule": "Use printed comparable growth, without retroactively applying later revisions. Current-page equality to historical release is an explicit unverified condition, with actual retrieval times and hashes retained.",
+    "classification_rule": "Tag pre/post2018classification, retain each release's printed comparable growth. The official adjustment of prior comparison supports within-release growth; it does not prove an invariant cross-regime distribution. Do not retroactively back-adjust the predictor or tune separate regime thresholds.",
+    "missing_rule": "Enumerate all131reference months. Never zero-fill, interpolate or subtract YTD. A month without an explicit eligible monthly observation stays unavailable; catalogue absence alone does not certify nonpublication. Unreadable/conflicting candidate originals must be resolved or fail source readiness before outcomes."
+  },
+  "signal": {
+    "formula": "For each newly available latest reference month m, let g_m be printed monthly secondary-sector YoY. Let h_m be the ordinary median of the36most recent valid earlier reference months whose selected publications were available before this decision; for an even sample median is mean of18thand19thordered values. z=1 iff g_m<h_m, otherwise0; equality is cash.",
+    "reason": "Relative low activity is a fixed distribution-free proxy for the paper's negative growth/return relation.36observations provide approximately three reporting years; no alternative windows, quantiles, signs or thresholds are searched.",
+    "insufficient_history": "If fewer than36prior valid monthly observations are available, state is unknown/cash and reported as such; never shorten the window.",
+    "event_time": "Next exchange session after each new latest-month release. If several become available together, install all eligible history, then use only the latest reference month. Older-month late releases update eligible history prospectively but create no standalone trade or retroactive state.",
+    "between_events": "Carry the last state until next new latest-month release or expiration. Expire to unknown/cash on the first exchange session strictly after the selected publication date plus62calendar days; no stale synthetic January signal.",
+    "real_signal_generation_allowed": false
+  },
+  "planned_test": {
+    "decision_start": "2017-01-01",
+    "decision_end": "2023-12-31",
+    "terminal_exit": "2024-01-02",
+    "later_slice_start": "2021-01-01",
+    "gross_primary": "Exposure-duration-matched selected minus unconditional log return per exchange session on non-overlapping release/expiration intervals, including declared cash dividend entitlement.",
+    "comparators": [
+      "Cash",
+      "Same-dates unconditional510300exposure, matched by invested-session fraction for gross timing effect"
+    ],
+    "uncertainty": "5000paired circular block resamples of12successive release/expiration intervals, seed20260922,2.5th/97.5thpercentiles. Fixed descriptive2021onward slice, not fresh OOS.",
+    "minimum_evidence": "At least12selected intervals and6distinct selected episodes overall; at least6selected intervals and3episodes in2021onward; selected and unselected observations must both exist. These are screening minima, not proof of adequate independent sample size.",
+    "gross_conditions": [
+      "Full matched-exposure effect lower95%bound strictly positive",
+      "Full and later selected arithmetic mean gross return strictly positive",
+      "Later matched-exposure effect strictly positive",
+      "All fixed minimum-evidence conditions satisfied"
+    ],
+    "cost_account_followup": "Only if the fixed gross screen passes, freeze and admit one complete continuous account implementation with the existing CNY10000capital, CNY1000single-position cap and actual-cost scenarios. Consecutive selected states retain holdings where permitted. Gross positivity is not net EV.",
+    "account_config": "configs/cn_etf_research_account.json",
+    "minimum_commission_CNY": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bps_per_side": [
+      0,
+      10,
+      30
+    ],
+    "primary_minimum_commission_CNY": 5,
+    "primary_slippage_bps_per_side": 10,
+    "actual_fees_confirmed": false,
+    "prior_ETF_outcomes_exposed": true,
+    "fresh_OOS": false,
+    "multiple_testing_adjusted": false,
+    "source_only_2019_2020_values_exposed": true,
+    "no_rescue": "No alternative sign, window, sample span, threshold, later split, block length, January fill, classification adjustment or cheapest-cost winner after execution."
+  },
+  "source_collection": {
+    "phase": "Catalogue-only next; exact release corpus must be frozen before new article downloads.",
+    "allowed_catalogue_new_requests_max": 12,
+    "catalogue_source": "Observed NEA development/planning division pagination; reuse retained4,5,6pages.",
+    "new_release_article_requests_currently_allowed": 0,
+    "paid_provider_requests_allowed": 0,
+    "new_price_downloads_allowed": 0
+  },
+  "required_before_real_financial_run": [
+    "Fully enumerated source timetable, source-readiness decision and pinned originals",
+    "Exact event/expiry calendar and outcome/dividend semantics",
+    "Synthetic signal/statistic checks and one-use registration with code/input hashes",
+    "Fresh PM gate and exact scheduler authorization before state generation or outcome decoding"
+  ],
+  "boundaries": {
+    "financial_execution_allowed": false,
+    "once_only_financial_authorization_issued": false,
+    "general_factor_batch_allowed": false,
+    "paper_promotion_allowed": false,
+    "local_2026_ETF_holdout_allowed": false,
+    "broker_connection_allowed": false,
+    "live_account_read_allowed": false,
+    "order_placement_allowed": false
+  }
+}
