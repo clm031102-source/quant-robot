@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-21T18:33:44.623700+00:00",
+  "study_id": "domestic_sovereign_10y_1y_slope_quarterly_v1",
+  "stage": "full_source_corpus_admission_after_two_passed_pilots",
+  "authority": "PM source-only decision under the user standing autonomous research mandate; no further user decision is missing for this bounded public-source preparation.",
+  "decision": "Admit exactly13nonoverlapping history requests after both original same-curve all-tenor pilots passed. Reuse those10pilot rows. Preserve the economic proposal unchanged; do not compute its spread, signal or ETF outcome in this source stage.",
+  "economic_proposal_sha256": "1a28e483354fe9254283a0a20ba4c0284574031638a0ad8989226d5f6e469ebe",
+  "capital_CNY": 10000,
+  "max_single_position_all_in_CNY": 1000,
+  "historical_source_collection_allowed": true,
+  "source_url": "https://yield.chinabond.com.cn/cbweb-pbc-web/pbc/historyQuery",
+  "gate_path": "data/reports/positive_ev_20260921/term_structure_review_20260922/pm_gate/quant_pm_startup_gate_pack.json",
+  "requests": [
+    {
+      "id": "warmup_remaining",
+      "params": {
+        "startDate": "2011-12-01",
+        "endDate": "2011-12-25",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2012",
+      "params": {
+        "startDate": "2012-01-01",
+        "endDate": "2012-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2013",
+      "params": {
+        "startDate": "2013-01-01",
+        "endDate": "2013-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2014",
+      "params": {
+        "startDate": "2014-01-01",
+        "endDate": "2014-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2015",
+      "params": {
+        "startDate": "2015-01-01",
+        "endDate": "2015-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2016",
+      "params": {
+        "startDate": "2016-01-01",
+        "endDate": "2016-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2017",
+      "params": {
+        "startDate": "2017-01-01",
+        "endDate": "2017-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2018",
+      "params": {
+        "startDate": "2018-01-01",
+        "endDate": "2018-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2019",
+      "params": {
+        "startDate": "2019-01-01",
+        "endDate": "2019-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2020",
+      "params": {
+        "startDate": "2020-01-01",
+        "endDate": "2020-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2021",
+      "params": {
+        "startDate": "2021-01-01",
+        "endDate": "2021-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2022",
+      "params": {
+        "startDate": "2022-01-01",
+        "endDate": "2022-12-31",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "last_year_remaining",
+      "params": {
+        "startDate": "2023-01-01",
+        "endDate": "2023-09-24",
+        "gjqx": "0",
+        "qxId": "hzsylqx",
+        "locale": "en_US"
+      }
+    }
+  ],
+  "max_requests": 13,
+  "max_bytes_per_response": 1000000,
+  "max_rows_per_response": 366,
+  "retries": 0,
+  "redirects": false,
+  "query_partition": "New ranges and both reused pilots partition2011-12-01through2023-09-30without overlap. Each new query spans at most365date differences. Do not equate missing daily curve dates with missing ETF sessions.",
+  "monthly_readiness": "142calendar months. Last source row in each month, age<=7calendar days; require both1Yand10Yon that row. Do not drop weekends, join different dates, interpolate or backfill from an earlier valid row. Missing month/current tenor remains unknown.",
+  "historical_vintage_certified": false,
+  "historical_release_clock_certified": false,
+  "timing_limit": "A present-day reconstructed history is not an original-release archive. The source stage may prepare an explicit conditional falsification, not point-in-time promotion evidence.",
+  "failure_policy": "Retain an attempted request and failure receipt; no retry or alternative source to repair this frozen range without a separately justified decision. Stop collection on HTTP, size, identity, layout or out-of-range failure.",
+  "signal_generation_allowed": false,
+  "financial_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "pins": [
+    {
+      "path": "configs/cn_etf_term_structure_proposal_20260922.json",
+      "sha256": "1a28e483354fe9254283a0a20ba4c0284574031638a0ad8989226d5f6e469ebe"
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/pilot_scope.json",
+      "sha256": "3057b1a80d694864eb2d031dec6b1dbf143a4f9da62d78c3f7a3e13841c3518e"
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/pilot_review.json",
+      "sha256": "c93751c8842f11f3aef9cc4b68c01947f300532a6266bc190a8ddd245be7c107"
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/pilot_source_ledger.json",
+      "sha256": "332edec43b7ec2ac45170d161fd7377985064357f04405ea7e354923cb5086fe"
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/warmup_201112.html",
+      "sha256": "0c155f88f68f04241e1889070188980ee80019e40b09817dfa01d071afbfea9b"
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/warmup_201112.claim.json",
+      "sha256": "b5e9c2209fbd9d431a9b1432d646d9b745e76f4176c03438dd04efc3461a35ff"
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/last_decision_202309.html",
+      "sha256": "3fdef592d6cf6e2659453d59ca2d3a95c21aa9c9535294f9d22b98f6c199e643"
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/last_decision_202309.claim.json",
+      "sha256": "afa9c9d61fa885020667217e1114dcf95d29d89569308bb93dc4d1a8330e3c13"
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/pm_gate/quant_pm_startup_gate_pack.json",
+      "sha256": "15045e3cca184888cdd2893cbed56369a046a445079b27ec08a7dcfbadabe0f0"
+    },
+    {
+      "path": "src/quant_robot/data/sources/chinabond_history.py",
+      "sha256": "1a1dcab6b6c0a5998c77b81291e6bba1ae20693f4995549b71a2958c15af922c"
+    },
+    {
+      "path": "src/quant_robot/data/sources/chinabond_observation.py",
+      "sha256": "f00d824b46ba8d201040c8cf18dc07a61b8087ada89506c7549bf92aea68af9f"
+    },
+    {
+      "path": "scripts/collect_cn_etf_term_structure_history.py",
+      "sha256": "a18b2e740387868eea8d1a6f3bf6ee0a6742b9d1f78bcf25488fd3bc8deac5fe"
+    },
+    {
+      "path": "tests/unit/test_chinabond_history.py",
+      "sha256": "4e48e9b7af7be507856ca86834f2a43412b5553415dbae77aa548ad34128d380"
+    },
+    {
+      "path": "tests/unit/test_term_structure_source_collection.py",
+      "sha256": "1433b518fe402e5a3a4e8145b7bebb5b1142abf6b64a4d3bbe68c3397cf6e32b"
+    }
+  ]
+}
