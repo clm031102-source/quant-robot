@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_equity_gold_risk_diversification_v1",
+  "authority": "Existing autonomous project-lead mandate; source self-review, not independent approval",
+  "purpose": "Resolve the six missing early510300cash payment dates before a continuous-account method can use actual cash timing. Earlier endpoint diagnostics needed distribution entitlement but did not certify payment dates. This does not alter or rerun those studies.",
+  "source_scope": {
+    "allowed_public_hosts": ["query.sse.com.cn", "www.sse.com.cn"],
+    "maximum_new_requests": 7,
+    "catalog": {
+      "symbol": "510300",
+      "title": "收益分配",
+      "start": "2014-01-01",
+      "end": "2019-12-31",
+      "page_size": 100,
+      "maximum_pages": 1
+    },
+    "missing_events": ["2014-01-21", "2015-01-20", "2017-01-23", "2018-01-23", "2019-01-16", "2019-12-11"],
+    "PDF_selection": "Six original distribution announcements, published before the corresponding ex date and in its civil month. Exactly one original per event; exclude reminders and corrections. Any ambiguity, truncation or mismatched date stops selection; no speculative URLs or retries.",
+    "reuse": {
+      "path": "data/reports/positive_ev_20260921/us_variance_risk_diagnostic/inputs/distribution_2016_notice.pdf",
+      "sha256": "d8db54b96a9e4fffd77ce98d0d4702e4b4601887e48ed738785d7f661b530759",
+      "record_date": "2016-01-19",
+      "ex_date": "2016-01-20",
+      "pay_date": "2016-01-25",
+      "physical_page": 2
+    },
+    "fields": ["fund identity", "publication date label", "record date", "ex date", "cash payment date", "cash per10units", "distribution accounting and tax statement"],
+    "request_policy": "Exclusive claim before each request; verifiedTLS; no redirect or retry; 30second read timeout;12MiBcap; retain all outcomes. No credentials or provider calls."
+  },
+  "new_market_prices_allowed": false,
+  "returns_or_account_calculation_allowed": false,
+  "general_factor_batch_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}
