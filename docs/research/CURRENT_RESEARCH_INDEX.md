@@ -32,15 +32,23 @@ and first publication times remain uncertified. This source-definition stage did
 The no-distribution ideal roundtrip price hurdle under the existing main fee scenario is1.207237%;
 it does not set an annualized, whole-account, or dividend-inclusive trading requirement.
 
-Current proposal: [announced USD export growth improvement](cn_etf_export_acceleration_proposal_2026-09-22.md).
-The rule was fixed before its four-period pilot: compare each quarter's directly announced cumulative
-USD growth with the prior year's same-quarter release; update only after quarter end plus 45 calendar days.
-Independent review of four original HTML files, six raw attempts, eight support pins and seven
-protocols confirms two conditional sources and two unknowns. Retained query-result strings cannot
-fully certify exact search-call counts or pre-search amendment timing. The bounded 46-quarter history manifest
-freezes those four slots and allows source collection for the remaining 42, with no signals or financial
-execution. Exact same-date Decimal conflicts remain unknown; later carried-in episodes cannot count
-toward the three new later-slice starts. Reused ETF history remains exposed. No eleventh test has run.
+Current source conclusion: [announced USD export growth improvement](cn_etf_export_acceleration_proposal_2026-09-22.md).
+The fixed bounded history review is complete: 12 of 46 reference quarters have conditional source
+values and 34 remain unknown. Only nine current-period fields fall within the full decision sample,
+and two within the later sample, below the required 16 and six selected intervals even before checking
+prior-year values. No growth comparisons, signals, returns or eleventh economic test were performed.
+This is insufficient source coverage, not an economic rejection. The same bounded searches are closed;
+only genuinely new primary publication or version evidence warrants a separately scoped source decision.
+
+There are 51 unique raw attempts, 77 retained query records and 14 web opens; 325 input fingerprints
+and seven protocols were independently matched. Ten selected sources are original HTML and two are
+explicitly retained web renderings. Two PDF files contain 67 pages; the integrator inspected three
+relevant rendered pages and retained uncertainty about actual publication clocks. Existing pilot
+unknowns, exact Decimal conflicts, the 45-day cutoff, later new-episode counts and exposed ETF history
+remain unchanged. Independent semantics review covers all46 classifications,32 successful HTML
+responses and6 successful full-web renderings; the root separately verified325 input pins,7 protocols,
+request claims and3 relevant PDF pages. The three review hashes and their limits are recorded in the
+proposal's integration appendix. No important source-closure blocker was found.
 
 Preceding source review: [IPO activity](cn_etf_ipo_activity_source_review_2026-09-22.md).
 The old subscription-prefunding channel changed in2016. FRBSF appendix regressions explain IPO
