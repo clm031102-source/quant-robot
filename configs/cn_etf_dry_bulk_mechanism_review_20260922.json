@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_dry_bulk_mechanism_review_v1",
+  "stage": "source_review_completed_candidate_deferred",
+  "capital_CNY": 10000,
+  "all_in_position_cap_CNY": 1000,
+  "document": "docs/research/cn_etf_dry_bulk_mechanism_review_2026-09-22.md",
+  "decision": "Do not admit a dry-bulk-to-China-ETF return experiment on the present evidence. The original predictive method and a qualified free historical input are unresolved. This is not a negative-EV finding or a claim that no free source exists.",
+  "source_pins": {
+    "final_source_manifest": {
+      "path": "data/reports/positive_ev_20260922/dry_bulk_mechanism/final_source_manifest.json",
+      "sha256": "a97e614402e47698c530371262bdc56eb1c968bf1482a74a67df9c302304aa8f"
+    },
+    "source_review_verification": {
+      "path": "data/reports/positive_ev_20260922/dry_bulk_mechanism/source_review_verification.json",
+      "sha256": "ced37b39f82affc6a9fa85cdda1197f6d5d958ee9d1e957518ac37deb0c2eb02"
+    }
+  },
+  "source_semantics": {
+    "Bakshi_original_full_method_verified": false,
+    "Bakshi_search_abstract_seen": true,
+    "Kuo_primary_article_format": "HTML despite the local response filename ending in.pdf",
+    "Kuo_raw_monthly_observations": 279,
+    "Kuo_raw_sample": "1996-01 through2019-03",
+    "Kuo_source": "Bloomberg",
+    "Kuo_China_index": "Shanghai Stock Exchange Composite",
+    "Kuo_return_definition": "sequential natural-log closing-value differences",
+    "Kuo_table2_China_AIC_lags": 7,
+    "Kuo_table2_BDI_to_China_p": 0.0817,
+    "Kuo_table2_China_to_BDI_p": 0.0292,
+    "Kuo_fullsample_wavelet_equals_realtime_ETF_signal": false,
+    "Kuo_replicated_locally": false,
+    "BDI_reweight_effective": "2018-03-01",
+    "BDI_2018_weights": {"Capesize": 0.4, "Panamax": 0.3, "Supramax": 0.3},
+    "BDI_2018_Handysize_removed": true,
+    "retained_GMB_version": "7.09,December2025; not certified as the latest available version",
+    "retained_GMB_BDI_publication_time": "13:00 Europe/London local time",
+    "retained_GMB_historical_restatement_possible": true,
+    "all_historical_publication_versions_certified": false,
+    "qualified_free_history_obtained": false,
+    "paid_access_or_provider_contact": false
+  },
+  "scope_consumption": {
+    "search_queries": 4,
+    "web_opens": 7,
+    "web_find_actions": 3,
+    "raw_requests": 5,
+    "raw_HTTP200": 4,
+    "raw_HTTP403": 1,
+    "accepted_PDF_originals": 1,
+    "accepted_HTML_originals": 3,
+    "PDF_pages_decoded": 121,
+    "PDF_pages_visually_reviewed": [1, 28, 74, 75],
+    "automatic_retries": 0,
+    "automatic_redirects": 0,
+    "verification_pinned_files": 27
+  },
+  "exposure": {
+    "published_equity_results_seen": true,
+    "2026_search_snippets_seen": true,
+    "ETF_price_outcomes_joined": false,
+    "2026_local_ETF_holdout_read": false,
+    "bulk_freight_history_downloaded": false,
+    "financial_signal_generated": false
+  },
+  "resumption_requirements": [
+    "Genuinely new primary-method or qualified historical-source evidence, not repeats of the same failed endpoints.",
+    "An explicit economic bridge to an investable mainland ETF; no requirement that prior literature guarantee profitability.",
+    "A separately frozen predictor, publication/version treatment, history scope and fee-compatible decision rule before any signal or outcome join.",
+    "No selection of favorable paper subperiods, direction, horizons or threshold rescue; all existing consumed experiments remain closed."
+  ],
+  "new_economic_experiments": 0,
+  "total_return_studies_current_mandate": 10,
+  "total_source_cadence_screens": 1,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "general_factor_batch_allowed": false,
+  "financial_execution_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "next": "End this bounded source review and prioritize a distinct economic mechanism with attainable historical inputs and sufficient room for account costs. Keep the standing positive-EV objective active."
+}
