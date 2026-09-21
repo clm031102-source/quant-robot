@@ -21,6 +21,13 @@ and -0.1009% mean gross return.
 Neither fixed hypothesis may be rescued by changing its sign, threshold or window.
 Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
+Next bounded review: [labor-market source and mechanism](cn_etf_labor_market_source_review_2026-09-14.md),
+with the [fixed labor-risk proposal](../../configs/cn_etf_labor_risk_source_proposal_20260921.json).
+A new primary method manuscript was obtained; two definition downloads failed with TLS EOF.
+The proposal permits neither full-history collection nor factor/outcome execution. Definition lineage,
+original release dates and version identity remain to be reviewed. The September 21 ChinaBond
+observation has already been received under the shared daily claim; do not collect it again.
+
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Project Assessment And Work Queue
