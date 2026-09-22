@@ -13,15 +13,18 @@ Current result count: eleven return studies and three source-cadence screens in 
 zero qualified net-positive-EV strategies and zero new real forward days. Earlier archived studies remain
 separate consumed evidence.
 
-Latest candidate decision: [currency/gold gross diagnostic](cn_etf_currency_gold_gross_2026-09-22.md) passes
-its frozen four necessary gross checks.20selected quarters across10episodes have13positive quarters(65%)
-and3.11255%mean gross return;7later selected quarters across5episodes are all positive,mean3.77209%.
-The session-matched D is1.03731bp/day with4quarter-block95%interval[0.0211501,1.98431]bp/day;
-its lower bound is close to zero and unadjusted for multiple testing. This is gross exploratory evidence,
-not net trade win rate, untouched OOS, or qualification.39related synthetic tests pass; a separate scalar
-oracle reconciles9816original goldOHLCcells,40quarterreturns,5000draws,348pins and7protocols.
-The preceding source-only [cadence screen](cn_etf_currency_gold_cadence_2026-09-22.md) also passed.
-Next:freeze and admit the full CNY10000account with unchanged fees and risk limits before its outcomes.
+Latest candidate decision: [currency/gold net account](cn_etf_currency_gold_account_2026-09-22.md) is closed.
+The fixed primary CNY10000account earns363.20CNYover2014..2023plus terminal,with8/10profitable episodes;
+from2020,contribution133CNYand4/5profitable newepisodes. Fees115CNY,23fills,maxDD1.48389%,maxdayloss31.80CNY.
+Eight financial checks pass but three close-position marks exceed the1000CNYcap:1007.20,1018.80,1008.90CNY.
+All9costcases retain these breaches. The separate Fraction oracle reconciles22086marks,207fills,45000draws,
+371pins and7protocols;52related tests pass. Numerical reconciliation is not complete protocol compliance.
+An execution-afterward review also identifies omitted preregistration of the same-budget unconditionalgold
+account required by the mandate. Only cashcontrol was frozen; gross duration-matchedD is insufficient.
+Original records and exposure times stay intact; no post-outcome baseline choice or risk/fee/parameter rescue.
+Next:new independent hypothesis,with fully frozen holding/cash account controls and a missing-control test
+before netaccount admission. This candidate adds gross and net stages within the11threturn-study hypothesis;
+no qualified strategy or realforward day is added.
 
 Preceding candidate decision: [credit premium cadence](cn_etf_credit_premium_cadence_2026-09-22.md).
 The fixed44-quarter screen has18selected quarters and8continuous episodes; the later16quarters have
@@ -47,7 +50,7 @@ selected source ages span4..10days. One observed2017markup change was repaired w
 the15already-fetched originals were retained and only24unrequested URLscontinued,with zero networkretries.
 20synthetic tests and separate BeautifulSoup/calendar extraction reconcile all cells,endpoints,166pins
 and7frozen protocols. The subsequent count and gross screens have now passed under separate one-use admissions.
-Next:full same-capital account preparation; no net account executed yet. Archive revisions and historical release timing stay
+The subsequent net account is now closed for risk failure and incomplete control preregistration. Archive revisions and historical release timing stay
 conditional;source success is no netEV or promotion evidence.
 
 Preceding source preparation: [same-tenor credit premium](cn_etf_credit_premium_proposal_2026-09-22.md).
