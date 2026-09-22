@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "study_id": "cny_depreciation_gold_demand_quarterly_v1",
+  "stage": "fixed_new_hypothesis_source_preparation_only",
+  "authority": "Standing autonomousCNY10000research mandate; same-researcher decision,not independent human approval.",
+  "mechanism": "Persistent local-currency depreciation pressure may sustain household value-preservation demand for domestic physical-gold exposure into the next quarter. GoldpricedinRMBalso carries currency exposure,but a contemporaneous conversion identity is not evidence of future profit. Reversal,prior pricing,USDgoldlosses,localpremiums and costs can invalidate the positive conditional direction.",
+  "original_hypothesis_not_paper_replication": true,
+  "distinction": "A predecision external bilateral-currency change and domestic-gold demand hypothesis. Not the rejected sovereign or credit slope,real-rate valuation,official-gold-reserve change,ETFprice/volume template,or fixed equity/gold allocation. It remains economically related to macro and momentum risks; statistical independence is not claimed.",
+  "rule_fixed_before_pilot": {
+    "path": "data/reports/positive_ev_20260922/currency_gold_mechanism/scope.json",
+    "sha256": "bf47b38ac1b6b60d6f7d623fb920c415dee72198337c44aa7f8f8c1cad7d02ac"
+  },
+  "instrument": "518880.SH",
+  "input": "FederalReserveH.10dated weekly CHINA,P.R./YUAN row,in CNYperUSD. NewYorknoon cable-transfer buying rate;notPBOCfixing,CNHclose,ETFvaluationrateorexecutablequote.",
+  "source_rule": "For each calendar quarter end from2013-09-30through2023-09-30,select latest official-catalogue weekly release strictly before that date. Select its latest finite positive China quote;NDstaysmissing. The quote must be at most14calendar days old at the quarter end. No later release,monthly mean,interpolation or alternative series substitutes.",
+  "release_time_assumption": "Carrier release date interpreted as publicly available by end of that NewYorkcivil day. Excluding releases on the quarter-end day leaves this conservative day-bound before the next-quarter Chinaopening. Current weekly16:15publication rule supports plausibility,but archived intraday timing and immutable versions remain unverified and block promotion.",
+  "signal": "At the firstCNexchange open of each quarter2014..2023,selectgold iff immediately preceding quarter endpointCNYperUSDis strictly greater than the endpoint onequarterearlier. Equal=knowncash;eitherendpointmissing=unknowncash. All40quarters retained.",
+  "later_slice": "First2020CNsession onward,16quarters;already exposedETFhistory,not untouchedOOS.",
+  "cadence": "One separately frozen source-only execution:at least16full selectedquarters,6full continuousselectedepisodes,6later selectedquarters and3newlaterentries,plusknowncashinbothslices. Carry-inisnotnewentry. No signals computed by source collection.",
+  "gross_if_cadence_passes": "Separately admitted once:raw open-to-open plus entitled cash distributions,no reinvestment;entitlement entry<=record_date<exit. FullD=sum((z-zbar)*log1p(r))/sum(n),zbar=sum(z*n)/sum(n),unknownz=0.5000paired circular4quarterblock resamples of40rows,seed20260922,linear95%interval. Necessary:Dlower>0,full/later selected mean gross>0,laterD>0. Complete same-cap account remains separate.",
+  "limits": {
+    "capital_CNY": 10000,
+    "all_in_position_cap_CNY": 1000,
+    "daily_loss_limit_CNY": 60,
+    "paper_drawdown_limit": 0.08,
+    "absolute_drawdown_limit": 0.4,
+    "max_holding_sessions": 252,
+    "ADV_participation_limit": 0.01,
+    "commission_bps_each": 5,
+    "minimum_commission_CNY": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bps": [
+      0,
+      10,
+      30
+    ],
+    "primary_minimum_commission_CNY": 5,
+    "primary_slippage_bps": 10,
+    "lot_shares": 100,
+    "quote_tick_CNY": "0.001",
+    "actual_broker_fees_certified": false
+  },
+  "failure": "Any fixed necessary count or financial failure closes this exact hypothesis.No reversing sign,changingcurrency,observation/sourcecutoff,quarterlag,horizon,sample,minima,feesorrisktorescue.",
+  "exposure": "Prior2014..2023goldETFprices were acquired for the consumed fixedallocation study,and this turn readWGC2023goldperformance,2024demand/globalgoldsummary,and2026FXmetadataquotes.No2026ETFoutcomehistoryinput accessed;globalbackgroundisnotblind.",
+  "background_urls": [
+    "https://www.gold.org/goldhub/research/chinas-gold-market-2023-demand-improved-and-premiums-rose",
+    "https://www.federalreserve.gov/releases/h10/default.htm",
+    "https://www.federalreserve.gov/releases/h10/hist/",
+    "https://www.federalreserve.gov/feeds/h10.html"
+  ],
+  "source_preparation_allowed": true,
+  "signal_generation_allowed": false,
+  "financial_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false
+}

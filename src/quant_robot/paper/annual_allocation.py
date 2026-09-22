@@ -19,6 +19,7 @@ class AllocationConfig:
     minimum_commission: float = 5
     slippage_bps: float = 10
     participation: float = .01
+    execution_price_field: str = 'close'
 
 
 def _decimal(value):
@@ -74,7 +75,10 @@ def _json(value):
 def _inputs(bars, sessions, assets, cycles, actions, config):
     if not isinstance(config, AllocationConfig):
         raise ValueError('Explicit allocation config required')
-    settings = {k: _decimal(v) for k, v in asdict(config).items() if k != 'max_holding_sessions'}
+    if config.execution_price_field not in ('open', 'close'):
+        raise ValueError('Explicit raw open or close execution basis required')
+    settings = {k: _decimal(v) for k, v in asdict(config).items()
+                if k not in ('max_holding_sessions', 'execution_price_field')}
     if any(v < 0 for v in settings.values()):
         raise ValueError('Nonnegative settings required')
     if any(settings[k] <= 0 for k in ('initial_cash', 'max_position_cny', 'max_daily_loss_cny', 'max_drawdown', 'participation')):
@@ -156,7 +160,7 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
 
     def fill(day, asset, quantity, side, reason, cycle_id, requested, prior_capacity, current_capacity):
         nonlocal cash
-        price = _price(prices[day, asset]['close'], 1 if side == 'buy' else -1, settings)
+        price = _price(prices[day, asset][config.execution_price_field], 1 if side == 'buy' else -1, settings)
         notional = quantity * price
         fee = _fee(notional, settings)
         cash += -notional-fee if side == 'buy' else notional-fee
@@ -215,7 +219,7 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
             quantity = min(requested, current_cap)//100*100
             if asset in mandatory and positions[asset] <= min(target, prior_cap, current_cap):
                 quantity = positions[asset]
-            price = _price(prices[day, asset]['close'], -1, settings)
+            price = _price(prices[day, asset][config.execution_price_field], -1, settings)
             rejected = ('known_execution_constraint' if _blocked(prices[day, asset], 'sell') else
                         'exit_capacity' if quantity <= 0 else
                         'exit_fee_exceeds_available_cash' if cash+quantity*price < _fee(quantity*price, settings) else None)
@@ -231,7 +235,7 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
             cycle = plan[index]
             for asset in selected:
                 quantity = entry_plans[asset]
-                price = _price(prices[day, asset]['close'], 1, settings)
+                price = _price(prices[day, asset][config.execution_price_field], 1, settings)
                 current_cap = _capacity([prices[day, asset]['volume']], settings)
                 cost = quantity*price+_fee(quantity*price, settings) if quantity else Decimal(0)
                 rejected = ('risk_halted' if halted else 'occupied_at_session_start' if asset in occupied else

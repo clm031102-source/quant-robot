@@ -9,11 +9,33 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Current result count: ten return studies and two source-cadence screens in the CNY10000continuation,
+Current result count: eleven return studies and three source-cadence screens in the CNY10000continuation,
 zero qualified net-positive-EV strategies and zero new real forward days. Earlier archived studies remain
 separate consumed evidence.
 
-Latest candidate decision: [credit premium cadence](cn_etf_credit_premium_cadence_2026-09-22.md).
+Latest candidate decision: [currency/gold net account](cn_etf_currency_gold_account_2026-09-22.md) is closed.
+The fixed primary CNY10000account earns363.20CNYover2014..2023plus terminal,with8/10profitable episodes;
+from2020,contribution133CNYand4/5profitable newepisodes. Fees115CNY,23fills,maxDD1.48389%,maxdayloss31.80CNY.
+Eight financial checks pass but three close-position marks exceed the1000CNYcap:1007.20,1018.80,1008.90CNY.
+All9costcases retain these breaches. The separate Fraction oracle reconciles22086marks,207fills,45000draws,
+371pins and7protocols;52related tests pass. Numerical reconciliation is not complete protocol compliance.
+An execution-afterward review also identifies omitted preregistration of the same-budget unconditionalgold
+account required by the mandate. Only cashcontrol was frozen; gross duration-matchedD is insufficient.
+Original records and exposure times stay intact; no post-outcome baseline choice or risk/fee/parameter rescue.
+Next:new independent hypothesis,with fully frozen holding/cash account controls and a missing-control test
+before netaccount admission. This candidate adds gross and net stages within the11threturn-study hypothesis;
+no qualified strategy or realforward day is added.
+
+Independent integration matched the consumed cadence chain (178 input roles, 11 fixed runtime files,
+seven protocols) and gross chain (340 input roles, eight fixed runtime files, seven protocols).
+It read the retained scalar verifier and compared stored summaries without rerunning a real study.
+Review of the initial account method found the same-capital unconditional-gold benchmark unspecified.
+The notice reached the researcher after account execution; the original incomplete method and failure
+remain intact. Integration also matched 361 account inputs, ten fixed runtime files, seven protocols,
+all nine scenarios and 207 retained fill cash/fee totals. This does not replay execution or independently
+recompute 22,086 marks and 45,000 bootstrap draws. The candidate is closed; no account rerun is granted.
+
+Preceding candidate decision: [credit premium cadence](cn_etf_credit_premium_cadence_2026-09-22.md).
 The fixed44-quarter screen has18selected quarters and8continuous episodes; the later16quarters have
 5selected quarters and3new episodes. Five later selected quarters miss the preregistered minimum of6.
 Four unknown quarters remain in both denominators. The hypothesis is consumed and closed before any
@@ -36,7 +58,23 @@ execution protocols and the registration/claim/result/closure chain against 30f3
 Static review found no important defect. The 2,672-state recount remains the original retained
 cross-implementation check; the integrator did not rerun it or access ETF outcome inputs.
 
-Latest source preparation: [same-tenor credit premium](cn_etf_credit_premium_proposal_2026-09-22.md).
+Latest source preparation: [currency pressure and domestic gold](cn_etf_currency_gold_proposal_2026-09-22.md).
+An autonomous demand-persistence hypothesis is fixed before the bounded full history.41quarter endpoints
+from2013Q3to2023Q3now have conditional H.10China quotes under the unchanged14calendar-daylimit.
+39new original releases plus2retained pilots supply205daily cells;10NDcells stay missing. The actual
+selected source ages span4..10days. One observed2017markup change was repaired with a regression test;
+the15already-fetched originals were retained and only24unrequested URLscontinued,with zero networkretries.
+20synthetic tests and separate BeautifulSoup/calendar extraction reconcile all cells,endpoints,166pins
+and7frozen protocols. The subsequent count and gross screens have now passed under separate one-use admissions.
+The subsequent net account is now closed for risk failure and incomplete control preregistration. Archive revisions and historical release timing stay
+conditional;source success is no netEV or promotion evidence.
+Independent integration reviewed the frozen608/7f runtime and pilot11-response chain, then all39
+new request chains and41 originals. All205 China cells,89 repair pins,166 closeout pins and seven
+protocols match; the original20170626 parsing failure is preserved. The source PM snapshot was
+not pinned before requests in either source scope; it is bound only by the later closeout pins.
+The review does not certify historical immutable versions, exact publication clocks or profitability.
+
+Preceding source preparation: [same-tenor credit premium](cn_etf_credit_premium_proposal_2026-09-22.md).
 The independent economic rule and exact source scope were frozen at8db2b6fbefore new corporate history.
 Thirteen requests succeed; paired government andAAA-note histories each contain2961rows across142months.
 141months meet the conditional date/tenor rule;January2020stays unknown under the unchanged7day limit.
