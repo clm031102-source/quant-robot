@@ -24,7 +24,13 @@ production compatibility path: both original synthetic regressions now pass, alo
 tests. Historical lifecycle compatibility exists only inside test mocks; an unmocked old registration
 is rejected. The original failing regression evidence remains retained.
 
-Latest source feasibility: [northbound signed-flow continuity](cn_etf_northbound_continuity_review_2026-09-22.md).
+New source feasibility: [geopolitical index revisions](cn_etf_geopolitical_source_review_2026-09-22.md).
+The initial four-request review retained three complete official HTML originals and one over-cap
+failure. Independent checks match12pins,7protocols and241302bytes; the2021method revision is
+confirmed, while historic availability and continuing comparable vintages remain unverified at
+this stage. No numerical series, trading rule or new return study was admitted.
+
+Prior source feasibility: [northbound signed-flow continuity](cn_etf_northbound_continuity_review_2026-09-22.md).
 The retained SSE rule specifies the2024-08-19disclosure change; the HKEX April notice is the earlier
 plan, not independent proof of that final start date. Verified public totalturnover
 and quarterly holdings do not supply the signed daily/monthly buy-minus-sell input for ongoing signals.
