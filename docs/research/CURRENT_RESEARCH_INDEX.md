@@ -13,6 +13,23 @@ Current result count: eleven return studies and three source-cadence screens in 
 zero qualified net-positive-EV strategies and zero new real forward days. Earlier archived studies remain
 separate consumed evidence.
 
+Current process correction: [prospective account controls](cn_etf_account_controls_2026-09-22.md).
+The production PM gate now requires frozen holding/cash policies,calendar,source-cycle identity and
+comparison implementation pins before full-account permission. The shared runner actually computes
+all three same-budget accounts under all nine costcases;74related synthetic tests pass. This does
+not retroactively repair or reopen the consumed gold candidate.
+
+Integration found a release blocker in fixed620f883: absent/null protocol configuration bypasses
+the complete-account comparison check through historical_gate_protocol. Two synthetic regressions
+reproduce the erroneous ready state. This isolated batch is held until the fail-closed fix is reviewed;
+historical fixture compatibility must not be a production permission bypass.
+
+Latest source feasibility: [northbound signed-flow continuity](cn_etf_northbound_continuity_review_2026-09-22.md).
+Two retained official rules confirm the2024-08-19public disclosure change. Verified public totalturnover
+and quarterly holdings do not supply the signed daily/monthly buy-minus-sell input for ongoing signals.
+No numeric history,signal or ETFreturn is computed; this path is paused pending a qualified continuing
+source. Old northboundstock and ETFConnecteligibility hypotheses remain hibernated.
+
 Latest candidate decision: [currency/gold net account](cn_etf_currency_gold_account_2026-09-22.md) is closed.
 The fixed primary CNY10000account earns363.20CNYover2014..2023plus terminal,with8/10profitable episodes;
 from2020,contribution133CNYand4/5profitable newepisodes. Fees115CNY,23fills,maxDD1.48389%,maxdayloss31.80CNY.

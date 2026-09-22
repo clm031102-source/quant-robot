@@ -30,6 +30,7 @@ from quant_robot.research.credit_premium_cadence_study import scope as credit_pr
 from quant_robot.research.currency_gold_cadence_study import scope as currency_gold_cadence_scope
 from quant_robot.research.currency_gold_study import scope as currency_gold_scope
 from quant_robot.research.currency_gold_account_study import scope as currency_gold_account_scope
+from quant_robot.research.account_comparison_scope import review_account_comparison
 
 
 STAGE = "quant_pm_startup_gate"
@@ -156,6 +157,10 @@ def build_quant_pm_startup_gate(
         )
     )
     warnings.extend(str(warning) for warning in _list(family_schedule.get("warnings")))
+    account_comparison = review_account_comparison(root, mode=restricted_mode,
+        scope=_dict(restricted.get("scope")) if restricted else {},
+        protocol=gate_config.get("account_comparison_protocol"))
+    blockers.extend(account_comparison["blockers"])
 
     pack = {
         "stage": gate_config.get("stage", STAGE),
@@ -186,6 +191,7 @@ def build_quant_pm_startup_gate(
         },
         "blockers": _unique(blockers),
         "warnings": _unique(warnings),
+        "account_comparison": account_comparison,
         "next_actions": _next_actions(blockers, restricted_mode=restricted_mode),
         "safety": {
             "research_only": True,

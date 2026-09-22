@@ -44,6 +44,8 @@ class EquityGoldStudyTests(unittest.TestCase):
         self.family=json.loads((REPO/'configs/research_family_scheduler_cn_etf.json').read_bytes())
         self.family[study.DECISION]=study.admission(self.packet,raw)
         self.gate_config=json.loads((REPO/'configs/quant_pm_startup_gate_cn_etf.json').read_bytes())
+        # Preserve the consumed study's historical protocol in its lifecycle fixtures.
+        self.gate_config.pop('account_comparison_protocol', None)
         self.workstations=json.loads((REPO/'configs/workstations.json').read_bytes())
         for row in self.gate_config['required_reading']:
             p=self.root/row['path'];p.parent.mkdir(parents=True,exist_ok=True);p.write_text('fixture')
