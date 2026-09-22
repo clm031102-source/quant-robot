@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "study_id": "domestic_aaa_credit_premium_quarterly_v1",
+  "stage": "historical_source_preparation_completed_for_conditional_cadence_review",
+  "capital_CNY": 10000,
+  "all_in_position_cap_CNY": 1000,
+  "document": "docs/research/cn_etf_credit_premium_proposal_2026-09-22.md",
+  "frozen_before_new_history_commit": "8db2b6f",
+  "pins": {
+    "economic_proposal": {
+      "path": "configs/cn_etf_credit_premium_proposal_20260922.json",
+      "sha256": "7f1fda7d41552e5b701a63e2bb425f86bdbbaf073410b818351bdd40a89ba0af"
+    },
+    "source_scope": {
+      "path": "configs/cn_etf_credit_premium_source_scope_20260922.json",
+      "sha256": "1d631e6b6ed56e214ab87816d4ca72277a4fd628d73822d23e255ca5c342f14d"
+    },
+    "corpus_review": {
+      "path": "data/reports/positive_ev_20260922/credit_premium/corpus_review.json",
+      "sha256": "454cd41d5677aeb69d135e9c94386250a0de1295250df41e4b7ce95f2fef27a3"
+    },
+    "second_implementation_verification": {
+      "path": "data/reports/positive_ev_20260922/credit_premium/source_verification.json",
+      "sha256": "9b8526a09650cfdd1b6876ee409442c5dbf8495df562f23ae4710287acad7af9"
+    }
+  },
+  "coverage": {
+    "range": ["2011-12-01", "2023-09-30"],
+    "reused_government_originals": 15,
+    "reused_corporate_originals": 1,
+    "reused_corporate_rows": 2,
+    "new_corporate_requests": 13,
+    "new_HTTP200": 13,
+    "new_raw_bytes": 926052,
+    "government_rows": 2961,
+    "corporate_rows": 2961,
+    "same_date_row_sets": true,
+    "weekend_dated_rows_per_curve": 83,
+    "months": 142,
+    "conditional_months": 141,
+    "unknown_months": ["2020-01"],
+    "unknown_reason": "Last January2020government observation is2020-01-23,eight days before month end; the predeclared maximum remains7days.",
+    "historical_vintage_certified": false,
+    "historical_release_clock_certified": false,
+    "source_rows_are_executable_quotes": false
+  },
+  "verification": {
+    "new_synthetic_tests": 13,
+    "existing_related_regression_tests": 13,
+    "related_tests_passed": 26,
+    "same_researcher_separate_implementation": true,
+    "independent_human_review": false,
+    "verification_pinned_files": 73,
+    "required_protocol_fingerprints_checked": 7,
+    "network_retries": 0,
+    "network_redirects": 0,
+    "new_web_searches": 0,
+    "shared_forward_collector_invoked": false
+  },
+  "next": "Freeze and synthetically verify one exact credit-premium cadence implementation and fingerprinted admission. Execute it once withoutETFreturns; only a count pass can support separate financial admission. Preserve the missing month, carry-in treatment, prior outcome exposure and historical timing assumptions.",
+  "new_return_studies": 0,
+  "new_cadence_screens": 0,
+  "total_return_studies_current_mandate": 10,
+  "total_source_cadence_screens": 1,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "spreads_calculated": false,
+  "signals_generated": false,
+  "ETF_outcomes_read": false,
+  "signal_generation_allowed": false,
+  "financial_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false
+}

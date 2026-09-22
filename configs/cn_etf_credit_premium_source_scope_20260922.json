@@ -1,0 +1,304 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-21T22:40:10.721664+00:00",
+  "study_id": "domestic_aaa_credit_premium_quarterly_v1",
+  "stage": "bounded_source_only_collection_after_reused_pilot",
+  "authority": "Project lead under standing user authorization; precise conditional-stage revision in economic proposal. No general batch, source-vintage certification or financial permission.",
+  "government_corpus_path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus_review.json",
+  "corporate_pilot_path": "F:/lhjqr/data/reports/etf_monetization_20260911/credit_spread_review_20260914/pilot_zdqpjsylqx.html",
+  "gate_path": "data/reports/positive_ev_20260922/credit_premium/pm_gate/quant_pm_startup_gate_pack.json",
+  "requests": [
+    {
+      "id": "2011",
+      "params": {
+        "startDate": "2011-12-01",
+        "endDate": "2011-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2012",
+      "params": {
+        "startDate": "2012-01-01",
+        "endDate": "2012-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2013",
+      "params": {
+        "startDate": "2013-01-01",
+        "endDate": "2013-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2014",
+      "params": {
+        "startDate": "2014-01-01",
+        "endDate": "2014-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2015",
+      "params": {
+        "startDate": "2015-01-01",
+        "endDate": "2015-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2016",
+      "params": {
+        "startDate": "2016-01-01",
+        "endDate": "2016-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2017",
+      "params": {
+        "startDate": "2017-01-01",
+        "endDate": "2017-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2018",
+      "params": {
+        "startDate": "2018-01-01",
+        "endDate": "2018-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2019",
+      "params": {
+        "startDate": "2019-01-01",
+        "endDate": "2019-12-30",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2020",
+      "params": {
+        "startDate": "2020-01-03",
+        "endDate": "2020-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2021",
+      "params": {
+        "startDate": "2021-01-01",
+        "endDate": "2021-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2022",
+      "params": {
+        "startDate": "2022-01-01",
+        "endDate": "2022-12-31",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    },
+    {
+      "id": "2023",
+      "params": {
+        "startDate": "2023-01-01",
+        "endDate": "2023-09-30",
+        "gjqx": "1",
+        "qxId": "zdqpjsylqx",
+        "locale": "en_US"
+      }
+    }
+  ],
+  "max_requests": 13,
+  "max_bytes_per_response": 1000000,
+  "retries": 0,
+  "redirects": false,
+  "signal_generation_allowed": false,
+  "financial_execution_allowed": false,
+  "paper_promotion_allowed": false,
+  "government_downloads": 0,
+  "reused_corporate_rows": 2,
+  "prior_pilot_dates_re_requested": false,
+  "pins": [
+    {
+      "path": "configs/cn_etf_credit_premium_proposal_20260922.json",
+      "sha256": "7f1fda7d41552e5b701a63e2bb425f86bdbbaf073410b818351bdd40a89ba0af",
+      "bytes": 6391
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus_review.json",
+      "sha256": "2d5803a67ea6fa6ff04fb8bfe8868c85ec9712920c2484644cc28635747c863c",
+      "bytes": 1213320
+    },
+    {
+      "path": "scripts/collect_cn_etf_credit_premium_history.py",
+      "sha256": "c14827b308b8b39ef58ceb30e282a29cbfeb7ed169d19118b5d196718fdba0a1",
+      "bytes": 7724
+    },
+    {
+      "path": "scripts/collect_cn_etf_term_structure_history.py",
+      "sha256": "a18b2e740387868eea8d1a6f3bf6ee0a6742b9d1f78bcf25488fd3bc8deac5fe",
+      "bytes": 9209
+    },
+    {
+      "path": "scripts/bootstrap.py",
+      "sha256": "39a14c82d67266884ff6506b41bd3d6c435a1627e82f4ee930601d5504d0da29",
+      "bytes": 339
+    },
+    {
+      "path": "src/quant_robot/data/sources/chinabond_credit_history.py",
+      "sha256": "9ccf8cf86e0c6b41c62902c99af4fddfb8f669dcc8ac07295815e8bb0dfc61d6",
+      "bytes": 4267
+    },
+    {
+      "path": "src/quant_robot/data/sources/chinabond_history.py",
+      "sha256": "1a1dcab6b6c0a5998c77b81291e6bba1ae20693f4995549b71a2958c15af922c",
+      "bytes": 4958
+    },
+    {
+      "path": "src/quant_robot/data/sources/chinabond_observation.py",
+      "sha256": "f00d824b46ba8d201040c8cf18dc07a61b8087ada89506c7549bf92aea68af9f",
+      "bytes": 9602
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/warmup_201112.html",
+      "sha256": "0c155f88f68f04241e1889070188980ee80019e40b09817dfa01d071afbfea9b",
+      "bytes": 8560
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/last_decision_202309.html",
+      "sha256": "3fdef592d6cf6e2659453d59ca2d3a95c21aa9c9535294f9d22b98f6c199e643",
+      "bytes": 7904
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/warmup_remaining.html",
+      "sha256": "7e79362440b197352c87a7be3970bdc6b7afedbcfd54f39bef586a01f4c5110c",
+      "bytes": 12168
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2012.html",
+      "sha256": "6aa7f09fd7c2a0b878aefbae6d54f8db2168d0d0ed933c9c7517bfa554a3f4cd",
+      "bytes": 88264
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2013.html",
+      "sha256": "ccb22610a8c2fc7a32d9c69166d26fac3871d0418c7d919e4488c512a54f55c6",
+      "bytes": 88592
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2014.html",
+      "sha256": "9e676ab227a8ac7890462cde387ecea38eaab433e4eff6e21d3410f43a451d9d",
+      "bytes": 88592
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2015.html",
+      "sha256": "3feec88818a0fe3e93e1e099765d2f7d00d78eb880c536229c2386d671730c0d",
+      "bytes": 88264
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2016.html",
+      "sha256": "849e9559f252b894b3f5fd41e16e41ceaf1061419b30e17cfed2abf818ea8eca",
+      "bytes": 88920
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2017.html",
+      "sha256": "756d5b3c3a18e6cae702b6fa9b9f7e3a90659200f922cea06c37d2d571cfdd2b",
+      "bytes": 88920
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2018.html",
+      "sha256": "7f2c50b5c6ef162b9ed056eb409c91548b7d34b8e4e6c2165100e7eb08630b86",
+      "bytes": 89248
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2019.html",
+      "sha256": "2a4bd454e44dbde3d9af879ed746f373c1fcbbe43b2e736a07a30ddcc9ecb52d",
+      "bytes": 88592
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2020.html",
+      "sha256": "59a331392dde830111a40ea1fe181815595083796582a7d125c6f258e0c07081",
+      "bytes": 88264
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2021.html",
+      "sha256": "68a4cda36bee10da7e52a4093976334c75fdcdffb47d1298a3444922e1daa5d5",
+      "bytes": 88592
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/2022.html",
+      "sha256": "aaa71f2990370496b425c169a921a4d3bc07fa4d3e60e4fe46cee8f034f1cab6",
+      "bytes": 88592
+    },
+    {
+      "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus/last_year_remaining.html",
+      "sha256": "6dfa9905f50cb15d1d7c20cd1f56d7317ce4cc6795cbc0ca7c57cdcfa4c0fbe6",
+      "bytes": 66616
+    },
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/credit_spread_review_20260914/pilot_zdqpjsylqx.html",
+      "sha256": "a957e91df8e1c4a3e81a154cc86ce3380a0f8a5b366f447dc5fd56c56aa5b21a",
+      "bytes": 7160
+    },
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/credit_spread_review_20260914/pilot_zdqpjsylqx.claim.json",
+      "sha256": "ff80bde622668622a5b7d65df52a5c827ac5b8c3fbf8cab09e802d9d2c708eae",
+      "bytes": 320
+    },
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/credit_spread_review_20260914/pilot_zdqpjsylqx_result.json",
+      "sha256": "9b59fed56060d35b4e5e1ec6fb048c9a66a29423cea51feb5e742a5d7cf9d2c4",
+      "bytes": 1659
+    },
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/credit_spread_review_20260914/pilot_review.json",
+      "sha256": "41694a53854c90af8c5e6183d6751c31909b00c5f1abd95b660ccc5d1589b767",
+      "bytes": 2133
+    },
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/credit_spread_review_20260914/curve_definition.html",
+      "sha256": "c2b0c66f36dd576bddc8701780bb8937da540380bcaff33654acf551b735d016",
+      "bytes": 13544
+    },
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/credit_spread_review_20260914/curve_definition_parsed.json",
+      "sha256": "86b283d36dc6e0dbfaf30c5dbb37d8e479c93612022ed0c262ca20d9f85ff4f9",
+      "bytes": 1246
+    },
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/credit_spread_review_20260914/history_form.html",
+      "sha256": "80ed1f2ac4bdc886056f591e6b8eae4027817673cd41f6bbf04331346ac71eb7",
+      "bytes": 6572
+    }
+  ]
+}
