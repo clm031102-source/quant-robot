@@ -57,8 +57,6 @@ class CurrencyGoldAccountAdmissionTests(unittest.TestCase):
         self.family = json.loads((REPO/'configs/research_family_scheduler_cn_etf.json').read_bytes())
         self.family[study.DECISION] = study.admission(self.packet, raw)
         self.gate_config = json.loads((REPO/'configs/quant_pm_startup_gate_cn_etf.json').read_bytes())
-        # Preserve the consumed study's historical protocol in its lifecycle fixtures.
-        self.gate_config.pop('account_comparison_protocol', None)
         self.workstations = json.loads((REPO/'configs/workstations.json').read_bytes())
         for row in self.gate_config['required_reading']:
             target = self.root/row['path']
@@ -66,10 +64,14 @@ class CurrencyGoldAccountAdmissionTests(unittest.TestCase):
             target.write_text('fixture')
 
     def gate(self):
-        return build_quant_pm_startup_gate(gate_config=self.gate_config,
-            workstations_config=self.workstations, repo_root=self.root, machine='office_desktop',
-            task='factor_batch', branch=self.packet['branch'], current_branch=self.packet['branch'],
-            family_config=self.family)
+        # Test only the consumed protocol's lifecycle; current admission is covered
+        # by test_account_comparison_pm_scope. No production legacy bypass exists.
+        with patch('quant_robot.research.pm_startup_gate.review_account_comparison',
+                   return_value=dict(status='mocked_consumed_protocol_fixture', blockers=[])):
+            return build_quant_pm_startup_gate(gate_config=self.gate_config,
+                workstations_config=self.workstations, repo_root=self.root, machine='office_desktop',
+                task='factor_batch', branch=self.packet['branch'], current_branch=self.packet['branch'],
+                family_config=self.family)
 
     def test_gate_allows_only_exact_account_and_preflight_does_not_calculate(self):
         gate = self.gate()
@@ -83,6 +85,16 @@ class CurrencyGoldAccountAdmissionTests(unittest.TestCase):
             study.preflight(self.root, self.family, self.gate)
             calculate.assert_not_called()
         self.assertFalse((self.root/study.DIRECTORY/'attempt_claim.json').exists())
+
+    def test_current_unmocked_gate_rejects_historical_fixture_without_controls(self):
+        gate=build_quant_pm_startup_gate(gate_config=self.gate_config,
+            workstations_config=self.workstations, repo_root=self.root, machine='office_desktop',
+            task='factor_batch', branch=self.packet['branch'], current_branch=self.packet['branch'],
+            family_config=self.family)
+        self.assertEqual(gate['status'],'blocked')
+        self.assertIn('account_comparison_specification_missing_or_invalid',gate['blockers'])
+        for key,value in gate['safety'].items():
+            if key.endswith('_allowed'):self.assertIs(value,False,key)
 
     def test_unregistered_role_is_rejected(self):
         inputs = dict(self.inputs, bars_2020=dict(path='data/price.parquet', sha256='0'*64))

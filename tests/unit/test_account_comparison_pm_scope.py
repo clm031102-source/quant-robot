@@ -61,7 +61,45 @@ class AccountComparisonPmScopeTests(unittest.TestCase):
         self.assertEqual(gate['account_comparison']['status'],'passed_specification_only')
         self.assertTrue(gate['safety']['currency_gold_account_allowed'])
         self.assertFalse(gate['safety']['factor_batch_allowed'])
+        self.assertFalse(gate['safety']['final_holdout_allowed'])
         self.assertFalse(gate['safety']['live_boundary_allowed'])
+
+    def test_absent_or_null_protocol_never_authorizes_an_account(self):
+        for absent in (True, False):
+            for include_policy in (True, False):
+                if absent:self.config.pop('account_comparison_protocol', None)
+                else:self.config['account_comparison_protocol']=None
+                self.register(include_policy=include_policy)
+                with self.subTest(absent=absent, include_policy=include_policy):
+                    gate=self.gate()
+                    self.assertEqual(gate['status'],'blocked')
+                    self.assertIn('account_comparison_protocol_invalid',gate['blockers'])
+                    for key,value in gate['safety'].items():
+                        if key.endswith('_allowed'):self.assertIs(value,False,key)
+
+    def test_absent_protocol_checks_mode_and_explicit_scope_independently(self):
+        self.config.pop('account_comparison_protocol', None)
+        self.register(include_policy=False)
+        for mode, explicit_scope in (
+            ('single_currency_gold_account_only',False),
+            ('single_term_structure_diagnostic_only',True),
+        ):
+            self.scope['net_account_allowed']=explicit_scope
+            with self.subTest(mode=mode):
+                gate=self.gate(mode=mode)
+                self.assertEqual(gate['status'],'blocked')
+                self.assertIn('account_comparison_protocol_invalid',gate['blockers'])
+                for key,value in gate['safety'].items():
+                    if key.endswith('_allowed'):self.assertIs(value,False,key)
+
+    def test_non_account_review_does_not_require_account_controls(self):
+        self.config.pop('account_comparison_protocol', None)
+        self.scope['net_account_allowed']=False
+        gate=self.gate(mode='family_rotation_review_only')
+        self.assertEqual(gate['status'],'ready',gate['blockers'])
+        self.assertEqual(gate['account_comparison']['status'],'not_applicable')
+        for key,value in gate['safety'].items():
+            if key.endswith('_allowed'):self.assertIs(value,False,key)
 
     def test_missing_registration_policy_blocks_account(self):
         self.register(include_policy=False);gate=self.gate()
