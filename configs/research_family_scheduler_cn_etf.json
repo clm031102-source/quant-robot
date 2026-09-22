@@ -2276,5 +2276,54 @@
     "qualified_strategies": 0,
     "new_forward_days": 0,
     "next_stage": "Freeze the full same-capital account and exact source/code admission before running it; no gross rerun."
+  },
+  "currency_gold_account_decision": {
+    "status": "consumed_fixed_currency_gold_account_closed",
+    "registration_id": "cb67f206590a0d2abd6276b0a583149de73f2cb032e78083a48160df622950ec",
+    "registration_path": "data/reports/positive_ev_20260922/currency_gold_account/registration.json",
+    "registration_sha256": "4efdacfec2aaa748fdc264dcd33ee31473beb0dd2d5f808d909fff9e536237ec",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_currency_gold_net_account",
+    "ledger_path": "data/reports/positive_ev_20260922/currency_gold_account/attempt_claim.json",
+    "conditional_account_only": false,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false,
+    "conditional_account_screen_passed": false,
+    "failed_checks": [
+      "no_observed_risk_breach"
+    ],
+    "methodology_gap": "Same-budget unconditionalgold control was not preregistered; cashcontrolalone is incomplete.",
+    "protocol_complete": false,
+    "result": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_account/result.json",
+      "sha256": "acf64fb560c4f9d8dbdecc409d4b968f66fa2579abfd0973243da7de7afb23d7"
+    },
+    "outcome": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_account/outcome.json",
+      "sha256": "f3035014b1cb2d1df61c65f8eb14852f094b5dfe54f67d208ba88d8e0d6cd2c3"
+    },
+    "verification": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_account/verification.json",
+      "sha256": "4253a771470af9f88dbf501677e173c7703904b54d3949198c54de54ebe690b6"
+    },
+    "protocol_gap_review": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_account/protocol_gap_review.json",
+      "sha256": "70a6b0b7964a7cdd9676d89e93c4bdffe884329a8167fcd77362912d048b8975"
+    },
+    "total_return_studies": 11,
+    "total_source_cadence_screens": 3,
+    "candidate_financial_stages_completed": [
+      "gross",
+      "net_account"
+    ],
+    "qualified_strategies": 0,
+    "new_forward_days": 0,
+    "net_positive_EV_verified": false,
+    "closed_hypothesis": "cny_depreciation_gold_demand_quarterly_v1",
+    "next_step": "New independent economic hypothesis with holding/cash controls frozen before any account outcomes; no rescue of consumed candidate."
   }
 }
