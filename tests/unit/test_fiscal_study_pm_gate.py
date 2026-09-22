@@ -19,6 +19,8 @@ class FiscalStudyPmGateTests(unittest.TestCase):
         self.family=json.loads((project/'configs/research_family_scheduler_cn_etf.json').read_bytes())
         self.family['fiscal_event_account_decision']=expected_admission(self.packet,sha256(canonical(self.packet)))
         self.config=json.loads((project/'configs/quant_pm_startup_gate_cn_etf.json').read_bytes())
+        # Preserve the consumed study's historical protocol in its lifecycle fixtures.
+        self.config.pop('account_comparison_protocol', None)
         for row in self.config['required_reading']:
             target=self.root/row['path'];target.parent.mkdir(parents=True,exist_ok=True);target.write_text('fixture',encoding='utf-8')
 
