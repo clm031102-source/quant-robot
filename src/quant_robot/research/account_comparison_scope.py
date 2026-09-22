@@ -13,8 +13,6 @@ REQUIRED_CODE = (
 
 
 def review_account_comparison(root, *, mode, scope, protocol):
-    if protocol is None:
-        return dict(status='historical_gate_protocol',blockers=[])
     full_account = '_account_' in mode or scope.get('net_account_allowed') is True
     if not full_account:
         return dict(status='not_applicable',blockers=[])

@@ -44,16 +44,18 @@ class EquityGoldStudyTests(unittest.TestCase):
         self.family=json.loads((REPO/'configs/research_family_scheduler_cn_etf.json').read_bytes())
         self.family[study.DECISION]=study.admission(self.packet,raw)
         self.gate_config=json.loads((REPO/'configs/quant_pm_startup_gate_cn_etf.json').read_bytes())
-        # Preserve the consumed study's historical protocol in its lifecycle fixtures.
-        self.gate_config.pop('account_comparison_protocol', None)
         self.workstations=json.loads((REPO/'configs/workstations.json').read_bytes())
         for row in self.gate_config['required_reading']:
             p=self.root/row['path'];p.parent.mkdir(parents=True,exist_ok=True);p.write_text('fixture')
 
     def gate(self):
-        return build_quant_pm_startup_gate(gate_config=self.gate_config,workstations_config=self.workstations,
-            repo_root=self.root,machine='office_desktop',task='factor_batch',branch=self.packet['branch'],
-            current_branch=self.packet['branch'],family_config=self.family)
+        # Test only the consumed protocol's lifecycle; current admission is covered
+        # by test_account_comparison_pm_scope. No production legacy bypass exists.
+        with patch('quant_robot.research.pm_startup_gate.review_account_comparison',
+                   return_value=dict(status='mocked_consumed_protocol_fixture', blockers=[])):
+            return build_quant_pm_startup_gate(gate_config=self.gate_config,workstations_config=self.workstations,
+                repo_root=self.root,machine='office_desktop',task='factor_batch',branch=self.packet['branch'],
+                current_branch=self.packet['branch'],family_config=self.family)
 
     def test_only_exact_conditional_account_opens_and_preflight_never_calculates(self):
         gate=self.gate();self.assertEqual(gate['status'],'ready',gate['blockers'])

@@ -19,13 +19,14 @@ comparison implementation pins before full-account permission. The shared runner
 all three same-budget accounts under all nine costcases;74related synthetic tests pass. This does
 not retroactively repair or reopen the consumed gold candidate.
 
-Integration found a release blocker in fixed620f883: absent/null protocol configuration bypasses
-the complete-account comparison check through historical_gate_protocol. Two synthetic regressions
-reproduce the erroneous ready state. This isolated batch is held until the fail-closed fix is reviewed;
-historical fixture compatibility must not be a production permission bypass.
+Integration reproduced an absent/null protocol bypass in fixed620f883. Fix b677f15 removes the
+production compatibility path: both original synthetic regressions now pass, alongside72related
+tests. Historical lifecycle compatibility exists only inside test mocks; an unmocked old registration
+is rejected. The original failing regression evidence remains retained.
 
 Latest source feasibility: [northbound signed-flow continuity](cn_etf_northbound_continuity_review_2026-09-22.md).
-Two retained official rules confirm the2024-08-19public disclosure change. Verified public totalturnover
+The retained SSE rule specifies the2024-08-19disclosure change; the HKEX April notice is the earlier
+plan, not independent proof of that final start date. Verified public totalturnover
 and quarterly holdings do not supply the signed daily/monthly buy-minus-sell input for ongoing signals.
 No numeric history,signal or ETFreturn is computed; this path is paused pending a qualified continuing
 source. Old northboundstock and ETFConnecteligibility hypotheses remain hibernated.
