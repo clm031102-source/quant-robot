@@ -2206,5 +2206,75 @@
       "later_selected_intervals"
     ],
     "next": "Close this fixed AAA1Yminusgovernment1Y hypothesis: five later selected quarters fail the frozen minimum of six. No ETF outcome join, parameter/sample/threshold/unknown-month/fee/risk rescue or rerun. Continue a distinct economically justified mechanism under the standingCNY10000mandate; general batches, promotion, holdout and live execution stay disabled."
+  },
+  "currency_gold_cadence_decision": {
+    "status": "consumed_fixed_currency_gold_cadence_passed",
+    "registration_id": "274ad5dae21f3d8a30b6704be9ee206b14935218edde077236d1829e9c000d9d",
+    "registration_path": "data/reports/positive_ev_20260922/currency_gold_cadence/registration.json",
+    "registration_sha256": "194287ab47a148235edc61877b31bd12fb67922c7d7f964bf8b1c083889b5059",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_currency_gold_cadence_screen",
+    "ledger_path": "data/reports/positive_ev_20260922/currency_gold_cadence/attempt_claim.json",
+    "source_cadence_only": false,
+    "returns_allowed": false,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false,
+    "cadence_screen_passed": true,
+    "ETF_outcomes_read": false,
+    "new_return_studies": 0,
+    "total_return_studies": 10,
+    "total_source_cadence_screens": 3,
+    "result": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_cadence/result.json",
+      "sha256": "e264e655acec451c3fa85a02b7c59f4e5605d83156d0f320334f88d0916b73fc"
+    },
+    "outcome": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_cadence/outcome.json",
+      "sha256": "0e48f816f3b641687aeda26e3c080e41645220d40f53eefe9e98030e6fee1710"
+    },
+    "verification": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_cadence/verification.json",
+      "sha256": "f942c99a64d9364210d7e9540886067c946f8721766894059e4053712d25d1a4"
+    },
+    "next_stage": "One separately registered frozen gross diagnostic; no net-account promotion."
+  },
+  "currency_gold_diagnostic_decision": {
+    "status": "consumed_fixed_currency_gold_gross_passed",
+    "registration_id": "36ee27926f29b3820d81ef14a621026fe834992392e2682f7fcbf3e2d4aa35b6",
+    "registration_path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/registration.json",
+    "registration_sha256": "360dbb6de23fd47832eff2c41b031874a3e2a406d139910a811466fe01b06adb",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_currency_gold_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/attempt_claim.json",
+    "conditional_gross_only": false,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false,
+    "gross_screen_passed": true,
+    "result": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/result.json",
+      "sha256": "4962916543ee25e9f6f4de50fe9f1d35cddf3a5e4889b01c198635731c9c8ec8"
+    },
+    "outcome": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/outcome.json",
+      "sha256": "3a9e5f7a2a046fecb5484afc0febce32a1f4d6ca94553e4b5515a595a02660cd"
+    },
+    "verification": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/verification.json",
+      "sha256": "665e4ec758bc76ca75d8c8760e3cbf295848642de8292e357116d6deea24f6a4"
+    },
+    "total_return_studies": 11,
+    "total_source_cadence_screens": 3,
+    "net_positive_EV_verified": false,
+    "qualified_strategies": 0,
+    "new_forward_days": 0,
+    "next_stage": "Freeze the full same-capital account and exact source/code admission before running it; no gross rerun."
   }
 }

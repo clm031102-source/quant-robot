@@ -9,11 +9,28 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Current result count: ten return studies and two source-cadence screens in the CNY10000continuation,
+Current result count: eleven return studies and three source-cadence screens in the CNY10000continuation,
 zero qualified net-positive-EV strategies and zero new real forward days. Earlier archived studies remain
 separate consumed evidence.
 
-Latest candidate decision: [credit premium cadence](cn_etf_credit_premium_cadence_2026-09-22.md).
+Latest candidate decision: [currency/gold gross diagnostic](cn_etf_currency_gold_gross_2026-09-22.md) passes
+its frozen four necessary gross checks.20selected quarters across10episodes have13positive quarters(65%)
+and3.11255%mean gross return;7later selected quarters across5episodes are all positive,mean3.77209%.
+The session-matched D is1.03731bp/day with4quarter-block95%interval[0.0211501,1.98431]bp/day;
+its lower bound is close to zero and unadjusted for multiple testing. This is gross exploratory evidence,
+not net trade win rate, untouched OOS, or qualification.39related synthetic tests pass; a separate scalar
+oracle reconciles9816original goldOHLCcells,40quarterreturns,5000draws,348pins and7protocols.
+The preceding source-only [cadence screen](cn_etf_currency_gold_cadence_2026-09-22.md) also passed.
+Next:freeze and admit the full CNY10000account with unchanged fees and risk limits before its outcomes.
+
+Independent integration matched the consumed cadence chain (178 input roles, 11 fixed runtime files,
+seven protocols) and gross chain (340 input roles, eight fixed runtime files, seven protocols).
+It read the retained scalar verifier and compared stored summaries without rerunning a real study.
+Review of the initial account method found the same-capital unconditional-gold benchmark unspecified;
+its entry, exit, 252-session limit and comparison rules must be frozen before candidate account outcomes.
+This integration snapshot includes closed source/cadence/gross evidence only and grants no net-account run.
+
+Preceding candidate decision: [credit premium cadence](cn_etf_credit_premium_cadence_2026-09-22.md).
 The fixed44-quarter screen has18selected quarters and8continuous episodes; the later16quarters have
 5selected quarters and3new episodes. Five later selected quarters miss the preregistered minimum of6.
 Four unknown quarters remain in both denominators. The hypothesis is consumed and closed before any
@@ -43,8 +60,8 @@ from2013Q3to2023Q3now have conditional H.10China quotes under the unchanged14cal
 selected source ages span4..10days. One observed2017markup change was repaired with a regression test;
 the15already-fetched originals were retained and only24unrequested URLscontinued,with zero networkretries.
 20synthetic tests and separate BeautifulSoup/calendar extraction reconcile all cells,endpoints,166pins
-and7frozen protocols. No currency changes,states,ETFoutcomes or new cadence screens computed.
-Next:freeze and admit one exact count screen. Archive revisions and historical release timing stay
+and7frozen protocols. The subsequent count and gross screens have now passed under separate one-use admissions.
+Next:full same-capital account preparation; no net account executed yet. Archive revisions and historical release timing stay
 conditional;source success is no netEV or promotion evidence.
 Independent integration reviewed the frozen608/7f runtime and pilot11-response chain, then all39
 new request chains and41 originals. All205 China cells,89 repair pins,166 closeout pins and seven
