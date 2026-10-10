@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "study_id": "published_geopolitical_threat_gold_monthly_v1",
+  "stage": "conditional_source_pilot_review_only",
+  "created_at": "2026-09-22T01:18:32.613951+00:00",
+  "proposal_frozen_commit": "7e074b1e",
+  "status": "two_fixed_source_pilots_passed_conditionally",
+  "fixed_pilots": [
+    {
+      "vintage_month": "202203",
+      "commit_sha": "d3ebf70362e087b66acc3f935e9e90faaab4ad68",
+      "commit_committer_date": "2022-03-01T21:01:04+00:00",
+      "cutoff_utc": "2022-03-14T16:00:00+00:00",
+      "raw_sha256": "d7bb97b901a34f7f1289eaa02297eb0839e2217f989039afeff011f73602eff8"
+    },
+    {
+      "vintage_month": "202512",
+      "commit_sha": "651c8015b03e909ced1d0d4317f87d75b98a5e48",
+      "commit_committer_date": "2025-12-02T14:28:43+00:00",
+      "cutoff_utc": "2025-12-14T16:00:00+00:00",
+      "raw_sha256": "b9689044fcc4641fa30353779609a134d33b127cc29ce2652b80f1972b3f58f8"
+    }
+  ],
+  "source_cells_checked": 26,
+  "all_required_cells_finite_nonnegative": true,
+  "monthly_dates_unique_and_consecutive": true,
+  "field_label": "Recent GPR Threats (Index: 1985:2019=100)",
+  "source_mapping_crosscheck": "pandas and direct cell mapping agree; both share xlrd decoding, not independent parser or human audit",
+  "publication_clock": "Conditional on faithful repository metadata; first public delivery not independently certified",
+  "source_expansion_requires_separate_fixed_scope": true,
+  "signal_generated": false,
+  "financial_execution_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "pins": {
+    "configs/cn_etf_geopolitical_gold_proposal_20260922.json": {
+      "path": "configs/cn_etf_geopolitical_gold_proposal_20260922.json",
+      "sha256": "58a5f1e9ca392eadf6f2e90468d6100257a9e994e7b278eef5065d8f1d66dae4"
+    },
+    "data/reports/positive_ev_20260922/geopolitical_source_pilot/scope.json": {
+      "path": "data/reports/positive_ev_20260922/geopolitical_source_pilot/scope.json",
+      "sha256": "867fde7d58f32c7a7d9a62765b5e3103d788a3fa87850c7f3e56ccf370a670e1"
+    },
+    "data/reports/positive_ev_20260922/geopolitical_source_pilot/source_review.json": {
+      "path": "data/reports/positive_ev_20260922/geopolitical_source_pilot/source_review.json",
+      "sha256": "2f6a34538713878809f5b6a884b511d92b59eec816ea5e25f4c86241d1e6fc6f"
+    },
+    "data/reports/positive_ev_20260922/geopolitical_source_pilot/source_windows.json": {
+      "path": "data/reports/positive_ev_20260922/geopolitical_source_pilot/source_windows.json",
+      "sha256": "7ab9ae563de60323a73555655483bdf7654e04336ae8fc95be3fbbc8845c816d"
+    },
+    "data/reports/positive_ev_20260922/geopolitical_source_pilot/retrieval_results.json": {
+      "path": "data/reports/positive_ev_20260922/geopolitical_source_pilot/retrieval_results.json",
+      "sha256": "8bf434374ccd14948b71ab7887aa94ddb315d1fec6d27c293b967e5468b284a7"
+    },
+    "data/reports/positive_ev_20260922/geopolitical_method_bridge/method_review.json": {
+      "path": "data/reports/positive_ev_20260922/geopolitical_method_bridge/method_review.json",
+      "sha256": "089e364eee2f740805788552b8aae348b94ae23120975a33c5f3a11ec0507e89"
+    },
+    "data/reports/positive_ev_20260922/geopolitical_archive_index/archive_review.json": {
+      "path": "data/reports/positive_ev_20260922/geopolitical_archive_index/archive_review.json",
+      "sha256": "62df661eef1da03496beb80e2e4d9862b68294f5ff5d8076ffe7f8bc0ab750ef"
+    },
+    "data/reports/positive_ev_20260922/geopolitical_archive_metadata/metadata_review.json": {
+      "path": "data/reports/positive_ev_20260922/geopolitical_archive_metadata/metadata_review.json",
+      "sha256": "12868f1d9e1b6ab95529f3ec8f396bd1e865333d55ea6e6f062ed239b9450135"
+    }
+  }
+}
