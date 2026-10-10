@@ -1,6 +1,10 @@
 {
   "stage": "quant_pm_startup_gate_cn_etf",
   "primary_market": "CN_ETF",
+  "account_comparison_protocol": {
+    "version": 1,
+    "holding_and_cash_required": true
+  },
   "research_family_config": "configs/research_family_scheduler_cn_etf.json",
   "required_skills": [
     "using-superpowers",
