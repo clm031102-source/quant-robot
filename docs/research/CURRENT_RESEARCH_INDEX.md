@@ -5,17 +5,20 @@ Last updated: 2026-10-10
 Current authority: [unified results and task list](project_tasks_2026-10-10.md). PR #28
 was accepted and merged as main `89840ba4`; six CI environments succeeded and two retained
 representative logs each report 4,127 tests. The missing/null account-protocol bypass is closed.
-Research and the shared hourly task remain paused; this integration does not resume them.
+PR #29 is also merged as main `f0d289c1`. The user subsequently resumed ongoing research,
+prioritizing indicator combinations and backtests; this new instruction supersedes the prior pause.
 
 The results package preserves the source review `dc2d8cce` and the researcher closeout `24acad32`.
 The geopolitical bridge and two fixed source pilots are complete only within their consumed scope:
 26 source cells, two of 46 planned months, 44 months not prepared; no signal or return study.
 Historical commit timestamps remain conditional metadata, not certified first publication times.
-Next research preparation should address the user-proposed smart-money/MACD definition and
-comparators; it is discussed, not yet preregistered or executed. Backups of ignored evidence
-must be checked separately from Git synchronization. Earlier milestones below are retained history.
+The [first indicator-combination study](cn_etf_indicator_combinations_2026-10-10.md) is complete:
+16 candidates, nine cost scenarios, strategy/holding/cash controls; three small full-window net gains,
+zero complete-screen passes. Its one-use admission is closed. Next prioritize slower trend filters,
+MACD/amount confirmation, separate exits and entry risk headroom under a new frozen specification.
+Backups of ignored evidence must be checked separately from Git synchronization. Earlier milestones below are retained history.
 
-Current result count: eleven return studies and three source-cadence screens in the CNY10000continuation,
+Current result count: twelve return studies and three source-cadence screens in the CNY10000continuation,
 zero qualified net-positive-EV strategies and zero new real forward days. Earlier archived studies remain
 separate consumed evidence.
 
@@ -43,7 +46,7 @@ and quarterly holdings do not supply the signed daily/monthly buy-minus-sell inp
 No numeric history,signal or ETFreturn is computed; this path is paused pending a qualified continuing
 source. Old northboundstock and ETFConnecteligibility hypotheses remain hibernated.
 
-Latest candidate decision: [currency/gold net account](cn_etf_currency_gold_account_2026-09-22.md) is closed.
+Prior candidate decision (study 11): [currency/gold net account](cn_etf_currency_gold_account_2026-09-22.md) is closed.
 The fixed primary CNY10000account earns363.20CNYover2014..2023plus terminal,with8/10profitable episodes;
 from2020,contribution133CNYand4/5profitable newepisodes. Fees115CNY,23fills,maxDD1.48389%,maxdayloss31.80CNY.
 Eight financial checks pass but three close-position marks exceed the1000CNYcap:1007.20,1018.80,1008.90CNY.
