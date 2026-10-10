@@ -1,13 +1,19 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-09-22
+Last updated: 2026-10-10
 
-Current continuation: [CNY 10,000 research mandate](positive_ev_mandate_2026-09-21.md),
-branch `codex/factor-review-positive-ev-20260921`. This working branch combines the
-September implementation and progress review. Current account defaults are CNY 10,000;
-historical frozen evidence remains unchanged. The existing shared hourly task retains its
-original owner and now includes this continuation index; later results must be assessed
-against the mandate's evidence criteria.
+Current authority: [unified results and task list](project_tasks_2026-10-10.md). PR #28
+was accepted and merged as main `89840ba4`; six CI environments succeeded and two retained
+representative logs each report 4,127 tests. The missing/null account-protocol bypass is closed.
+Research and the shared hourly task remain paused; this integration does not resume them.
+
+The results package preserves the source review `dc2d8cce` and the researcher closeout `24acad32`.
+The geopolitical bridge and two fixed source pilots are complete only within their consumed scope:
+26 source cells, two of 46 planned months, 44 months not prepared; no signal or return study.
+Historical commit timestamps remain conditional metadata, not certified first publication times.
+Next research preparation should address the user-proposed smart-money/MACD definition and
+comparators; it is discussed, not yet preregistered or executed. Backups of ignored evidence
+must be checked separately from Git synchronization. Earlier milestones below are retained history.
 
 Current result count: eleven return studies and three source-cadence screens in the CNY10000continuation,
 zero qualified net-positive-EV strategies and zero new real forward days. Earlier archived studies remain
@@ -24,7 +30,7 @@ production compatibility path: both original synthetic regressions now pass, alo
 tests. Historical lifecycle compatibility exists only inside test mocks; an unmocked old registration
 is rejected. The original failing regression evidence remains retained.
 
-New source feasibility: [geopolitical index revisions](cn_etf_geopolitical_source_review_2026-09-22.md).
+Initial source feasibility (superseded by the two-pilot summary above): [geopolitical index revisions](cn_etf_geopolitical_source_review_2026-09-22.md).
 The initial four-request review retained three complete official HTML originals and one over-cap
 failure. Independent checks match12pins,7protocols and241302bytes; the2021method revision is
 confirmed, while historic availability and continuing comparable vintages remain unverified at

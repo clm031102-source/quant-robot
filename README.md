@@ -6,17 +6,19 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 
 ## Current Status
 
+- Unified results and next tasks (2026-10-10): [project task list](docs/research/project_tasks_2026-10-10.md). PR #28 account controls are merged and verified; remaining source pilots and prior integration records are preserved in the results integration package. Research and the hourly task remain paused.
+
 - Current mandate (2026-09-21): [CNY 10,000 positive-expectancy research](docs/research/positive_ev_mandate_2026-09-21.md). New account defaults use CNY 10,000; archived experiments retain their original capital and consumed authorizations. No net-positive strategy has yet been established.
 - Current assessment and ordered worklist (2026-09-21): [project progress review](docs/research/project_progress_review_2026-09-21.md).
 - Detailed ETF deployment plan: [execution plan and acceptance criteria](docs/research/etf_monetization_execution_plan_2026-09-11.md). The research-family scheduler has no active primary family; the delayed-NAV result was invalidated and its family is closed. No current candidate has established deployable net positive expectancy. The historical `paper_ready` and activation records below are workflow history, not current strategy or live-profit qualification.
 - Minimum commission, daily valuation, raw-price execution and a synthetic-tested dividend/share-conversion ledger now run through offline paper workflows. [Accounting scope and remaining source audit](docs/research/cn_etf_paper_execution_accounting_2026-09-11.md). Actual broker fees, real price/action source qualification, forward observation, and broker integration still require their own acceptance evidence.
 - Cloud/research sync index: `docs/research/CURRENT_RESEARCH_INDEX.md`. Read this first after syncing on any workstation.
-- Integration candidate: the 141 commits from `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c` are included in this review branch with their accounting, execution, source-receipt and research-closeout evidence. Mainline integration remains subject to validation.
+- Completed historical integration: the 141 commits from `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c` were accepted through PR #3; PR #3–#28 are now merged. Engineering acceptance does not qualify a strategy.
 - Research state: `family_rotation_review_only`; no current CN ETF strategy is eligible for promotion or paper observation. Historical workflow readiness is not current strategy readiness.
 - The 2026-07-29 delayed-NAV prescreen was invalidated for implementation and authorization drift. Its consumed authorization cannot be rerun, and its metrics are non-governing.
 - The authoritative scheduler has seven explicitly closed CN ETF families, three exploratory families with no budget, and one auxiliary-only CN stock family. Active primary allocation is zero.
 - Current blocker: the 2026-09-21 bounded access review again received permission denials for all four historical SSE/SZSE PCF probes and the structured ETF mapping probe. A licensed historical delivery or enabled source access is needed before source-readiness work can complete.
-- Next work: obtain and audit point-in-time historical ETF PCF/constituents, then preregister an independent hypothesis. Factor batches, portfolio grids, walk-forward, final holdout, and new paper signals remain disabled under the current decision.
+- Next work: define the user-proposed smart-money/MACD comparison and audit only the source gaps required by the selected candidate; confirm local evidence backup separately. The preserved geopolitical proposal is an optional paused source lane. See the unified task list; no new financial execution is authorized by integration.
 - Use the project virtual environment (`.venv/Scripts/python.exe`); supported Python versions are 3.11–3.13. The office machine's system Python 3.14 is outside this range.
 - Task branches are temporary; keep `main` stable and merge only reviewed, validated changes.
 
