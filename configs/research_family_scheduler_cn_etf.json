@@ -2325,5 +2325,27 @@
     "net_positive_EV_verified": false,
     "closed_hypothesis": "cny_depreciation_gold_demand_quarterly_v1",
     "next_step": "New independent economic hypothesis with holding/cash controls frozen before any account outcomes; no rescue of consumed candidate."
+  },
+  "indicator_combination_account_decision": {
+    "status": "completed_rejected",
+    "registration_id": "0103a152e4af9a6a2bfb24a127ba2aaa4fb2fd4e4bbd31c75d6be1c3af06ee70",
+    "registration_path": "data/reports/indicator_combinations_20261010/registration.json",
+    "registration_sha256": "dc0230be265d9f88194557b2902406940752c762b03a6f7d4f2fb537beac4b55",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_indicator_combination_account_only",
+    "ledger_path": "data/reports/indicator_combinations_20261010/attempt_claim.json",
+    "conditional_account_only": true,
+    "net_account_allowed": false,
+    "general_factor_batch_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false,
+    "result_path": "data/reports/indicator_combinations_20261010/result.json",
+    "result_sha256": "b62940889e3f672f19aaae79956f2d929437967b4697a6ee9d24a3a190a96e86",
+    "conditional_pass_count": 0,
+    "net_positive_EV_verified": false,
+    "conclusion": "All 16 candidates failed frozen complete account screen; do not rerun or rescue.",
+    "next_step": "New cost-aware slower trend combination specification with entry risk headroom; preserve all current failures."
   }
 }
