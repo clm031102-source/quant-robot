@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "study_id": "published_geopolitical_threat_gold_monthly_v1",
+  "stage": "single_geopolitical_conditional_full_account",
+  "authority": "Standing autonomous research-to-paper mandate; fixed-method one-use conditional historical account, not live authorization.",
+  "original_proposal": {
+    "path": "configs/cn_etf_geopolitical_gold_proposal_20260922.json",
+    "sha256": "58a5f1e9ca392eadf6f2e90468d6100257a9e994e7b278eef5065d8f1d66dae4"
+  },
+  "method": {
+    "path": "configs/cn_etf_geopolitical_account_method_20261104.json",
+    "sha256": "1717534363a6f1c3406b001b2e829e7cf6eb98bb625d3f345321f22ea10924a6"
+  },
+  "input_review": {
+    "path": "data/reports/geopolitical_account_20261104/input_review.json",
+    "sha256": "78d0f3278018e09bf4c4a4bc9e00c3ad8aed07f787505a5557e51232035ced64"
+  },
+  "independent_source_review": {
+    "path": "data/reports/geopolitical_account_20261104/source_result_independent_review.md",
+    "sha256": "99fa7ad24051e2474f4aa36cca3bf2115b2554130b8d292d109eb448da97539e"
+  },
+  "source_scope": {
+    "path": "data/reports/geopolitical_account_20261104/source/scope.json",
+    "sha256": "e4ddef19c96c53eb757286dca26887fe708a573356b3aba1c742c4621a5968f8"
+  },
+  "account_plan": {
+    "path": "data/reports/geopolitical_account_20261104/account_plan.json",
+    "sha256": "0db22cce014a8b0d95c1655246738bcc69fb4d8344113b344fcf023469d04e42"
+  },
+  "max_executions": 1,
+  "account_count": 27,
+  "method_changes_allowed": false,
+  "comparison_policy_extraction": "Exact copy of the comparison_policy already fixed inside account_plan before price access, with only a strategy_cycles file fingerprint added for PM identity checks. Separate sessions/cycles copies must equal the fixed plan; no economic changes.",
+  "source_code_provenance": "Source scope ran at bf10d1ea. Original PM gate is preserved under source/executed_code; new PM hook grants only this specific single historical account. All other original source/numerical implementation hashes must still match.",
+  "primary_case": "min5_slip10",
+  "necessary_conditions": "All original September22 financial conditions implemented and frozen before new prices; full/later cash/holding comparisons, completed episode minimums and majority, 46month block interval, risk and terminal rights. No sensitivity case or altered risk rule can rescue a failure.",
+  "no_new_downloads": true,
+  "conditional_historical_account_allowed": true,
+  "general_factor_batch_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "actual_broker_fees_certified": false,
+  "forward_evidence_claimed": false
+}

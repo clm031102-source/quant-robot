@@ -7,7 +7,7 @@
   "state_label": "研究推进中，尚无合格策略",
   "authority_document": "docs/research/project_delivery_2026-11-04.md",
   "counts": {
-    "return_studies": 13,
+    "return_studies": 14,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,13 +22,13 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "累计13项收益研究仍无合格策略；最新四个慢指标候选、108个账户检验全部未通过。"
+      "evidence": "累计14项收益研究、0个合格策略；最新黄金威胁策略虽净赚287.80元，但全期和后段均未胜固定持有对照，已永久关闭原假说。"
     },
     {
-      "blocker_id": "geopolitical_account_pending",
+      "blocker_id": "next_independent_hypothesis_required",
       "severity": "block",
       "track_id": "research",
-      "evidence": "黄金威胁新假设已通过单次数量检查：全期7段、后段4个新段；尚未完成扣费后账户检验，不能进入模拟盘。"
+      "evidence": "已准备的收益候选均已消费；需要从未关闭的新机制中先核实来源与经济可行性，再冻结独立研究，不能调参救援旧结果。"
     },
     {
       "blocker_id": "actual_costs_unverified",
@@ -47,9 +47,9 @@
     {
       "priority": 1,
       "track_id": "research",
-      "title": "准备黄金威胁策略的完整账户验证",
+      "title": "选择机制不同且具备实际收益空间的新候选",
       "command": "",
-      "reason": "数量门槛已通过；固定历史行情、日历、费用、策略交易段及持有/持币对照后，单独准入一次完整账户检验。"
+      "reason": "先核对既有失败家族、来源时点、交易成本与资金利用，缩小到一个明确假设；通过独立准入前不运行收益筛选。"
     },
     {
       "priority": 2,

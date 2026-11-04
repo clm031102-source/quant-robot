@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "stage": "fixed_geopolitical_account_source_preparation",
+  "branch": "codex/factor-batch-geopolitical-account-20261104",
+  "max_requests": 6,
+  "price_window": [
+    "2022-02-15",
+    "2025-12-31"
+  ],
+  "inputs": {
+    "proposal": {
+      "path": "configs/cn_etf_geopolitical_gold_proposal_20260922.json",
+      "sha256": "58a5f1e9ca392eadf6f2e90468d6100257a9e994e7b278eef5065d8f1d66dae4"
+    },
+    "method": {
+      "path": "configs/cn_etf_geopolitical_account_method_20261104.json",
+      "sha256": "1717534363a6f1c3406b001b2e829e7cf6eb98bb625d3f345321f22ea10924a6"
+    },
+    "account_plan": {
+      "path": "data/reports/geopolitical_account_20261104/account_plan.json",
+      "sha256": "0db22cce014a8b0d95c1655246738bcc69fb4d8344113b344fcf023469d04e42"
+    },
+    "calendar": {
+      "path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+      "sha256": "dbecac271ded4b95da6234658742177569405c477097ec1b780914ebddcaa11a"
+    },
+    "calendar_manifest": {
+      "path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
+      "sha256": "4b0e6a524e567a3ea81c94cc1a822371699562df9ac0a5591e51f324d2199d6b"
+    },
+    "cadence_result": {
+      "path": "data/reports/geopolitical_cadence_20261104/result.json",
+      "sha256": "94ea9f95a5522b9d40d1d51aa57dd24f2e9101fb51bad4b1b9c428088a2a081b"
+    },
+    "cadence_review": {
+      "path": "configs/cn_etf_geopolitical_cadence_review_20261104.json",
+      "sha256": "611953212a1aa8ee8ad42af6ab02e7aedc47fec82d93e800780e08bdc8ff8c7f"
+    },
+    "method_review": {
+      "path": "data/reports/geopolitical_account_20261104/method_independent_review.md",
+      "sha256": "44356ceef3e8003c538fea1a16e572f04f6b1ec32b402a378c57d7502441b6a2"
+    }
+  },
+  "code_files": {
+    "src/quant_robot/data/sources/geopolitical_account_sources.py": {
+      "path": "src/quant_robot/data/sources/geopolitical_account_sources.py",
+      "sha256": "f7b94721d7e011aa856533329e9872fc0b32f75a2aa3075b82c09aa32aa7fabe"
+    },
+    "src/quant_robot/research/geopolitical_account.py": {
+      "path": "src/quant_robot/research/geopolitical_account.py",
+      "sha256": "ae19fe7819dff6d4bbda366ffc1bc912d8dad707d893c9b9327372a20be96529"
+    },
+    "src/quant_robot/research/equity_gold_diagnostic.py": {
+      "path": "src/quant_robot/research/equity_gold_diagnostic.py",
+      "sha256": "b4e953667ebe40f65e98d2d720a5711a8caeba49affa6537c0eb545735c3cc13"
+    },
+    "src/quant_robot/paper/comparative_allocation.py": {
+      "path": "src/quant_robot/paper/comparative_allocation.py",
+      "sha256": "f60349977a2e7fd7cdc1fc910c9b894651629754be4ea6b990c65da16090ad26"
+    },
+    "src/quant_robot/paper/annual_allocation.py": {
+      "path": "src/quant_robot/paper/annual_allocation.py",
+      "sha256": "b3af480b2898c77b3aa26db265afeecdfc86887156ac36e92097ac1f7cfccf56"
+    },
+    "src/quant_robot/paper/position_buffer.py": {
+      "path": "src/quant_robot/paper/position_buffer.py",
+      "sha256": "308d750076445bab6b012815676e4b24d1878da01b40fdd4623525608323062d"
+    },
+    "src/quant_robot/research/monthly_diagnostic_registration.py": {
+      "path": "src/quant_robot/research/monthly_diagnostic_registration.py",
+      "sha256": "49c57f501ae9cb6b254033acda6c3f8e4b64dbb82a000a72f62a2eb2ebfbb970"
+    },
+    "src/quant_robot/research/pm_startup_gate.py": {
+      "path": "src/quant_robot/research/pm_startup_gate.py",
+      "sha256": "2fc93023efb8b8a5cbbf33fb4f4946fe814346fe522e292714250adb3535dd8d"
+    },
+    "src/quant_robot/research/family_scheduler.py": {
+      "path": "src/quant_robot/research/family_scheduler.py",
+      "sha256": "dbb8d0ce6e5014cd32a5144681af502ee08015a90b41f5d6e183aa6f96650728"
+    },
+    "src/quant_robot/storage/atomic.py": {
+      "path": "src/quant_robot/storage/atomic.py",
+      "sha256": "6fc0efb8eff0e8d6bb115df5cce46fe4170dfbe482c7bdbabf04d48786788144"
+    },
+    "scripts/collect_geopolitical_account_sources.py": {
+      "path": "scripts/collect_geopolitical_account_sources.py",
+      "sha256": "83915a60352c10fb7f1ae1dac5b46a29efdcf28468245471f079ad1861d61a20"
+    },
+    "scripts/bootstrap.py": {
+      "path": "scripts/bootstrap.py",
+      "sha256": "39a14c82d67266884ff6506b41bd3d6c435a1627e82f4ee930601d5504d0da29"
+    }
+  },
+  "environment": {
+    "python": "3.12.13",
+    "implementation": "CPython",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "pandas": "3.0.3",
+    "pyarrow": "24.0.0",
+    "numpy": "2.4.6"
+  },
+  "requests": [
+    "annual_catalog_2024_2025",
+    "annual_2024_PDF",
+    "annual_2025_PDF",
+    "terminal_action_catalog_20251201_20260131",
+    "gold_date_only_index",
+    "gold_944_scoped_OHLCVA_rows"
+  ],
+  "source_reviews_required_before_financial_admission": [
+    "annual2022through2025_distributions_and_splits",
+    "terminal_cross_year_rights",
+    "raw_price_units_and_complete_calendar",
+    "historical_flag_and_depth_limits"
+  ],
+  "returns_allowed": false,
+  "account_execution_allowed": false,
+  "holdout_2026_prices_allowed": false,
+  "paper_promotion_allowed": false,
+  "live_boundary_allowed": false,
+  "annual_catalog_cutoff": "2026-11-04; include correction notices through fixed source-preparation day"
+}

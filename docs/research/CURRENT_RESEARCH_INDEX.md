@@ -3,7 +3,7 @@
 Current authority (2026-11-04): [deployment continuation](project_delivery_2026-11-04.md).
 The user resumed sustained research-to-paper delivery after the full project audit.
 PR #30 is merged as `9b1be890`; 4,158 local tests pass, including the previously blocked
-19 admission tests. Thirteen return studies, zero qualified strategies and zero new
+19 admission tests. Fourteen return studies, zero qualified strategies and zero new
 real forward days are the current research result. The four slower buffered candidates
 completed all 108 accounts and were rejected; their admission is consumed and closed.
 See [the fixed study and results](slow_indicator_study_2026-11-04.md). The 2026 holdout remains sealed.
@@ -11,9 +11,15 @@ The frozen geopolitical-threat gold hypothesis now has all 46 source windows con
 verified (two reused pilots plus 44 newly acquired vintages, 598 required source values).
 The separate one-use cadence screen has now passed: full 21 selected months / 7 new source
 episodes; later 12 selected months / 4 new episodes, with known cash in both slices. Four source
-cadence screens and thirteen return studies are now recorded. Historical states were generated,
-but no ETF outcome or account was calculated for this hypothesis. The cadence admission is
-consumed; a separate account admission remains necessary. See the November continuation at the end of
+cadence screens are recorded. The separate full-account admission then executed once at commit
+`525e5d91`, preserving all 27 accounts. The primary strategy earned CNY287.80 full-window and
+CNY285.80 later, but failed both frozen comparisons with holding (CNY599.90 / CNY466.70).
+The exact hypothesis is permanently rejected and its admission consumed. Holding had a position
+breach in every cost case and is not a qualified fallback. The independent review verified all
+83 pins, ledgers, fees, risks, monthly contributions and bootstrap without rerunning accounts.
+See [the account closeout](../../configs/cn_etf_geopolitical_account_review_20261104.json).
+Next work requires a genuinely different, source-feasible mechanism and a new prospective
+admission; no parameter rescue or 2026 holdout access. See the November continuation at the end of
 [the source review](cn_etf_geopolitical_source_review_2026-09-22.md).
 The following dated records are historical and do not override this entry.
 
