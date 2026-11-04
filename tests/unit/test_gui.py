@@ -4058,7 +4058,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("daily-current-position-actions", html)
             self.assertIn("data-current-position-action", html)
             self.assertIn("纸面空仓试算", html)
-            self.assertIn("日常运营包", html)
+            self.assertIn("历史运营记录（仅供查看）", html)
             self.assertIn("风险候选包", html)
             self.assertIn("约束搜索包", html)
             self.assertIn("模拟盘参数包", html)
