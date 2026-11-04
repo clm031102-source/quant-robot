@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "study_id": "published_geopolitical_threat_gold_monthly_v1",
+  "stage": "financial_method_prepared_before_new_price_paths_not_execution_admission",
+  "authority": "Standing autonomous research-to-paper mandate; no broker authorization or profit guarantee.",
+  "original_proposal": {
+    "path": "configs/cn_etf_geopolitical_gold_proposal_20260922.json",
+    "sha256": "58a5f1e9ca392eadf6f2e90468d6100257a9e994e7b278eef5065d8f1d66dae4"
+  },
+  "completed_cadence": {
+    "path": "configs/cn_etf_geopolitical_cadence_review_20261104.json",
+    "sha256": "611953212a1aa8ee8ad42af6ab02e7aedc47fec82d93e800780e08bdc8ff8c7f"
+  },
+  "cadence_result": {
+    "path": "data/reports/geopolitical_cadence_20261104/result.json",
+    "sha256": "94ea9f95a5522b9d40d1d51aa57dd24f2e9101fb51bad4b1b9c428088a2a081b"
+  },
+  "account_plan": {
+    "path": "data/reports/geopolitical_account_20261104/account_plan.json",
+    "sha256": "0db22cce014a8b0d95c1655246738bcc69fb4d8344113b344fcf023469d04e42"
+  },
+  "instrument": "518880.SH",
+  "asset_id": "CN_ETF_XSHG_518880",
+  "calendar": {
+    "path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+    "sha256": "dbecac271ded4b95da6234658742177569405c477097ec1b780914ebddcaa11a"
+  },
+  "calendar_manifest": {
+    "path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
+    "sha256": "4b0e6a524e567a3ea81c94cc1a822371699562df9ac0a5591e51f324d2199d6b"
+  },
+  "window": {
+    "warmup_first": "2022-02-15",
+    "first_study_open": "2022-03-15",
+    "later_first_session": "2024-01-02",
+    "terminal": "2025-12-31",
+    "sessions_with_warmup": 944,
+    "warmup_sessions": 20,
+    "calendar_months": 46
+  },
+  "entry_exit": "Use the seven cadence source episodes mapped to the first verified opening on/after each monthly day15. Enter only once at the episode start; no retry after cancel. Exit at first nonselected decision opening, entry index+252 or final2025session, whichever first. No same-episode reentry after risk or max-hold exit.",
+  "original_risk_policy": {
+    "comparison_schema_version": 1,
+    "capital_CNY": 10000,
+    "all_in_position_cap_CNY": 1000,
+    "daily_loss_trigger_CNY": 60,
+    "paper_drawdown_trigger": 0.08,
+    "absolute_drawdown_ceiling": 0.4,
+    "entry_and_daily_mark": "Prior-close/20-prior-volume sizing, raw-open fills, raw-close equity; all original v1 cancellations, risk stops, trims and breaches retained.",
+    "later_800_900_buffer_applied": false,
+    "reason": "The original September22 hypothesis froze the1000budget and v1risk; November slow-rule buffer is a different prospectively registered policy."
+  },
+  "comparisons": {
+    "engine": "quant_robot.paper.comparative_allocation.run_comparison",
+    "accounts": [
+      "strategy",
+      "unconditional_same_asset_holding",
+      "zero_interest_cash"
+    ],
+    "cost_cases": 9,
+    "total_accounts": 27,
+    "primary": "minimum5CNY_adverse10bps",
+    "minimum_commission_CNY": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bps_each": [
+      0,
+      10,
+      30
+    ],
+    "commission_bps_each": 5,
+    "lot_shares": 100,
+    "tick_CNY": "0.001",
+    "capital_reset": false,
+    "actual_broker_fees_certified": false,
+    "control_policy": "The complete holding renewal, skipped entry, unresolved exit and permanent stop definitions are in the pinned account_plan comparison_policy. No fee or control selection."
+  },
+  "financial_checks": {
+    "primary_full_and_later_net_PnL": "strictly_positive",
+    "completed_full_source_episodes_min": 6,
+    "completed_new_later_source_episodes_min": 3,
+    "positive_episode_fraction": "strictly_more_than_half_in_both_groups",
+    "later_episode_rule": "Only source episodes starting in202401or later.202311carry-in contributes to later daily/monthly equity but is not a new later episode. Canceled entries are not completed episodes. Partial exits remain incomplete.",
+    "mean_monthly_interval_lower": "strictly_positive",
+    "beat_holding_and_cash": "strictly_greater_full_and_later_primary_continuous_account_contributions",
+    "risk": "Any observed primary strategy position/daily-loss/drawdown/holding breach fails; original strict8percenttrigger also prevents relaxing toward40percent.",
+    "settlement": "Primary strategy and both primary controls must have no positions, receivables or recorded positive unpaid dividend rights, including rights whose ex/pay dates are beyond2025. All27accounts report this additional entitlement audit without altering old engine fills.",
+    "other_cost_cases": "Report every result and risk/settlement failure; never choose another scenario to rescue primary failure."
+  },
+  "monthly_statistic": {
+    "series": "Changes in continuous daily equity summed into all46calendar months202203..202512 including zero/cash months and partial initial March. No capital reset or monthly refitting.",
+    "resamples": 5000,
+    "circular_contiguous_block_months": 6,
+    "blocks_per_draw": 8,
+    "truncate_each_draw_to_months": 46,
+    "seed": 20260922,
+    "rng": "numpy.default_rng",
+    "quantiles": [
+      0.025,
+      0.975
+    ],
+    "quantile_method": "linear",
+    "statistic": "mean monthly CNY contribution",
+    "limitation": "Small historical sensitivity interval; no independent positive-EV or forward-performance certification."
+  },
+  "source_preparation": {
+    "requests_max": 6,
+    "official_hosts": [
+      "query.sse.com.cn",
+      "www.sse.com.cn",
+      "yunhq.sse.com.cn:32042"
+    ],
+    "annual_reports": [
+      2024,
+      2025
+    ],
+    "terminal_action_catalog": "All fund announcements2025-12-01through2026-01-31, metadata only; review for rights crossing2025terminal.",
+    "raw_price_request": "Date-only index first; then exact944calendar positions2022-02-15..2025-12-31. No2026price fields requested.",
+    "reuse": "Retained gold2022/2023annual action evidence and official volume-display unit source. Existing2025CSV has10otherETFs,no518880. Four historical worktrees had no retained2025gold partition.",
+    "review": "Source identity/raw OHLC integrity/share-volume units/calendar/action and split coverage before account admission; source PDFs only identity,distribution,unit movement,post-balance-sheet action sections. Do not inspect fund performance/NAV sections. Unknown historical flags or order-book depth remain conditional, not certified fills.",
+    "transport": "Exclusive fixed-directory scope and per-request claims; HTTPS certificate verification; no automatic retry/redirect; connect5s/read30s;1MiBJSON/16MiBPDF caps; failed scope consumed."
+  },
+  "exposure": "Gold background and prior2020..2024research already exposed.2024..2025is historical validation, not blind/realforward. GPR vintages rely conditionally on faithful repository timestamps, not independently certified first publication.",
+  "required_before_account_execution": [
+    "Review all source action/price/unit/calendar coverage; preserve failures.",
+    "Freeze source and processed input hashes, complete source/account/statistical code hashes and runtime under a distinct one-use account registration.",
+    "Add exact scheduler/PM gate admission and claim before calculating account outcomes.",
+    "Retain all27accounts, raw failures, uncertainty, source limits and zero-forward-day status."
+  ],
+  "account_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_prices_allowed": false,
+  "live_boundary_allowed": false
+}
