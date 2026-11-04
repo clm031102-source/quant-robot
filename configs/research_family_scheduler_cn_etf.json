@@ -2379,12 +2379,12 @@
     "next_step": "Close this four-candidate trend study. Verify actual fee feasibility and review a distinct economic mechanism and source availability before any new finite admission."
   },
   "geopolitical_cadence_decision": {
-    "status": "authorized_once",
+    "status": "consumed_fixed_geopolitical_cadence_passed",
     "registration_id": "cba8bc377c5339baa5a412577b808ed061c33665e7c30c665b95e94e00ab5682",
     "registration_path": "data/reports/geopolitical_cadence_20261104/registration.json",
     "registration_sha256": "5177b666a8d03733dd1039d1a649540dc548cd41813e47c7a81841c4eb7e8ce1",
     "max_executions": 1,
-    "execution_count": 0,
+    "execution_count": 1,
     "allowed_stage": "single_geopolitical_cadence_screen",
     "ledger_path": "data/reports/geopolitical_cadence_20261104/attempt_claim.json",
     "source_cadence_only": true,
@@ -2393,6 +2393,29 @@
     "net_account_allowed": false,
     "promotion_allowed": false,
     "final_holdout_allowed": false,
-    "live_boundary_allowed": false
+    "live_boundary_allowed": false,
+    "rerun_allowed": false,
+    "account_admission_pending": true,
+    "result_path": "data/reports/geopolitical_cadence_20261104/result.json",
+    "result_sha256": "94ea9f95a5522b9d40d1d51aa57dd24f2e9101fb51bad4b1b9c428088a2a081b",
+    "outcome_path": "data/reports/geopolitical_cadence_20261104/outcome.json",
+    "outcome_sha256": "abf5d8aa5fd5177f60c9cf92874c0ef5c3733c52d8f41474d13db374b85ad5dd",
+    "attempt_claim_path": "data/reports/geopolitical_cadence_20261104/attempt_claim.json",
+    "attempt_claim_sha256": "8e19fefe41ae4c37af1bd4e17915284581617b4c0430a7b7fba55d1d5b36ec12",
+    "full_counts": {
+      "known_cash_months": 25,
+      "months": 46,
+      "new_source_episodes": 7,
+      "selected_months": 21,
+      "unknown_months": 0
+    },
+    "later_counts": {
+      "known_cash_months": 12,
+      "months": 24,
+      "new_source_episodes": 4,
+      "selected_months": 12,
+      "unknown_months": 0
+    },
+    "cadence_passed": true
   }
 }

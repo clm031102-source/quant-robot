@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "study_id": "published_geopolitical_threat_gold_monthly_v1",
+  "stage": "consumed_source_cadence_passed_before_returns",
+  "registration_id": "cba8bc377c5339baa5a412577b808ed061c33665e7c30c665b95e94e00ab5682",
+  "execution_commit": "cd8aeb29",
+  "full": {
+    "known_cash_months": 25,
+    "months": 46,
+    "new_source_episodes": 7,
+    "selected_months": 21,
+    "unknown_months": 0
+  },
+  "later": {
+    "known_cash_months": 12,
+    "months": 24,
+    "new_source_episodes": 4,
+    "selected_months": 12,
+    "unknown_months": 0
+  },
+  "checks": {
+    "known_cash_full": true,
+    "known_cash_later": true,
+    "new_source_episodes_full": true,
+    "new_source_episodes_later": true,
+    "selected_months_full": true,
+    "selected_months_later": true
+  },
+  "passed": true,
+  "execution_count": 1,
+  "rerun_allowed": false,
+  "source_screens_cumulative": 4,
+  "return_studies_cumulative": 13,
+  "qualified_strategies": 0,
+  "historical_states_generated": true,
+  "ETF_outcomes_read": false,
+  "financial_execution_allowed": false,
+  "account_admission_pending": true,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "source_publication_independently_certified": false,
+  "later_slice_is_blind": false,
+  "preflight_review_timing": "The reviewer communicated approval before execution. The report file was finalized after execution and records the actual chronology.",
+  "pins": {
+    "proposal": {
+      "path": "configs/cn_etf_geopolitical_gold_proposal_20260922.json",
+      "sha256": "58a5f1e9ca392eadf6f2e90468d6100257a9e994e7b278eef5065d8f1d66dae4"
+    },
+    "source_review": {
+      "path": "configs/cn_etf_geopolitical_source_expansion_review_20261104.json",
+      "sha256": "298c00dd51443c44d12f6d1e6baaeadb93959151e1deac160c86d9adf0d1338c"
+    },
+    "registration": {
+      "path": "data/reports/geopolitical_cadence_20261104/registration.json",
+      "sha256": "5177b666a8d03733dd1039d1a649540dc548cd41813e47c7a81841c4eb7e8ce1"
+    },
+    "attempt_claim": {
+      "path": "data/reports/geopolitical_cadence_20261104/attempt_claim.json",
+      "sha256": "8e19fefe41ae4c37af1bd4e17915284581617b4c0430a7b7fba55d1d5b36ec12"
+    },
+    "result": {
+      "path": "data/reports/geopolitical_cadence_20261104/result.json",
+      "sha256": "94ea9f95a5522b9d40d1d51aa57dd24f2e9101fb51bad4b1b9c428088a2a081b"
+    },
+    "outcome": {
+      "path": "data/reports/geopolitical_cadence_20261104/outcome.json",
+      "sha256": "abf5d8aa5fd5177f60c9cf92874c0ef5c3733c52d8f41474d13db374b85ad5dd"
+    },
+    "preflight_independent_review": {
+      "path": "data/reports/geopolitical_cadence_20261104/preflight_independent_review.md",
+      "sha256": "fe76ea3eba2a206e0fee6e4f1f6f329b00b7fd47ea976479547aef1bd46905d6"
+    },
+    "result_independent_review": {
+      "path": "data/reports/geopolitical_cadence_20261104/result_independent_review.md",
+      "sha256": "c473adbb4f8f98f0ef069ba6c948b47d49b243a85efd1b8d93894c20fb19cab8"
+    }
+  }
+}

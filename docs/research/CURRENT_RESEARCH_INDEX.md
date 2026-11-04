@@ -9,9 +9,11 @@ completed all 108 accounts and were rejected; their admission is consumed and cl
 See [the fixed study and results](slow_indicator_study_2026-11-04.md). The 2026 holdout remains sealed.
 The frozen geopolitical-threat gold hypothesis now has all 46 source windows conditionally
 verified (two reused pilots plus 44 newly acquired vintages, 598 required source values).
-No median, selection state, cadence or ETF return was calculated. Next prepare a separate,
-one-use cadence admission under the unchanged September proposal. Source evidence alone
-does not grant signal, account or paper permission. See the November continuation at the end of
+The separate one-use cadence screen has now passed: full 21 selected months / 7 new source
+episodes; later 12 selected months / 4 new episodes, with known cash in both slices. Four source
+cadence screens and thirteen return studies are now recorded. Historical states were generated,
+but no ETF outcome or account was calculated for this hypothesis. The cadence admission is
+consumed; a separate account admission remains necessary. See the November continuation at the end of
 [the source review](cn_etf_geopolitical_source_review_2026-09-22.md).
 The following dated records are historical and do not override this entry.
 
