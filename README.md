@@ -6,21 +6,14 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 
 ## Current Status
 
-- Unified results and next tasks (2026-10-10): [project task list](docs/research/project_tasks_2026-10-10.md). PR #28 and #29 are merged. The user resumed indicator-combination research; [the first 16 comparisons](docs/research/cn_etf_indicator_combinations_2026-10-10.md) are complete with no qualified candidate. Continue with cost-aware slower combinations; retain the sealed 2026 holdout and all consumed-study boundaries.
-
-- Current mandate (2026-09-21): [CNY 10,000 positive-expectancy research](docs/research/positive_ev_mandate_2026-09-21.md). New account defaults use CNY 10,000; archived experiments retain their original capital and consumed authorizations. No net-positive strategy has yet been established.
-- Current assessment and ordered worklist (2026-09-21): [project progress review](docs/research/project_progress_review_2026-09-21.md).
-- Detailed ETF deployment plan: [execution plan and acceptance criteria](docs/research/etf_monetization_execution_plan_2026-09-11.md). The research-family scheduler has no active primary family; the delayed-NAV result was invalidated and its family is closed. No current candidate has established deployable net positive expectancy. The historical `paper_ready` and activation records below are workflow history, not current strategy or live-profit qualification.
-- Minimum commission, daily valuation, raw-price execution and a synthetic-tested dividend/share-conversion ledger now run through offline paper workflows. [Accounting scope and remaining source audit](docs/research/cn_etf_paper_execution_accounting_2026-09-11.md). Actual broker fees, real price/action source qualification, forward observation, and broker integration still require their own acceptance evidence.
-- Cloud/research sync index: `docs/research/CURRENT_RESEARCH_INDEX.md`. Read this first after syncing on any workstation.
-- Completed historical integration: the 141 commits from `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c` were accepted through PR #3; PR #3–#29 are now merged. Engineering acceptance does not qualify a strategy.
-- Research state: `family_rotation_review_only`; no current CN ETF strategy is eligible for promotion or paper observation. Historical workflow readiness is not current strategy readiness.
-- The 2026-07-29 delayed-NAV prescreen was invalidated for implementation and authorization drift. Its consumed authorization cannot be rerun, and its metrics are non-governing.
-- The authoritative scheduler has seven explicitly closed CN ETF families, three exploratory families with no budget, and one auxiliary-only CN stock family. Active primary allocation is zero.
-- Current blocker: the 2026-09-21 bounded access review again received permission denials for all four historical SSE/SZSE PCF probes and the structured ETF mapping probe. A licensed historical delivery or enabled source access is needed before source-readiness work can complete.
-- Next work: a new finite study of slower trend filters, MACD/amount-pressure confirmation, separate exits and entry risk headroom. The first 16 comparisons are consumed failures; do not change their parameters or rerun them. Freeze the new complete account protocol before admission and computation. Confirm local evidence backup separately; the geopolitical proposal remains optional.
-- Use the project virtual environment (`.venv/Scripts/python.exe`); supported Python versions are 3.11–3.13. The office machine's system Python 3.14 is outside this range.
-- Task branches are temporary; keep `main` stable and merge only reviewed, validated changes.
+- Current delivery authority (2026-11-04): [deployment continuation](docs/research/project_delivery_2026-11-04.md). The user resumed sustained work after the project audit. The current GUI status comes from `configs/project_state_cn_etf.json`; this display record grants no execution permission.
+- Twelve completed return studies, three source screens, zero qualified strategies, and zero new real forward days. The first 16 indicator comparisons are consumed failures; historical `paper_ready` records are not current qualifications.
+- PR #3–#30 are merged. Four slower trend/MACD candidates have local engineering preparation; independent review, new finite admission and complete cost/control comparisons precede financial execution.
+- The 2026-11-04 audit passed 4,158 tests and compiled 1,714 Python files. The previous 19-test temporary-directory permission blocker no longer reproduces. Later changes need their own relevant checks.
+- Research capital remains CNY 10,000; preserve CNY 1,000 position, CNY 60 daily-loss and 8% paper-drawdown limits. Actual minimum commissions remain unverified. Retain all nine cost scenarios and same-budget holding/cash controls.
+- Ordinary primary research allocation remains zero; new studies require their own bounded registration. Keep the 2026 return holdout sealed and CN stock moneyflow auxiliary-only. No broker connection, live account reads, orders or automatic live trading.
+- Data requirements depend on the selected hypothesis. Historical PCF access is not a universal prerequisite for the prepared price/dividend-based study. Detailed local data and evidence require independent backup; Git does not back them up.
+- Start the desktop through `.venv/Scripts/python.exe` (supported Python 3.11–3.13). Keep main stable and use task branches for reviewed changes.
 
 ### Historical workflow baseline
 

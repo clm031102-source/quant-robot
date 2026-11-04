@@ -1,5 +1,13 @@
 # Current Research And Cloud Sync Index
 
+Current authority (2026-11-04): [deployment continuation](project_delivery_2026-11-04.md).
+The user resumed sustained research-to-paper delivery after the full project audit.
+PR #30 is merged as `9b1be890`; 4,158 local tests pass, including the previously blocked
+19 admission tests. Twelve return studies, zero qualified strategies and zero new
+real forward days remain the research result. Four slower buffered candidates are
+prepared but not admitted or evaluated. The 2026 holdout remains sealed.
+The following dated records are historical and do not override this entry.
+
 Last updated: 2026-10-10
 
 Current authority: [unified results and task list](project_tasks_2026-10-10.md). PR #28

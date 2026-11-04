@@ -94,7 +94,12 @@ def build_shortcut_script(repo_root: Path, spec: DesktopShortcutSpec) -> str:
             "setlocal",
             f'cd /d "{repo_root}"',
             "echo Quant Robot beginner launcher (research-to-paper only; no broker/account/order/live trading).",
-            f"python scripts\\run_desktop_app.py --page {spec.page}{target_arg}",
+            'if not exist ".venv\\Scripts\\python.exe" (',
+            '  echo Project Python environment is missing. Restore it before starting.',
+            '  pause',
+            '  exit /b 1',
+            ')',
+            f'".venv\\Scripts\\python.exe" scripts\\run_desktop_app.py --page {spec.page}{target_arg}',
             "pause",
             "",
         ]

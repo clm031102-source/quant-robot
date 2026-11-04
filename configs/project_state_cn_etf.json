@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "display_only": true,
+  "market": "CN_ETF",
+  "updated_at": "2026-11-04",
+  "state": "research_in_progress",
+  "state_label": "研究推进中，尚无合格策略",
+  "authority_document": "docs/research/project_delivery_2026-11-04.md",
+  "counts": {
+    "return_studies": 12,
+    "source_screens": 3,
+    "qualified_strategies": 0,
+    "forward_observation_days": 0,
+    "prepared_candidates": 4
+  },
+  "capital_cny": 10000,
+  "actual_fees_verified": false,
+  "paper_observation_allowed": false,
+  "selected_candidate": null,
+  "blockers": [
+    {"blocker_id": "no_qualified_strategy", "severity": "block", "track_id": "strategy", "evidence": "现有12项收益研究没有产生通过完整验收的策略。"},
+    {"blocker_id": "slow_study_not_admitted", "severity": "block", "track_id": "research", "evidence": "四个慢指标候选已完成工程准备，仍需独立审查及新有限准入。"},
+    {"blocker_id": "actual_costs_unverified", "severity": "review", "track_id": "costs", "evidence": "实际最低佣金等费用未核实，研究保留九种费用情景。"},
+    {"blocker_id": "forward_observation_not_started", "severity": "block", "track_id": "forward", "evidence": "合格候选产生后才开始真实时间模拟，旧回放不能累计前向天数。"}
+  ],
+  "next_actions": [
+    {"priority": 1, "track_id": "research", "title": "完成四个慢指标候选的有限检验", "command": "", "reason": "先固定版本与完整对照，通过专用准入后计算；保留全部通过或拒绝结果。"},
+    {"priority": 2, "track_id": "costs", "title": "核实实际ETF最低佣金", "command": "", "reason": "费用会直接影响千元仓位的可行性。"},
+    {"priority": 3, "track_id": "delivery", "title": "完成数据备份和恢复验证", "command": "", "reason": "Git仅保存代码和轻量资料，完整数据需单独保全。"}
+  ]
+}
