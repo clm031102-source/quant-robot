@@ -8,7 +8,7 @@
   "authority_document": "docs/research/project_delivery_2026-11-04.md",
   "counts": {
     "return_studies": 13,
-    "source_screens": 3,
+    "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
     "prepared_candidates": 0
@@ -25,10 +25,10 @@
       "evidence": "累计13项收益研究仍无合格策略；最新四个慢指标候选、108个账户检验全部未通过。"
     },
     {
-      "blocker_id": "slow_study_closed_rejected",
+      "blocker_id": "geopolitical_account_pending",
       "severity": "block",
       "track_id": "research",
-      "evidence": "四候选主费用下全期均亏损，评估期均未跑赢同规则持有；本轮已关闭，不能重跑或调参追认。"
+      "evidence": "黄金威胁新假设已通过单次数量检查：全期7段、后段4个新段；尚未完成扣费后账户检验，不能进入模拟盘。"
     },
     {
       "blocker_id": "actual_costs_unverified",
@@ -47,9 +47,9 @@
     {
       "priority": 1,
       "track_id": "research",
-      "title": "准备黄金威胁指标的单次数量检查",
+      "title": "准备黄金威胁策略的完整账户验证",
       "command": "",
-      "reason": "46个月历史来源已条件性核实；先按原冻结规则检查独立交易段是否足够，单独准入后才可计算信号，尚不计算收益。"
+      "reason": "数量门槛已通过；固定历史行情、日历、费用、策略交易段及持有/持币对照后，单独准入一次完整账户检验。"
     },
     {
       "priority": 2,
