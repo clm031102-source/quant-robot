@@ -110,7 +110,7 @@ def uncertainty(strategy, holding, *, replications=5000, block=20, seed=20261010
         paired_difference_mean_CI95_CNY=np.quantile(means[:, 1], [.025, .975]).tolist(),
         corrected_one_sided_net_lower_CNY=float(np.quantile(means[:, 0], q)),
         corrected_one_sided_difference_lower_CNY=float(np.quantile(means[:, 1], q)),
-        correction='Bonferroni16_within_batch_not_all_historical_search',
+        correction=f'Bonferroni{hypotheses}_within_batch_not_all_historical_search',
         bootstrap_replications=replications, block_sessions=block, seed=seed, evaluation_sessions=len(values))
 
 

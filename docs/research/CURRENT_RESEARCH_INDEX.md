@@ -3,9 +3,10 @@
 Current authority (2026-11-04): [deployment continuation](project_delivery_2026-11-04.md).
 The user resumed sustained research-to-paper delivery after the full project audit.
 PR #30 is merged as `9b1be890`; 4,158 local tests pass, including the previously blocked
-19 admission tests. Twelve return studies, zero qualified strategies and zero new
-real forward days remain the research result. Four slower buffered candidates are
-prepared but not admitted or evaluated. The 2026 holdout remains sealed.
+19 admission tests. Thirteen return studies, zero qualified strategies and zero new
+real forward days are the current research result. The four slower buffered candidates
+completed all 108 accounts and were rejected; their admission is consumed and closed.
+See [the fixed study and results](slow_indicator_study_2026-11-04.md). The 2026 holdout remains sealed.
 The following dated records are historical and do not override this entry.
 
 Last updated: 2026-10-10

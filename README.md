@@ -7,13 +7,14 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 ## Current Status
 
 - Current delivery authority (2026-11-04): [deployment continuation](docs/research/project_delivery_2026-11-04.md). The user resumed sustained work after the project audit. The current GUI status comes from `configs/project_state_cn_etf.json`; this display record grants no execution permission.
-- Twelve completed return studies, three source screens, zero qualified strategies, and zero new real forward days. The first 16 indicator comparisons are consumed failures; historical `paper_ready` records are not current qualifications.
-- PR #3–#30 are merged. Four slower trend/MACD candidates have local engineering preparation; independent review, new finite admission and complete cost/control comparisons precede financial execution.
+- Thirteen completed return studies, three source screens, zero qualified strategies, and zero new real forward days. Both the first 16 indicator comparisons and the new four slow candidates are consumed failures; historical `paper_ready` records are not current qualifications.
+- PR #3–#30 are merged. The new [four-candidate study](docs/research/slow_indicator_study_2026-11-04.md) completed all 108 cost/control accounts once after independent review; none passed. Actual fees and the feasibility of a distinct mechanism are the next research questions.
 - The 2026-11-04 audit passed 4,158 tests and compiled 1,714 Python files. The previous 19-test temporary-directory permission blocker no longer reproduces. Later changes need their own relevant checks.
 - Research capital remains CNY 10,000; preserve CNY 1,000 position, CNY 60 daily-loss and 8% paper-drawdown limits. Actual minimum commissions remain unverified. Retain all nine cost scenarios and same-budget holding/cash controls.
 - Ordinary primary research allocation remains zero; new studies require their own bounded registration. Keep the 2026 return holdout sealed and CN stock moneyflow auxiliary-only. No broker connection, live account reads, orders or automatic live trading.
 - Data requirements depend on the selected hypothesis. Historical PCF access is not a universal prerequisite for the prepared price/dividend-based study. Detailed local data and evidence require independent backup; Git does not back them up.
 - Start the desktop through `.venv/Scripts/python.exe` (supported Python 3.11–3.13). Keep main stable and use task branches for reviewed changes.
+- CI uses the audited pandas 3.0.3 / NumPy 2.4.6 / PyArrow 24.0.0 data stack. Pandas 3.1 partition-read incompatibility was reproduced separately; do not upgrade the research runtime implicitly.
 
 ### Historical workflow baseline
 
