@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "study_id": "published_geopolitical_threat_gold_monthly_v1",
+  "stage": "conditional_full_source_review_before_states",
+  "status": "46_source_windows_verified_conditionally",
+  "source_implementation_commit": "42e37f05",
+  "new_vintages": 44,
+  "reused_pilots": 2,
+  "required_cells": 598,
+  "requests": 88,
+  "complete_responses": 88,
+  "response_bytes": 115930323,
+  "failed_requests": 0,
+  "source_publication_clock_independently_certified": false,
+  "median_computed": false,
+  "signal_generated": false,
+  "ETF_data_accessed": false,
+  "financial_execution_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "next_stage": "Separate one-use cadence admission under the unchanged frozen proposal",
+  "pins": {
+    "proposal": {
+      "path": "configs/cn_etf_geopolitical_gold_proposal_20260922.json",
+      "sha256": "58a5f1e9ca392eadf6f2e90468d6100257a9e994e7b278eef5065d8f1d66dae4"
+    },
+    "scope": {
+      "path": "data/reports/geopolitical_source_expansion_20261104/scope.json",
+      "sha256": "ec6f8b9e0efcdfa3a9a81559118fe0f5c62f2404be417abc5576c767681a7f79"
+    },
+    "result": {
+      "path": "data/reports/geopolitical_source_expansion_20261104/source_expansion_result.json",
+      "sha256": "88f5915091cf3ce6162b270c45888e7e75fa47e3328a421600c09b1f04808670"
+    },
+    "claim": {
+      "path": "data/reports/geopolitical_source_expansion_20261104/execution_claim.json",
+      "sha256": "9b0814cc949e5578c788a41e764a806ec36052ee0baed68dbe6529acb7042db0"
+    },
+    "preflight_review": {
+      "path": "data/reports/geopolitical_source_expansion_20261104/preflight_independent_review.md",
+      "sha256": "d367feb344c7c95c2f5b7d53200cd97f68fe3cb0178f9a9fe5881ef104e1bde8"
+    },
+    "result_review": {
+      "path": "data/reports/geopolitical_source_expansion_20261104/source_result_independent_review.md",
+      "sha256": "d38eb9770bc716c51478c384a7b94adce0a611d130ecf4df93d2f5c976657fd2"
+    }
+  }
+}
