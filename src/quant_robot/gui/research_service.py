@@ -22,6 +22,7 @@ from quant_robot.gui.daily_trade_factors import (
 )
 from quant_robot.gui.fixtures import mock_data
 from quant_robot.gui.research_access import require_gui_research_access, normalize_gui_source as _normalize_gui_source
+from quant_robot.gui.project_state import current_project_status, current_daily_ops, historical_daily_ops
 from quant_robot.gui.paper_inputs import complete_gui_paper_inputs, validate_gui_paper_inputs
 from quant_robot.gui.operation_ledger import (
     build_daily_closure_ledger_snapshot,
@@ -335,6 +336,8 @@ def build_project_status_snapshot(
     provider_remediation: str | Path | None = None,
     residual_focus: str | Path | None = None,
 ) -> dict[str, Any]:
+    if all(value is None for value in (readiness_board, data_gap_evidence, provider_remediation, residual_focus)):
+        return current_project_status(Path.cwd())
     board = _read_optional_json(Path(readiness_board) if readiness_board else DEFAULT_READINESS_BOARD)
     gap_pack = _read_optional_json(Path(data_gap_evidence) if data_gap_evidence else DEFAULT_DATA_GAP_EVIDENCE)
     provider_pack = _read_optional_json(Path(provider_remediation) if provider_remediation else DEFAULT_PROVIDER_REMEDIATION)
@@ -406,6 +409,8 @@ def build_project_status_snapshot(
 
 
 def build_daily_ops_snapshot(daily_ops_pack: str | Path | None = None) -> dict[str, Any]:
+    if not daily_ops_pack:
+        return current_daily_ops(Path.cwd(), DEFAULT_DAILY_OPS_PACK)
     pack_path = Path(daily_ops_pack) if daily_ops_pack else DEFAULT_DAILY_OPS_PACK
     pack = _read_optional_json(pack_path)
     if not pack:
@@ -435,7 +440,7 @@ def build_daily_ops_snapshot(daily_ops_pack: str | Path | None = None) -> dict[s
     decision = pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {}
     blockers = decision.get("blocking_reasons", []) if isinstance(decision.get("blocking_reasons"), list) else []
     tickets = pack.get("advisory_tickets", []) if isinstance(pack.get("advisory_tickets"), list) else []
-    return _sanitize(
+    return _sanitize(historical_daily_ops(
         {
             "stage": "gui_daily_ops",
             "artifact_present": True,
@@ -456,7 +461,7 @@ def build_daily_ops_snapshot(daily_ops_pack: str | Path | None = None) -> dict[s
                 "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
             ),
         }
-    )
+    ))
 
 
 def build_daily_trade_advisory_snapshot(

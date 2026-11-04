@@ -6608,6 +6608,25 @@ function renderFactorLeaderboardTable(rows) {
 
 function renderProjectStatus() {
   const project = state.projectStatus || {};
+  if (project.authority === "current_project_state") {
+    const counts = project.evidence_counts || {};
+    const tag = byId("project-status-tag");
+    if (tag) { tag.textContent = project.state_label || "状态待核实"; tag.classList.add("tag-warn"); }
+    byId("project-status-list").innerHTML = statusRows([
+      ["当前阶段", project.state_label || "状态待核实", "warn"],
+      ["证据日期", project.generated_at || "待更新", "muted"],
+      ["完成的收益研究", `${counts.return_studies ?? "--"} 项`, "muted"],
+      ["合格策略", `${counts.qualified_strategies ?? "--"} 个`, "warn"],
+      ["真实前向观察", `${counts.forward_observation_days ?? "--"} 天`, "warn"],
+      ["准备中的候选", `${counts.prepared_candidates ?? "--"} 个`, "muted"],
+      ["计划本金", project.capital_cny == null ? "待核实" : `${project.capital_cny} 元`, "muted"],
+      ["实际费用", project.actual_fees_verified ? "已核实" : "尚未核实，研究保留费用情景", "warn"],
+      ["模拟运行", "尚无通过验收的候选，暂不开启", "warn"],
+      ["项目范围", project.safety || "研究与模拟", "muted"],
+    ]);
+    byId("project-action-table").innerHTML = tableRows(project.next_actions || [], ["priority", "title", "reason"]);
+    return;
+  }
   const candidate = project.selected_candidate || {};
   const dataGaps = project.data_gaps || {};
   const provider = project.provider_remediation || {};
@@ -11739,8 +11758,8 @@ function renderDailyOps() {
     ["Safety", daily.safety || "Research-to-paper only", "danger"],
   ]);
   byId("daily-ops-blocker-table").innerHTML = tableRows(
-    (daily.blockers || []).map((blocker) => ({ blocker_id: blocker })),
-    ["blocker_id"],
+    (daily.blockers || []).map((blocker) => typeof blocker === "string" ? { blocker_id: blocker, evidence: "" } : blocker),
+    ["blocker_id", "evidence"],
   );
   byId("daily-ops-ticket-table").innerHTML = tableRows(daily.advisory_tickets || [], [
     "ticket_id",

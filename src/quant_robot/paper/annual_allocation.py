@@ -145,8 +145,10 @@ def _inputs(bars, sessions, assets, cycles, actions, config):
     return settings, calendar, selected, prices, plan, events
 
 
-def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=AllocationConfig()):
+def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=AllocationConfig(), position_buffer=None):
     settings, calendar, selected, prices, plan, actions = _inputs(bars, sessions, assets, cycles, actions, config)
+    from quant_robot.paper.position_buffer import buffer_limits
+    budget, trigger, trim_target = buffer_limits(position_buffer, config)
     cash = settings['initial_cash']
     positions, active, mandatory, trims, entitlements, receivables = {}, {}, {}, {}, {}, {}
     rows, fills, events, action_journal, breaches = [], [], [], [], []
@@ -174,6 +176,15 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
                           requested_quantity=requested, prior_capacity=prior_capacity, current_capacity=current_capacity))
 
     for index, day in enumerate(calendar):
+        halted_before_open = halted
+        if position_buffer is not None:
+            for asset, quantity in positions.items():
+                opening_value = quantity * prices[day, asset]['open']
+                if opening_value > settings['max_position_cny']:
+                    breaches.append(dict(date=day, asset_id=asset, reason='position_limit',
+                                         market_value=opening_value, price_basis='raw_open',
+                                         phase='before_fills', quantity=quantity))
+                    halted = True
         occupied = set(positions)
         prior_cash = cash
         entry_plans = {}
@@ -182,7 +193,7 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
             reserve = prior_cash
             for asset in selected:
                 prior_price = _price(prices[calendar[index-1], asset]['close'], 1, settings)
-                limit = min(settings['max_position_cny'], reserve)
+                limit = min(budget, reserve)
                 quantity = min(int(limit / prior_price / 100)*100, capacity(index, asset)//100*100)
                 while quantity > 0 and quantity*prior_price+_fee(quantity*prior_price, settings) > limit:
                     quantity -= 100
@@ -201,7 +212,9 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
             if asset not in positions:
                 continue
             cycle = active[asset]
-            if halted:
+            # A newly observed opening breach blocks entries immediately, but
+            # cannot create a new sell order at that same already-observed open.
+            if halted_before_open:
                 mandatory[asset] = 'account_risk_exit'
             elif index >= cycle['exit_index']:
                 mandatory.setdefault(asset, 'scheduled_exit')
@@ -242,7 +255,7 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
                             'entry_below_one_lot' if not quantity else
                             'known_execution_constraint' if _blocked(prices[day, asset], 'buy') else
                             'entry_current_capacity' if quantity > current_cap else
-                            'entry_budget_or_cash' if cost > min(settings['max_position_cny'], cash) else None)
+                            'entry_budget_or_cash' if cost > min(budget, cash) else None)
                 if rejected:
                     events.append(dict(date=day, asset_id=asset, reason=rejected, requested_quantity=quantity,
                                        cycle_id=cycle['cycle_id'], prior_capacity=capacity(index, asset), current_capacity=current_cap))
@@ -281,7 +294,10 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
         for asset, position in marked.items():
             if position['market_value'] > settings['max_position_cny']:
                 breaches.append(dict(date=day, asset_id=asset, reason='position_limit', market_value=position['market_value']))
-                excess = position['market_value']-settings['max_position_cny']
+                if position_buffer is not None:
+                    halted = True
+            if position['market_value'] > trigger:
+                excess = position['market_value']-trim_target
                 trims[asset] = min(position['quantity'], 100*int((excess/(100*position['price'])).to_integral_value(rounding=ROUND_CEILING)))
             if index-active[asset]['entry_index'] >= config.max_holding_sessions:
                 breaches.append(dict(date=day, asset_id=asset, reason='holding_limit'))
@@ -294,6 +310,7 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
         executable=False, source_quality_verified=False, net_positive_EV_verified=False,
         unknown_execution_flag_rows=sum(any(row.get(k) is None for k in ('suspended','limit_up','limit_down')) for row in prices.values()),
         config=asdict(config), assets=selected, cycles=list(plan.values()),
+        **({'position_buffer': dict(position_buffer)} if position_buffer is not None else {}),
         metrics=dict(initial_cash=settings['initial_cash'], ending_cash=cash, ending_equity=rows[-1]['equity'],
             pnl_cny=rows[-1]['equity']-settings['initial_cash'], fees_paid=sum((f['fee'] for f in fills), Decimal(0)),
             dividend_cash_received=received, maximum_drawdown=max(row['drawdown'] for row in rows),
