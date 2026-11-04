@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_slow_macd_pressure_buffered_v1",
+  "status": "prospective_finite_registration",
+  "authorization": "2026-11-04 resumed sustained research-to-paper delivery; this preparation still requires distinct finite admission",
+  "hypothesis_count": 4,
+  "assets": [
+    "CN_ETF_XSHG_510300",
+    "CN_ETF_XSHG_518880"
+  ],
+  "rules": [
+    "slow_macd",
+    "slow_macd_pressure"
+  ],
+  "source_calendar_first": "2013-12-05",
+  "source_calendar_last": "2024-01-02",
+  "first_session": "2015-04-01",
+  "development_last": "2018-12-28",
+  "evaluation_first": "2019-01-02",
+  "later_start": "2020-01-02",
+  "terminal_session": "2024-01-02",
+  "evaluation_years": [
+    2019,
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "historical_data_previously_exposed": true,
+  "fresh_out_of_sample": false,
+  "signal_price": "Forward total-return index from raw closes and reviewed ex-date cash distributions; same accepted arithmetic as study12, no future adjustment.",
+  "entry": "At close immediately before first_session then every five sessions: signal_price>SMA120 and normalized MACD(12,26,9) histogram>0; pressure variant additionally requires signed amount pressure20>0; next-session raw open only.",
+  "exit": "Every close: two consecutive signal_price<SMA120 closes, or any required signal input unknown; next-session open. MACD/pressure turning nonpositive alone does not exit. No same-open roundtrip or topup.",
+  "unknown": "Retain all dates and unknowns; no entry, close active signal episode next open.",
+  "position_buffer": {
+    "entry_budget_cny": 800,
+    "trim_trigger_cny": 900,
+    "trim_target_cny": 800,
+    "breach_action": "permanent_no_restart",
+    "topup": false
+  },
+  "sizing": "Prior close, prior20 ADV, 100-share lots, include fee. Reject whole entry if next-open all-in cost>800; no resize/retry. Close value>900 schedules whole-lot sale toward800 at next open; refresh each close. Gap/blocked exit above1000 remains a breach and permanently stops new entries.",
+  "risk": {
+    "initial_cash_cny": 10000,
+    "marked_position_limit_cny": 1000,
+    "daily_loss_limit_cny": 60,
+    "paper_drawdown_limit": 0.08,
+    "absolute_drawdown_limit": 0.4,
+    "max_holding_sessions": 252,
+    "participation": 0.01,
+    "price_tick": "0.001"
+  },
+  "holding": "Same asset, capital,800 entry budget,900/800 trim,1000 hard cap,costs,calendar and permanent stop. Exit after252 sessions or terminal; next-session renewal; occupied/failed entry skipped without retry. Cash has zero interest. Fixed controls before any outcome.",
+  "cost_cases": {
+    "commission_bps_each": 5,
+    "minimum_cny": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bps_each": [
+      0,
+      10,
+      30
+    ],
+    "primary": [
+      5,
+      10
+    ],
+    "high_cost": [
+      10,
+      30
+    ]
+  },
+  "uncertainty": {
+    "method": "paired circular block bootstrap on continuous evaluation account daily PnL and strategy-minus-holding",
+    "block_sessions": 20,
+    "replications": 5000,
+    "seed": 20261011,
+    "familywise_alpha": 0.05,
+    "correction": "Bonferroni across4 prospective comparisons; this does not erase earlier study selection"
+  },
+  "screen": {
+    "full_net_positive": true,
+    "evaluation_net_positive": true,
+    "later_net_positive": true,
+    "beat_same_budget_holding_evaluation": true,
+    "minimum_profitable_evaluation_years": 3,
+    "minimum_completed_episodes": 30,
+    "no_observed_primary_risk_breaches": true,
+    "terminal_settled": true,
+    "corrected_evaluation_net_lower_positive": true,
+    "corrected_evaluation_difference_lower_positive": true,
+    "max_cost_evaluation_positive": true
+  },
+  "selection_policy": "Report all4 and all108 accounts; no outcome-driven threshold/cost/sign/window selection or resetting halted accounts.",
+  "limitations": [
+    "Two selected surviving ETFs; not population inference",
+    "Historical versions and publication timing conditional",
+    "Daily volume only ex-post feasibility for modeled open fills",
+    "Actual fees/fills not certified",
+    "Post-study12 hypothesis; not fresh OOS",
+    "Stops and buffers cannot guarantee caps across gaps"
+  ],
+  "ordinary_research_budget": 0,
+  "new_data_requests": 0,
+  "financial_execution_allowed": true,
+  "max_executions": 1,
+  "finite_admission_status": "requires_exact_registration_and_fresh_pm_gate",
+  "final_holdout_allowed": false,
+  "paper_promotion_allowed": false,
+  "live_boundary_allowed": false,
+  "opening_risk_observation": "Before fills, mark carried positions at raw open. Any value above1000 is retained as a breach and permanently blocks new entries. Existing planned trim/exit may execute; a newly required risk exit is submitted for the following session, never manufactured at the same observed open."
+}

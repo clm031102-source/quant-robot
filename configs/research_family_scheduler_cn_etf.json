@@ -2347,5 +2347,21 @@
     "net_positive_EV_verified": false,
     "conclusion": "All 16 candidates failed frozen complete account screen; do not rerun or rescue.",
     "next_step": "New cost-aware slower trend combination specification with entry risk headroom; preserve all current failures."
+  },
+  "slow_indicator_account_decision": {
+    "status": "authorized_once",
+    "registration_id": "7abc72cf933cd0faf1dca89ef5cf163831be7d4a8e0e366a44f91ace20d8034e",
+    "registration_path": "data/reports/slow_indicator_combinations_20261104/registration.json",
+    "registration_sha256": "e5ddcfdbebcb59316b5b903698ff1a1027855d0f11b4a0f4beb0bed272dcf6ca",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_slow_indicator_account_only",
+    "ledger_path": "data/reports/slow_indicator_combinations_20261104/attempt_claim.json",
+    "conditional_account_only": true,
+    "net_account_allowed": true,
+    "general_factor_batch_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
