@@ -33,6 +33,7 @@ from quant_robot.research.currency_gold_account_study import scope as currency_g
 from quant_robot.research.account_comparison_scope import review_account_comparison
 from quant_robot.research.indicator_combination_study import scope as indicator_combination_scope
 from quant_robot.research.slow_indicator_study import scope as slow_indicator_scope
+from quant_robot.research.geopolitical_cadence_study import scope as geopolitical_cadence_scope
 
 
 STAGE = "quant_pm_startup_gate"
@@ -88,6 +89,7 @@ def build_quant_pm_startup_gate(
         currency_gold_account_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         indicator_combination_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         slow_indicator_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        geopolitical_cadence_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
     ) if scope]
     restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)
@@ -142,6 +144,8 @@ def build_quant_pm_startup_gate(
         warnings.append("research_family_scheduler_single_currency_gold_account_mode")
     elif restricted_mode == "single_currency_gold_diagnostic_only":
         warnings.append("research_family_scheduler_single_currency_gold_diagnostic_mode")
+    elif restricted_mode == "single_geopolitical_cadence_only":
+        warnings.append("research_family_scheduler_single_geopolitical_cadence_mode")
     elif restricted_mode == "single_currency_gold_cadence_only":
         warnings.append("research_family_scheduler_single_currency_gold_cadence_mode")
     elif restricted_mode == "single_credit_premium_cadence_only":
@@ -208,7 +212,7 @@ def build_quant_pm_startup_gate(
                 not blockers
                 and (not restricted_mode or restricted_mode == "single_prescreen_only")
             ),
-            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only"} else {},
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only"} else {},
             "monthly_diagnostic_allowed": not blockers and restricted_mode == "single_monthly_diagnostic_only",
             "monthly_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_monthly_diagnostic_only" else {},
             "household_diagnostic_allowed": not blockers and restricted_mode == "single_household_diagnostic_only",
@@ -244,6 +248,8 @@ def build_quant_pm_startup_gate(
             "currency_gold_diagnostic_allowed": not blockers and restricted_mode == "single_currency_gold_diagnostic_only",
             "currency_gold_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_currency_gold_diagnostic_only" else {},
             "currency_gold_cadence_allowed": not blockers and restricted_mode == "single_currency_gold_cadence_only",
+            "geopolitical_cadence_allowed": not blockers and restricted_mode == "single_geopolitical_cadence_only",
+            "geopolitical_cadence_scope": _dict(restricted.get("scope")) if restricted_mode == "single_geopolitical_cadence_only" else {},
             "currency_gold_cadence_scope": _dict(restricted.get("scope")) if restricted_mode == "single_currency_gold_cadence_only" else {},
             "credit_premium_cadence_allowed": not blockers and restricted_mode == "single_credit_premium_cadence_only",
             "credit_premium_cadence_scope": _dict(restricted.get("scope")) if restricted_mode == "single_credit_premium_cadence_only" else {},
@@ -665,6 +671,10 @@ def _next_actions(
     if restricted_mode == "single_currency_gold_diagnostic_only":
         return [{"action": "run_registered_currency_gold_gross_diagnostic",
                  "command": "python scripts/run_cn_etf_currency_gold_diagnostic.py --execute"}]
+    if restricted_mode == "single_geopolitical_cadence_only":
+        return [{"action": "run_registered_geopolitical_cadence_without_outcomes",
+                 "command": ".venv/Scripts/python.exe scripts/run_cn_etf_geopolitical_cadence.py --execute",
+                 "reason": "Only the frozen 46-month source cadence may execute once; no ETF prices, returns, accounts, promotion or holdout access."}]
     if restricted_mode == "single_currency_gold_cadence_only":
         return [{"action": "run_registered_currency_gold_cadence_without_outcomes",
                  "command": "python scripts/run_cn_etf_currency_gold_cadence.py --execute"}]

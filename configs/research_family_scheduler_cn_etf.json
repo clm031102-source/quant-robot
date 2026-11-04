@@ -2377,5 +2377,22 @@
     "rerun_allowed": false,
     "threshold_or_cost_selection_allowed": false,
     "next_step": "Close this four-candidate trend study. Verify actual fee feasibility and review a distinct economic mechanism and source availability before any new finite admission."
+  },
+  "geopolitical_cadence_decision": {
+    "status": "authorized_once",
+    "registration_id": "cba8bc377c5339baa5a412577b808ed061c33665e7c30c665b95e94e00ab5682",
+    "registration_path": "data/reports/geopolitical_cadence_20261104/registration.json",
+    "registration_sha256": "5177b666a8d03733dd1039d1a649540dc548cd41813e47c7a81841c4eb7e8ce1",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_geopolitical_cadence_screen",
+    "ledger_path": "data/reports/geopolitical_cadence_20261104/attempt_claim.json",
+    "source_cadence_only": true,
+    "returns_allowed": false,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
