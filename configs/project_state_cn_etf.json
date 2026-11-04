@@ -41,6 +41,12 @@
       "severity": "block",
       "track_id": "forward",
       "evidence": "合格候选产生后才开始真实时间模拟，旧回放不能累计前向天数。"
+    },
+    {
+      "blocker_id": "holdout_proxy_context_exposure",
+      "severity": "review",
+      "track_id": "research",
+      "evidence": "核查官方来源时，网页自动展示了2026-11-04部分相关指数行情。封存的ETF收益文件未读，但后续2026验证必须披露这项信息暴露，不能称完全盲测。"
     }
   ],
   "next_actions": [
