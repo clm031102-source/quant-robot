@@ -2349,19 +2349,33 @@
     "next_step": "New cost-aware slower trend combination specification with entry risk headroom; preserve all current failures."
   },
   "slow_indicator_account_decision": {
-    "status": "authorized_once",
+    "status": "completed_rejected",
     "registration_id": "7abc72cf933cd0faf1dca89ef5cf163831be7d4a8e0e366a44f91ace20d8034e",
     "registration_path": "data/reports/slow_indicator_combinations_20261104/registration.json",
     "registration_sha256": "e5ddcfdbebcb59316b5b903698ff1a1027855d0f11b4a0f4beb0bed272dcf6ca",
     "max_executions": 1,
-    "execution_count": 0,
+    "execution_count": 1,
     "allowed_stage": "single_slow_indicator_account_only",
     "ledger_path": "data/reports/slow_indicator_combinations_20261104/attempt_claim.json",
     "conditional_account_only": true,
-    "net_account_allowed": true,
+    "net_account_allowed": false,
     "general_factor_batch_allowed": false,
     "promotion_allowed": false,
     "final_holdout_allowed": false,
-    "live_boundary_allowed": false
+    "live_boundary_allowed": false,
+    "result_path": "data/reports/slow_indicator_combinations_20261104/result.json",
+    "result_sha256": "8eae6f44453c4f1f6b9155b5383fe870dddbe3d6bae1680afb4a8f90f17bc69d",
+    "outcome_path": "data/reports/slow_indicator_combinations_20261104/outcome.json",
+    "outcome_sha256": "7d9317e101f32159693e0fe61bca36bc2bb6440405d2f958765256705e09c21e",
+    "attempt_claim_path": "data/reports/slow_indicator_combinations_20261104/attempt_claim.json",
+    "attempt_claim_sha256": "61d1e66f36c42bc5a925932f4de252a1cda179147611cc879c0e5af09b0a2fff",
+    "conditional_pass_count": 0,
+    "hypothesis_count": 4,
+    "account_count": 108,
+    "net_positive_EV_verified": false,
+    "new_forward_days": 0,
+    "rerun_allowed": false,
+    "threshold_or_cost_selection_allowed": false,
+    "next_step": "Close this four-candidate trend study. Verify actual fee feasibility and review a distinct economic mechanism and source availability before any new finite admission."
   }
 }

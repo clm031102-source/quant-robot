@@ -283,18 +283,20 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function initializeApp() {
+  await safeLoadPanel("project_status", loadProjectStatus);
   await safeLoadPanel("snapshot", loadSnapshot);
   await Promise.allSettled([
     safeLoadPanel("factor_leaderboard", loadFactorLeaderboard),
     safeLoadPanel("control_center", loadControlCenter),
   ]);
-  await safeLoadPanel("daily_trade_advisory", loadDailyTradeAdvisory);
+  if (state.projectStatus?.authority !== "current_project_state") {
+    await safeLoadPanel("daily_trade_advisory", loadDailyTradeAdvisory);
+  }
   loadSecondaryPanels();
 }
 
 async function loadSecondaryPanels() {
   await Promise.allSettled([
-    safeLoadPanel("project_status", loadProjectStatus),
     safeLoadPanel("daily_ops", loadDailyOps),
     safeLoadPanel("risk_candidates", loadRiskCandidates),
     safeLoadPanel("constrained_search", loadConstrainedSearch),
@@ -5756,6 +5758,24 @@ function renderOrdinaryHome() {
   const primaryRows = primaryBoard.rows || [];
   const topPrimary = primaryRows[0] || null;
   const project = state.projectStatus || {};
+  if (project.authority === "current_project_state") {
+    const counts = project.evidence_counts || {};
+    metricsNode.innerHTML = [
+      metric("完成的收益研究", counts.return_studies ?? "--", "全部保留通过与拒绝结果"),
+      metric("合格策略", counts.qualified_strategies ?? "--", "按完整验收口径"),
+      metric("真实前向观察", counts.forward_observation_days ?? "--", "历史回放不累计天数"),
+      metric("计划本金", project.capital_cny ?? "--", "人民币；尚未投入实盘"),
+    ].join("");
+    actionNode.innerHTML = statusRows([
+      ["项目状态", project.state_label || "当前状态待核实", "warn"],
+      ["模拟运行", "尚无合格候选，暂不开启", "warn"],
+      ["记录日期", project.generated_at || "待更新", "muted"],
+    ]);
+    dailyActionNode.innerHTML = statusRows((project.next_actions || []).map(row => [row.title, row.reason, "warn"]));
+    warningNode.innerHTML = statusRows((project.blockers || []).map(row => ["当前卡点", row.evidence, "warn"]));
+    renderOrdinaryTradingCockpit();
+    return;
+  }
   const paperMetrics = state.paper?.metrics || {};
   const liveGateRows = ordinaryLiveGateActionRows();
   metricsNode.innerHTML = [
@@ -5784,6 +5804,11 @@ function renderOrdinaryTradingCockpit() {
   const gatesTarget = byId("ordinary-trading-cockpit-gates");
   const actionsTarget = byId("ordinary-trading-cockpit-actions");
   if (!summaryTarget || !top3Target || !gatesTarget || !actionsTarget) return;
+  if (state.projectStatus?.authority === "current_project_state") {
+    summaryTarget.innerHTML = statusRows([["历史功能与旧报告", "下方历史榜单、回放与就绪标记仅供查阅，不能作为当前候选资格或操作许可。", "warn"]]);
+    top3Target.innerHTML = gatesTarget.innerHTML = actionsTarget.innerHTML = "";
+    return;
+  }
   const sheet = state.dailyTradeAdvisory?.daily_trade_decision_sheet || {};
   summaryTarget.innerHTML = ordinaryTradingCockpitRows(sheet);
   top3Target.innerHTML = ordinaryTradingCockpitTop3Rows(sheet);
@@ -6625,6 +6650,7 @@ function renderProjectStatus() {
       ["项目范围", project.safety || "研究与模拟", "muted"],
     ]);
     byId("project-action-table").innerHTML = tableRows(project.next_actions || [], ["priority", "title", "reason"]);
+    renderOrdinaryHome();
     return;
   }
   const candidate = project.selected_candidate || {};
@@ -11726,6 +11752,21 @@ function renderDailyPretradeWorkflow(workflow) {
 
 function renderDailyOps() {
   const daily = state.dailyOps || {};
+  if (daily.current_project_state?.authority === "current_project_state") {
+    const project = daily.current_project_state;
+    byId("daily-ops-tag").textContent = project.state_label || "当前状态待核实";
+    byId("daily-ops-metrics").innerHTML = [
+      metric("当前阶段", project.state_label || "待核实", project.generated_at || "证据待更新"),
+      metric("合格策略", project.evidence_counts?.qualified_strategies ?? "--", "尚无可运行候选"),
+      metric("模拟运行", "未开启", "未生成当前交易票据"),
+      metric("真实前向观察", project.evidence_counts?.forward_observation_days ?? "--", "天；历史回放不计入"),
+    ].join("");
+    byId("daily-ops-status").innerHTML = statusRows([["当前依据", "最新项目证据；下方其他历史记录仅供查阅", "warn"], ["项目范围", project.safety, "muted"]]);
+    byId("daily-ops-blocker-table").innerHTML = tableRows(project.blockers || [], ["evidence"]);
+    byId("daily-ops-ticket-table").innerHTML = "";
+    byId("daily-ops-risk-policy").innerHTML = statusRows([["运行资格", "尚未通过，暂无当前模拟风险评估", "warn"]]);
+    return;
+  }
   const decision = daily.decision || {};
   const candidate = daily.candidate || {};
   const signal = daily.signal || {};
