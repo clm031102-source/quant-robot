@@ -14,9 +14,11 @@ class ProjectAuditTests(unittest.TestCase):
 
         self.assertIn('requires-python = ">=3.11,<3.14"', pyproject)
         self.assertIn('"numpy>=1.26,<3"', pyproject)
-        self.assertIn('"pandas>=2.0,<4"', pyproject)
+        self.assertIn('"pandas>=2.0,<3.1"', pyproject)
         self.assertIn("*.py text eol=lf", attributes)
-        self.assertIn("numpy>=1.26,<3", constraints)
+        self.assertIn("numpy==2.4.6", constraints)
+        self.assertIn("pandas==3.0.3", constraints)
+        self.assertIn("pyarrow==24.0.0", constraints)
         self.assertIn("matrix:", workflow)
         self.assertIn("ubuntu-latest", workflow)
         self.assertIn("windows-latest", workflow)
