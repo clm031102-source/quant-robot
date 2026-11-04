@@ -1,0 +1,343 @@
+{
+  "schema_version": 1,
+  "study_id": "published_geopolitical_threat_gold_monthly_v1",
+  "stage": "consumed_fixed_geopolitical_account_rejected",
+  "execution_commit": "525e5d91621f785d46d1c5c72252be3d14a6c6cc",
+  "registration_id": "6f322f2ffcff020cd1d52639ae2d52d6226416d74dcc19e34173946f526e912e",
+  "execution_count": 1,
+  "rerun_allowed": false,
+  "exact_hypothesis_permanently_closed": true,
+  "conditional_screen_passed": false,
+  "failed_necessary_checks": [
+    "beat_holding_full",
+    "beat_holding_later"
+  ],
+  "checks": {
+    "beat_cash_full": true,
+    "beat_cash_later": true,
+    "beat_holding_full": false,
+    "beat_holding_later": false,
+    "completed_full_episodes_at_least_six": true,
+    "completed_new_later_episodes_at_least_three": true,
+    "full_net_positive": true,
+    "later_net_positive": true,
+    "majority_full_episodes_profitable": true,
+    "majority_new_later_episodes_profitable": true,
+    "monthly_interval_lower_positive": true,
+    "no_primary_strategy_risk_breach": true,
+    "primary_controls_terminal_settled": true,
+    "primary_strategy_terminal_settled": true
+  },
+  "primary_case": "min5_slip10",
+  "primary_summary": {
+    "average_idle_cash_CNY": 9671.895779220778,
+    "average_invested_CNY": 361.9498917748918,
+    "completed_episode_count": 7,
+    "completed_episode_win_fraction": 0.7142857142857143,
+    "exposed_sessions": 430,
+    "fees_CNY": 70.0,
+    "fill_count": 14,
+    "later_net_contribution_CNY": 285.8,
+    "maximum_daily_loss_CNY": 48.2,
+    "maximum_drawdown": 0.009062253743104806,
+    "net_PnL_CNY": 287.8,
+    "risk_breaches": [],
+    "terminal_settled": true
+  },
+  "uncertainty": {
+    "block_months": 6,
+    "final_block": "truncate_after_46_months",
+    "interpretation": "historical_sensitivity_not_independent_EV_certification",
+    "lower_95_CNY": 0.2608152173913042,
+    "mean_monthly_PnL_CNY": 6.256521739130436,
+    "quantile_method": "linear",
+    "replicates": 5000,
+    "sample_months": 46,
+    "seed": 20260922,
+    "upper_95_CNY": 14.317771739130427
+  },
+  "completed_full_episodes": 7,
+  "completed_new_later_episodes": 4,
+  "cost_summaries": {
+    "min0_slip0": {
+      "cash": {
+        "net_PnL_CNY": 0.0,
+        "later_net_contribution_CNY": 0.0,
+        "fees_CNY": 0.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      },
+      "holding": {
+        "net_PnL_CNY": 648.84,
+        "later_net_contribution_CNY": 499.07,
+        "fees_CNY": 3.26,
+        "terminal_settled": true,
+        "risk_breach_count": 1
+      },
+      "strategy": {
+        "net_PnL_CNY": 363.77,
+        "later_net_contribution_CNY": 334.57,
+        "fees_CNY": 5.33,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      }
+    },
+    "min0_slip10": {
+      "cash": {
+        "net_PnL_CNY": 0.0,
+        "later_net_contribution_CNY": 0.0,
+        "fees_CNY": 0.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      },
+      "holding": {
+        "net_PnL_CNY": 641.64,
+        "later_net_contribution_CNY": 494.68,
+        "fees_CNY": 3.26,
+        "terminal_settled": true,
+        "risk_breach_count": 1
+      },
+      "strategy": {
+        "net_PnL_CNY": 352.48,
+        "later_net_contribution_CNY": 327.48,
+        "fees_CNY": 5.32,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      }
+    },
+    "min0_slip30": {
+      "cash": {
+        "net_PnL_CNY": 0.0,
+        "later_net_contribution_CNY": 0.0,
+        "fees_CNY": 0.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      },
+      "holding": {
+        "net_PnL_CNY": 628.74,
+        "later_net_contribution_CNY": 486.58,
+        "fees_CNY": 3.26,
+        "terminal_settled": true,
+        "risk_breach_count": 1
+      },
+      "strategy": {
+        "net_PnL_CNY": 330.98,
+        "later_net_contribution_CNY": 314.18,
+        "fees_CNY": 5.32,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      }
+    },
+    "min10_slip0": {
+      "cash": {
+        "net_PnL_CNY": 0.0,
+        "later_net_contribution_CNY": 0.0,
+        "fees_CNY": 0.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      },
+      "holding": {
+        "net_PnL_CNY": 562.1,
+        "later_net_contribution_CNY": 441.1,
+        "fees_CNY": 90.0,
+        "terminal_settled": true,
+        "risk_breach_count": 1
+      },
+      "strategy": {
+        "net_PnL_CNY": 229.1,
+        "later_net_contribution_CNY": 247.9,
+        "fees_CNY": 140.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      }
+    },
+    "min10_slip10": {
+      "cash": {
+        "net_PnL_CNY": 0.0,
+        "later_net_contribution_CNY": 0.0,
+        "fees_CNY": 0.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      },
+      "holding": {
+        "net_PnL_CNY": 554.9,
+        "later_net_contribution_CNY": 436.7,
+        "fees_CNY": 90.0,
+        "terminal_settled": true,
+        "risk_breach_count": 1
+      },
+      "strategy": {
+        "net_PnL_CNY": 217.8,
+        "later_net_contribution_CNY": 240.8,
+        "fees_CNY": 140.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      }
+    },
+    "min10_slip30": {
+      "cash": {
+        "net_PnL_CNY": 0.0,
+        "later_net_contribution_CNY": 0.0,
+        "fees_CNY": 0.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      },
+      "holding": {
+        "net_PnL_CNY": 542.0,
+        "later_net_contribution_CNY": 428.6,
+        "fees_CNY": 90.0,
+        "terminal_settled": true,
+        "risk_breach_count": 1
+      },
+      "strategy": {
+        "net_PnL_CNY": 196.3,
+        "later_net_contribution_CNY": 227.5,
+        "fees_CNY": 140.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      }
+    },
+    "min5_slip0": {
+      "cash": {
+        "net_PnL_CNY": 0.0,
+        "later_net_contribution_CNY": 0.0,
+        "fees_CNY": 0.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      },
+      "holding": {
+        "net_PnL_CNY": 607.1,
+        "later_net_contribution_CNY": 471.1,
+        "fees_CNY": 45.0,
+        "terminal_settled": true,
+        "risk_breach_count": 1
+      },
+      "strategy": {
+        "net_PnL_CNY": 299.1,
+        "later_net_contribution_CNY": 292.9,
+        "fees_CNY": 70.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      }
+    },
+    "min5_slip10": {
+      "cash": {
+        "net_PnL_CNY": 0.0,
+        "later_net_contribution_CNY": 0.0,
+        "fees_CNY": 0.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      },
+      "holding": {
+        "net_PnL_CNY": 599.9,
+        "later_net_contribution_CNY": 466.7,
+        "fees_CNY": 45.0,
+        "terminal_settled": true,
+        "risk_breach_count": 1
+      },
+      "strategy": {
+        "net_PnL_CNY": 287.8,
+        "later_net_contribution_CNY": 285.8,
+        "fees_CNY": 70.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      }
+    },
+    "min5_slip30": {
+      "cash": {
+        "net_PnL_CNY": 0.0,
+        "later_net_contribution_CNY": 0.0,
+        "fees_CNY": 0.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      },
+      "holding": {
+        "net_PnL_CNY": 587.0,
+        "later_net_contribution_CNY": 458.6,
+        "fees_CNY": 45.0,
+        "terminal_settled": true,
+        "risk_breach_count": 1
+      },
+      "strategy": {
+        "net_PnL_CNY": 266.3,
+        "later_net_contribution_CNY": 272.5,
+        "fees_CNY": 70.0,
+        "terminal_settled": true,
+        "risk_breach_count": 0
+      }
+    }
+  },
+  "accounts_retained": 27,
+  "account_equity_rows": 25488,
+  "input_pins_verified": 67,
+  "implementation_pins_verified": 16,
+  "primary_full_shortfall_vs_holding_CNY": -312.1,
+  "primary_later_shortfall_vs_holding_CNY": -180.9,
+  "holding_is_qualified_alternative": false,
+  "holding_risk_evidence": {
+    "date": "2024-03-28",
+    "market_value_CNY": 1005.8,
+    "limit_CNY": 1000,
+    "reason": "position_limit",
+    "affected_cost_cases": 9
+  },
+  "return_studies_cumulative": 14,
+  "source_screens_cumulative": 4,
+  "qualified_strategies": 0,
+  "net_positive_EV_verified": false,
+  "paper_promotion_allowed": false,
+  "new_forward_days": 0,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "actual_broker_fees_certified": false,
+  "source_limitations": [
+    "Historical bid/ask, depth, suspensions and price-limit flags unknown; synthetic fills remain conditional.",
+    "Actual broker fees unverified; all nine fixed fee cases retained.",
+    "Current source snapshots are not certified first-release price or annual-report vintages.",
+    "GPR publication clock remains conditional on faithful repository history; prior gold/2024background known."
+  ],
+  "source_note": "The source-stage no-outcomes statement copied into the retained result describes that earlier stage; this separate account was executed once and rejected.",
+  "independent_review": "No P1/P2 numerical or consumption-chain findings; only retained ledgers were reviewed, without financial rerun.",
+  "pins": {
+    "proposal": {
+      "path": "configs/cn_etf_geopolitical_gold_proposal_20260922.json",
+      "sha256": "58a5f1e9ca392eadf6f2e90468d6100257a9e994e7b278eef5065d8f1d66dae4"
+    },
+    "method": {
+      "path": "configs/cn_etf_geopolitical_account_method_20261104.json",
+      "sha256": "1717534363a6f1c3406b001b2e829e7cf6eb98bb625d3f345321f22ea10924a6"
+    },
+    "execution_proposal": {
+      "path": "configs/cn_etf_geopolitical_account_execution_20261104.json",
+      "sha256": "3710e794ccbb33bb4ccf0efe3d04f0199d86e47aeaf804d293c9095a092c6d43"
+    },
+    "input_review": {
+      "path": "data/reports/geopolitical_account_20261104/input_review.json",
+      "sha256": "78d0f3278018e09bf4c4a4bc9e00c3ad8aed07f787505a5557e51232035ced64"
+    },
+    "registration": {
+      "path": "data/reports/geopolitical_account_20261104/account/registration.json",
+      "sha256": "1ffc13f2d086b02ce63fd3e5d13b9e8a104540a9ca063781aff83aaae8f0beab"
+    },
+    "attempt_claim": {
+      "path": "data/reports/geopolitical_account_20261104/account/attempt_claim.json",
+      "sha256": "42b726c6a04d09ca55afc290691f86bf2200d89d6d2404ed8170d4fcb7891981"
+    },
+    "result": {
+      "path": "data/reports/geopolitical_account_20261104/account/result.json",
+      "sha256": "90feee988447a562867cf83d1e10f197a2588cad3d6f9c1d4099273164078b58"
+    },
+    "outcome": {
+      "path": "data/reports/geopolitical_account_20261104/account/outcome.json",
+      "sha256": "2768f143d00f02bb85710164e9244252dbb5eb33db25aef5da0ea23a080c0bcf"
+    },
+    "preflight_independent_review": {
+      "path": "data/reports/geopolitical_account_20261104/account_preflight_independent_review.md",
+      "sha256": "9286cf46efb68bf5599a5d944da4f8b1e16aa67cfb71a32f2bdb4e015540e065"
+    },
+    "result_independent_review": {
+      "path": "data/reports/geopolitical_account_20261104/account_result_independent_review.md",
+      "sha256": "3ea9042b22c29b37763c9612f43d5fa1917b87187c54b0ba29ef829135fc7e8b"
+    }
+  }
+}

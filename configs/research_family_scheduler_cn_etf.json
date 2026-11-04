@@ -2395,7 +2395,7 @@
     "final_holdout_allowed": false,
     "live_boundary_allowed": false,
     "rerun_allowed": false,
-    "account_admission_pending": true,
+    "account_admission_pending": false,
     "result_path": "data/reports/geopolitical_cadence_20261104/result.json",
     "result_sha256": "94ea9f95a5522b9d40d1d51aa57dd24f2e9101fb51bad4b1b9c428088a2a081b",
     "outcome_path": "data/reports/geopolitical_cadence_20261104/outcome.json",
@@ -2416,22 +2416,41 @@
       "selected_months": 12,
       "unknown_months": 0
     },
-    "cadence_passed": true
+    "cadence_passed": true,
+    "subsequent_account_review": "configs/cn_etf_geopolitical_account_review_20261104.json",
+    "subsequent_account_rejected": true
   },
   "geopolitical_account_decision": {
-    "status": "authorized_once",
+    "status": "consumed_fixed_geopolitical_account_rejected",
     "registration_id": "6f322f2ffcff020cd1d52639ae2d52d6226416d74dcc19e34173946f526e912e",
     "registration_path": "data/reports/geopolitical_account_20261104/account/registration.json",
     "registration_sha256": "1ffc13f2d086b02ce63fd3e5d13b9e8a104540a9ca063781aff83aaae8f0beab",
     "max_executions": 1,
-    "execution_count": 0,
+    "execution_count": 1,
     "allowed_stage": "single_geopolitical_conditional_full_account",
     "ledger_path": "data/reports/geopolitical_account_20261104/account/attempt_claim.json",
-    "conditional_historical_account_allowed": true,
+    "conditional_historical_account_allowed": false,
     "general_factor_batch_allowed": false,
     "general_account_runs_allowed": false,
     "promotion_allowed": false,
     "final_holdout_allowed": false,
-    "live_boundary_allowed": false
+    "live_boundary_allowed": false,
+    "rerun_allowed": false,
+    "exact_hypothesis_permanently_closed": true,
+    "conditional_screen_passed": false,
+    "failed_necessary_checks": [
+      "beat_holding_full",
+      "beat_holding_later"
+    ],
+    "primary_net_PnL_CNY": 287.8,
+    "primary_later_net_contribution_CNY": 285.8,
+    "review_path": "configs/cn_etf_geopolitical_account_review_20261104.json",
+    "review_sha256": "11afda5207db5c09dd33feb89abc7294a23e4623dd88cc5d9d0b16a9cbe08821",
+    "result_path": "data/reports/geopolitical_account_20261104/account/result.json",
+    "result_sha256": "90feee988447a562867cf83d1e10f197a2588cad3d6f9c1d4099273164078b58",
+    "outcome_path": "data/reports/geopolitical_account_20261104/account/outcome.json",
+    "outcome_sha256": "2768f143d00f02bb85710164e9244252dbb5eb33db25aef5da0ea23a080c0bcf",
+    "attempt_claim_path": "data/reports/geopolitical_account_20261104/account/attempt_claim.json",
+    "attempt_claim_sha256": "42b726c6a04d09ca55afc290691f86bf2200d89d6d2404ed8170d4fcb7891981"
   }
 }
