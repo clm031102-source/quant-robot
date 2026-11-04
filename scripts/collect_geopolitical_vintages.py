@@ -5,6 +5,12 @@ import argparse
 import json
 from pathlib import Path
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:
+    from bootstrap import ensure_workspace_imports
+ensure_workspace_imports()
+
 from quant_robot.data.sources.geopolitical_vintages import (
     LIMIT, NEW_MONTHS, PROPOSAL_SHA, SCOPE_RELATIVE, collect, now, sha, source_window, verify_scope, write_json,
 )
