@@ -28,7 +28,7 @@
       "blocker_id": "geopolitical_account_pending",
       "severity": "block",
       "track_id": "research",
-      "evidence": "黄金威胁新假设通过数量检查；944日、七段交易及27个费用/对照账户规则已准备，历史行情和分红来源仍待复核，尚无扣费后账户结果。"
+      "evidence": "黄金威胁策略的944日历史行情及分红来源已完成条件性复核；七段交易和27个费用/对照账户已单独登记，尚未运行扣费账户。"
     },
     {
       "blocker_id": "actual_costs_unverified",
@@ -49,7 +49,7 @@
       "track_id": "research",
       "title": "准备黄金威胁策略的完整账户验证",
       "command": "",
-      "reason": "交易日期、费用、对照和统计方法已固定；完成官方历史行情、分红及跨年权益审查后，单独准入一次完整账户检验。"
+      "reason": "来源、交易日期、费用、对照及统计方法已经固定；完成执行前复核后消费一次完整账户检验，按原标准保留通过或失败结果。"
     },
     {
       "priority": 2,

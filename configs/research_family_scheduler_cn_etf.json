@@ -2417,5 +2417,21 @@
       "unknown_months": 0
     },
     "cadence_passed": true
+  },
+  "geopolitical_account_decision": {
+    "status": "authorized_once",
+    "registration_id": "6f322f2ffcff020cd1d52639ae2d52d6226416d74dcc19e34173946f526e912e",
+    "registration_path": "data/reports/geopolitical_account_20261104/account/registration.json",
+    "registration_sha256": "1ffc13f2d086b02ce63fd3e5d13b9e8a104540a9ca063781aff83aaae8f0beab",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_geopolitical_conditional_full_account",
+    "ledger_path": "data/reports/geopolitical_account_20261104/account/attempt_claim.json",
+    "conditional_historical_account_allowed": true,
+    "general_factor_batch_allowed": false,
+    "general_account_runs_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
