@@ -6,7 +6,10 @@ PR #30 is merged as `9b1be890`; 4,158 local tests pass, including the previously
 19 admission tests. Fourteen return studies, zero qualified strategies and zero new
 real forward days are the current research result. The four slower buffered candidates
 completed all 108 accounts and were rejected; their admission is consumed and closed.
-See [the fixed study and results](slow_indicator_study_2026-11-04.md). The 2026 holdout remains sealed.
+See [the fixed study and results](slow_indicator_study_2026-11-04.md). The 2026 ETF files remain sealed.
+An official source page incidentally exposed public proxy-index quotes for 2026-11-04; this context
+exception is recorded in the [delivery authority](project_delivery_2026-11-04.md). Future 2026 validation
+must disclose it and cannot claim complete blindness. No financial admission was opened.
 The frozen geopolitical-threat gold hypothesis now has all 46 source windows conditionally
 verified (two reused pilots plus 44 newly acquired vintages, 598 required source values).
 The separate one-use cadence screen has now passed: full 21 selected months / 7 new source
