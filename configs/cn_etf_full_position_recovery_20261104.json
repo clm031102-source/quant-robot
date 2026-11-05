@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_full_position_recovery_v1",
+  "authorization": "User explicitly chose full allocation with redefined daily loss and resumption. Assistant prospectively fixes2 percent previous NAV and5 completed flat sessions; historical prior failures remain.",
+  "assets": [
+    "CN_ETF_XSHG_510300",
+    "CN_ETF_XSHG_518880"
+  ],
+  "indicator_names": [
+    "sma20_trend",
+    "ema13_34_trend",
+    "macd12_26_9_positive",
+    "donchian20_breakout",
+    "rsi14_above50",
+    "rsi14_reentry30",
+    "stochastic14_3",
+    "cci20_positive",
+    "signed_amount20_positive",
+    "cmf20_positive",
+    "mfi14_above50",
+    "obv20_positive",
+    "amount5_over20",
+    "amihud20_below_prior60",
+    "close_above_vwap20",
+    "up_volume15",
+    "ema21_55_fibonacci",
+    "fib382_reentry60",
+    "fib618_reentry60",
+    "fib786_recovery60",
+    "bollinger20_upper_breakout",
+    "bollinger20_lower_reentry",
+    "atr14_below_prior60",
+    "adx14_directional"
+  ],
+  "families": [
+    "fibonacci",
+    "flow_proxy",
+    "liquidity",
+    "momentum",
+    "trend",
+    "volatility"
+  ],
+  "combination_operator": "AND; all distinct unordered subsets of sizes1,2,3",
+  "combination_count_per_asset": 2324,
+  "hypothesis_count": 12,
+  "maximum_account_candidates": 12,
+  "source_calendar_first": "2013-12-05",
+  "source_calendar_last": "2024-01-02",
+  "training_first": "2015-04-01",
+  "training_last": "2018-12-28",
+  "evaluation_first": "2019-01-02",
+  "later_start": "2021-01-04",
+  "terminal_session": "2024-01-02",
+  "evaluation_years": [
+    2019,
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "selection": {
+    "new_selection": false,
+    "all_previous_twelve_cases": true,
+    "original_training_only_selection_retained": true,
+    "no_best_prior_profit_selection": true
+  },
+  "account": {
+    "schema_version": 4,
+    "initial_cash_cny": 10000,
+    "max_single_position_fraction_NAV": 1,
+    "entry": "all available prior cash, lot100, include fees; shares fixed using prior close and prior20 volumes; entire order canceled if next open cost exceeds cash",
+    "capital_reset": false,
+    "evaluation_account_start": "2019-01-02; all earlier rows cash-only warmup, no training account to restart",
+    "decision_cadences_sessions": [
+      1,
+      5
+    ],
+    "exit": "next open following off/unknown state at fixed decision cadence, or original mandatory252-session/risk rule; terminal liquidation",
+    "top_up": false,
+    "leverage": false,
+    "same_open_exit_and_reentry": false,
+    "daily_loss_limit_cny": null,
+    "drawdown_limit": 0.08,
+    "risk_action": "daily2percent pauses; exit next open subject to constraints; five completed flat sessions then next original new cycle only; original8percent peak drawdown permanent halt; no peak or capital reset",
+    "price_appreciation": "100 percent of current NAV, no fixed10000 marked-value cap or old800/900 buffer",
+    "controls": "same asset full-NAV holding and cash, same calendar and all nine cost cases",
+    "daily_recovery": {
+      "daily_loss_fraction_previous_NAV": 0.02,
+      "complete_flat_sessions": 5,
+      "exit": "next_session_open_subject_to_constraints",
+      "resume": "new_preexisting_signal_cycle_only_no_retry",
+      "drawdown": "original_8percent_peak_permanent_no_reset"
+    }
+  },
+  "cost_cases": {
+    "commission_bps_each": 5,
+    "minimum_cny": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bps_each": [
+      0,
+      10,
+      30
+    ],
+    "primary": [
+      5,
+      10
+    ],
+    "high_cost": [
+      10,
+      30
+    ]
+  },
+  "conditional_screen": {
+    "positive_full_and_later": true,
+    "beat_holding": true,
+    "profitable_years_minimum": 3,
+    "completed_episodes_minimum": 30,
+    "no_observed_risk_breach": "no permanent drawdown/position/holding breach; daily pause events disclosed separately, not an automatic rejection",
+    "all_primary_accounts_terminal_settled": true,
+    "high_cost_profit_positive": true,
+    "daily_loss_trigger_is_expected_control": true
+  },
+  "uncertainty": {
+    "method": "paired circular20-session blocks on fixed evaluation accounts",
+    "replications": 5000,
+    "seed": 20261104,
+    "correction": "Bonferroni12 predeclared validation variants after training-only selection; all4648 training searches separately disclosed",
+    "interpretation": "conditional historical sensitivity, not newly independent significance or certified positiveEV"
+  },
+  "limitations": [
+    "Two selected surviving ETFs, not all listed funds",
+    "2013-2023 prices were exposed in prior studies; time separation is not fresh unseen out-of-sample",
+    "Smart-money and liquidity are OHLCV proxies, no institution identity or order-book claim",
+    "Training labels include modeled dividend reinvestment, not executable cash returns; complete accounts handle actual modeled entitlements and pay dates",
+    "Unknown historical suspension/limit flags, bid/ask, depth and first-publication versions",
+    "Actual fee schedule unverified; daily risk2percent and permanent8percent drawdown are triggers, not guaranteed execution prices",
+    "One-to-three combinations of24 explicit definitions, not every conceivable technical indicator or parameter",
+    "Existing2026 public proxy/context exposure remains disclosed;2026 ETF data stays sealed",
+    "Risk policy follows observed failure of prior60CNY perpetual halt; this sensitivity cannot be sold as a new independent validation or retrospectively rescue prior studies."
+  ],
+  "ordinary_research_budget": 0,
+  "new_data_requests": 0,
+  "financial_execution_allowed": true,
+  "max_executions": 1,
+  "final_holdout_allowed": false,
+  "paper_promotion_allowed": false,
+  "live_boundary_allowed": false,
+  "training_combination_count": 0,
+  "reused_training_combination_count": 4648,
+  "study_kind": "separate_risk_policy_sensitivity_on_all12_previously_frozen_cases",
+  "prior_result_sha256": "94979bdf146afc68370a0ae39c1a9f3e740d8c0f49b8a2b2ccbcf5d02a08d1f2",
+  "prior_frozen_selection_sha256": "8891e134ebe611dd0d8fc327dc49f62c3fdfd37212be6d7a0df19bf1154a2c80"
+}
