@@ -1,0 +1,675 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_full_position_technical_search_v1",
+  "stage": "consumed_full_position_technical_search_rejected",
+  "execution_commit": "a700c3c37502dd6b4d88c82f5cf6eefc04ada902",
+  "registration_id": "db01e769ffaad7bba60a4c39a2ed1bee8ef47b31e62d839149df169d3076c2cc",
+  "execution_count": 1,
+  "rerun_allowed": false,
+  "indicator_count": 24,
+  "training_combination_count": 4648,
+  "selected_combinations": 6,
+  "account_candidate_count": 12,
+  "account_count": 324,
+  "conditional_pass_count": 0,
+  "qualified_strategies": 0,
+  "new_forward_days": 0,
+  "capital_cny": 10000,
+  "max_single_position_fraction_NAV": 1,
+  "daily_loss_limit_cny": 60,
+  "paper_drawdown_limit": 0.08,
+  "primary_cost_case": "min5_slip10",
+  "known_data_exposure": true,
+  "fresh_out_of_sample": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "primary_cases": [
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+signed_amount20_positive+atr14_below_prior60__every1",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "signed_amount20_positive",
+        "atr14_below_prior60"
+      ],
+      "cadence": 1,
+      "training_IC": 0.09489508095787347,
+      "summary": {
+        "average_idle_cash_CNY": 10066.997530864197,
+        "average_invested_CNY": 48.53094650205761,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 6,
+        "fees_CNY": 10.0,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 65.1,
+        "maximum_drawdown": 0.006405967094387153,
+        "net_PnL_CNY": 117.1,
+        "risk_breaches": [
+          {
+            "date": "2019-01-30",
+            "equity": 10097.3,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -208.4,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-01-30",
+      "last_fill_date": "2019-01-31"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+signed_amount20_positive+atr14_below_prior60__every5",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "signed_amount20_positive",
+        "atr14_below_prior60"
+      ],
+      "cadence": 5,
+      "training_IC": 0.09489508095787347,
+      "summary": {
+        "average_idle_cash_CNY": 10066.997530864197,
+        "average_invested_CNY": 48.53094650205761,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 6,
+        "fees_CNY": 10.0,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 65.1,
+        "maximum_drawdown": 0.006405967094387153,
+        "net_PnL_CNY": 117.1,
+        "risk_breaches": [
+          {
+            "date": "2019-01-30",
+            "equity": 10097.3,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -208.4,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-01-30",
+      "last_fill_date": "2019-01-31"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+obv20_positive+atr14_below_prior60__every1",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "obv20_positive",
+        "atr14_below_prior60"
+      ],
+      "cadence": 1,
+      "training_IC": 0.0931977677977258,
+      "summary": {
+        "average_idle_cash_CNY": 10066.997530864197,
+        "average_invested_CNY": 48.53094650205761,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 6,
+        "fees_CNY": 10.0,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 65.1,
+        "maximum_drawdown": 0.006405967094387153,
+        "net_PnL_CNY": 117.1,
+        "risk_breaches": [
+          {
+            "date": "2019-01-30",
+            "equity": 10097.3,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -208.4,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-01-30",
+      "last_fill_date": "2019-01-31"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+obv20_positive+atr14_below_prior60__every5",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "obv20_positive",
+        "atr14_below_prior60"
+      ],
+      "cadence": 5,
+      "training_IC": 0.0931977677977258,
+      "summary": {
+        "average_idle_cash_CNY": 10066.997530864197,
+        "average_invested_CNY": 48.53094650205761,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 6,
+        "fees_CNY": 10.0,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 65.1,
+        "maximum_drawdown": 0.006405967094387153,
+        "net_PnL_CNY": 117.1,
+        "risk_breaches": [
+          {
+            "date": "2019-01-30",
+            "equity": 10097.3,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -208.4,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-01-30",
+      "last_fill_date": "2019-01-31"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+rsi14_above50+cmf20_positive__every1",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "rsi14_above50",
+        "cmf20_positive"
+      ],
+      "cadence": 1,
+      "training_IC": 0.0878215422249101,
+      "summary": {
+        "average_idle_cash_CNY": 9851.166748971193,
+        "average_invested_CNY": 16.10979423868313,
+        "completed_episode_count": 2,
+        "completed_episode_win_fraction": 0.0,
+        "exposed_sessions": 2,
+        "fees_CNY": 20.0,
+        "fill_count": 4,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 73.2,
+        "maximum_drawdown": 0.01347,
+        "net_PnL_CNY": -134.7,
+        "risk_breaches": [
+          {
+            "date": "2019-01-28",
+            "equity": 9904.4,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -208.4,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": false,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-01-28",
+      "last_fill_date": "2019-01-29"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+rsi14_above50+cmf20_positive__every5",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "rsi14_above50",
+        "cmf20_positive"
+      ],
+      "cadence": 5,
+      "training_IC": 0.0878215422249101,
+      "summary": {
+        "average_idle_cash_CNY": 10066.997530864197,
+        "average_invested_CNY": 48.53094650205761,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 6,
+        "fees_CNY": 10.0,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 65.1,
+        "maximum_drawdown": 0.006405967094387153,
+        "net_PnL_CNY": 117.1,
+        "risk_breaches": [
+          {
+            "date": "2019-01-30",
+            "equity": 10097.3,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -208.4,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-01-30",
+      "last_fill_date": "2019-01-31"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__macd12_26_9_positive+cmf20_positive+adx14_directional__every1",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "macd12_26_9_positive",
+        "cmf20_positive",
+        "adx14_directional"
+      ],
+      "cadence": 1,
+      "training_IC": 0.1711500173964965,
+      "summary": {
+        "average_idle_cash_CNY": 9957.991086419754,
+        "average_invested_CNY": 90.63415637860082,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 11,
+        "fees_CNY": 10.01,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 68.01,
+        "maximum_drawdown": 0.01286871961102107,
+        "net_PnL_CNY": 49.49,
+        "risk_breaches": [
+          {
+            "date": "2019-02-21",
+            "equity": 10117.5,
+            "reason": "daily_loss_limit"
+          },
+          {
+            "date": "2019-02-22",
+            "equity": 10049.49,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -104.5,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-02-21",
+      "last_fill_date": "2019-02-22"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__macd12_26_9_positive+cmf20_positive+adx14_directional__every5",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "macd12_26_9_positive",
+        "cmf20_positive",
+        "adx14_directional"
+      ],
+      "cadence": 5,
+      "training_IC": 0.1711500173964965,
+      "summary": {
+        "average_idle_cash_CNY": 9980.505489711933,
+        "average_invested_CNY": 57.852263374485595,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 7,
+        "fees_CNY": 10.01,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 68.01,
+        "maximum_drawdown": 0.012882005899705016,
+        "net_PnL_CNY": 38.99,
+        "risk_breaches": [
+          {
+            "date": "2019-02-21",
+            "equity": 10107.0,
+            "reason": "daily_loss_limit"
+          },
+          {
+            "date": "2019-02-22",
+            "equity": 10038.99,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -104.5,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-02-21",
+      "last_fill_date": "2019-02-22"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__macd12_26_9_positive+cmf20_positive+ema21_55_fibonacci__every1",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "macd12_26_9_positive",
+        "cmf20_positive",
+        "ema21_55_fibonacci"
+      ],
+      "cadence": 1,
+      "training_IC": 0.1664208774992982,
+      "summary": {
+        "average_idle_cash_CNY": 9957.991086419754,
+        "average_invested_CNY": 90.63415637860082,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 11,
+        "fees_CNY": 10.01,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 68.01,
+        "maximum_drawdown": 0.01286871961102107,
+        "net_PnL_CNY": 49.49,
+        "risk_breaches": [
+          {
+            "date": "2019-02-21",
+            "equity": 10117.5,
+            "reason": "daily_loss_limit"
+          },
+          {
+            "date": "2019-02-22",
+            "equity": 10049.49,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -104.5,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-02-21",
+      "last_fill_date": "2019-02-22"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__macd12_26_9_positive+cmf20_positive+ema21_55_fibonacci__every5",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "macd12_26_9_positive",
+        "cmf20_positive",
+        "ema21_55_fibonacci"
+      ],
+      "cadence": 5,
+      "training_IC": 0.1664208774992982,
+      "summary": {
+        "average_idle_cash_CNY": 9980.505489711933,
+        "average_invested_CNY": 57.852263374485595,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 7,
+        "fees_CNY": 10.01,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 68.01,
+        "maximum_drawdown": 0.012882005899705016,
+        "net_PnL_CNY": 38.99,
+        "risk_breaches": [
+          {
+            "date": "2019-02-21",
+            "equity": 10107.0,
+            "reason": "daily_loss_limit"
+          },
+          {
+            "date": "2019-02-22",
+            "equity": 10038.99,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -104.5,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-02-21",
+      "last_fill_date": "2019-02-22"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__cmf20_positive+amount5_over20+adx14_directional__every1",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "cmf20_positive",
+        "amount5_over20",
+        "adx14_directional"
+      ],
+      "cadence": 1,
+      "training_IC": 0.16127695248881047,
+      "summary": {
+        "average_idle_cash_CNY": 9992.138823045267,
+        "average_invested_CNY": 49.651028806584364,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 1.0,
+        "exposed_sessions": 6,
+        "fees_CNY": 10.01,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 68.01,
+        "maximum_drawdown": 0.012877574089546371,
+        "net_PnL_CNY": 42.49,
+        "risk_breaches": [
+          {
+            "date": "2019-02-21",
+            "equity": 10110.5,
+            "reason": "daily_loss_limit"
+          },
+          {
+            "date": "2019-02-22",
+            "equity": 10042.49,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -104.5,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-02-21",
+      "last_fill_date": "2019-02-22"
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__cmf20_positive+amount5_over20+adx14_directional__every5",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "cmf20_positive",
+        "amount5_over20",
+        "adx14_directional"
+      ],
+      "cadence": 5,
+      "training_IC": 0.16127695248881047,
+      "summary": {
+        "average_idle_cash_CNY": 9818.38304526749,
+        "average_invested_CNY": 16.16888888888889,
+        "completed_episode_count": 1,
+        "completed_episode_win_fraction": 0.0,
+        "exposed_sessions": 2,
+        "fees_CNY": 10.0,
+        "fill_count": 2,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 66.2,
+        "maximum_drawdown": 0.01698,
+        "net_PnL_CNY": -169.8,
+        "risk_breaches": [
+          {
+            "date": "2019-02-21",
+            "equity": 9896.4,
+            "reason": "daily_loss_limit"
+          },
+          {
+            "date": "2019-02-22",
+            "equity": 9830.2,
+            "reason": "daily_loss_limit"
+          }
+        ],
+        "terminal_settled": true
+      },
+      "holding_PnL_CNY": -104.5,
+      "checks": {
+        "beat_holding": false,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": false,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "first_risk_breach_date": "2019-02-21",
+      "last_fill_date": "2019-02-22"
+    }
+  ],
+  "unique_primary_economic_paths": 6,
+  "files": {
+    "registration.json": {
+      "path": "data/reports/full_position_factor_search_20261104/registration.json",
+      "sha256": "f9a16690e1ed1f2951736d0f0df1bd3d62d32a8be96eb6a38868273933e2a222"
+    },
+    "attempt_claim.json": {
+      "path": "data/reports/full_position_factor_search_20261104/attempt_claim.json",
+      "sha256": "d36160b31e80f0f2bbf2d17885542cea39c98dbd1ecddd29ee45073055f0ac08"
+    },
+    "outcome.json": {
+      "path": "data/reports/full_position_factor_search_20261104/outcome.json",
+      "sha256": "93ce1c9cb15af34ffeeceadefdbe7d7354e581b6bb65b6bf8a8294818c7d496f"
+    },
+    "result.json": {
+      "path": "data/reports/full_position_factor_search_20261104/result.json",
+      "sha256": "94979bdf146afc68370a0ae39c1a9f3e740d8c0f49b8a2b2ccbcf5d02a08d1f2"
+    },
+    "frozen_training_selection.json": {
+      "path": "data/reports/full_position_factor_search_20261104/frozen_training_selection.json",
+      "sha256": "8891e134ebe611dd0d8fc327dc49f62c3fdfd37212be6d7a0df19bf1154a2c80"
+    },
+    "training_factor_screen.json": {
+      "path": "data/reports/full_position_factor_search_20261104/training_factor_screen.json",
+      "sha256": "da928467a29d0244d3e1c441f4d96efa1666eb90d53d80e93b0021d72afeee81"
+    },
+    "pre_execution_review.json": {
+      "path": "data/reports/full_position_factor_search_20261104/pre_execution_review.json",
+      "sha256": "393213482f4e51bd5a28a85ff6b9808939f71d7c6a476ac0d5fd29bf49a5393f"
+    }
+  },
+  "independent_result_review": {
+    "status": "passed_result_integrity_not_financial_qualification",
+    "path": "data/reports/full_position_factor_search_20261104/independent_result_review.json",
+    "sha256": "676f8e6307d8d951c4a22fcb540bc3b86493cfb0e60e5c44d66d0bd1cc4a9bb2",
+    "account_count": 324,
+    "equity_rows": 795096,
+    "major_findings": 0,
+    "latest_all_strategy_halt": "2019-04-08"
+  }
+}

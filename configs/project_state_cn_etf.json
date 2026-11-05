@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-04",
   "state": "research_in_progress",
-  "state_label": "研究推进中，尚无合格策略",
+  "state_label": "首轮满仓因子0合格；已获新风险制度研究授权",
   "authority_document": "docs/research/project_delivery_2026-11-04.md",
   "counts": {
-    "return_studies": 14,
+    "return_studies": 15,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,13 +22,13 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "累计14项收益研究、0个合格策略；最新黄金威胁策略虽净赚287.80元，但全期和后段均未胜固定持有对照，已永久关闭原假说。"
+      "evidence": "接续序列15项收益研究、0合格；本轮24指标4648组合筛选、12方案324账户全部未通过，主费用净利−169.80至117.10元。15不等于项目全生命周期试验总数。"
     },
     {
-      "blocker_id": "next_independent_hypothesis_required",
+      "blocker_id": "full_position_risk_policy_next_study",
       "severity": "block",
       "track_id": "research",
-      "evidence": "已准备的收益候选均已消费；需要从未关闭的新机制中先核实来源与经济可行性，再冻结独立研究，不能调参救援旧结果。"
+      "evidence": "本轮12方案均在2019年1—2月触发日亏60元永久停机，后段收益均0。下一轮需前瞻决定保留硬线研究较小/动态仓位，或另定暂停恢复政策；不能改判已消费结果。"
     },
     {
       "blocker_id": "actual_costs_unverified",
@@ -46,23 +46,23 @@
       "blocker_id": "holdout_proxy_context_exposure",
       "severity": "review",
       "track_id": "research",
-      "evidence": "核查官方来源时，网页自动展示了2026-11-04部分相关指数行情。封存的ETF收益文件未读，但后续2026验证必须披露这项信息暴露，不能称完全盲测。"
+      "evidence": "2026 ETF价格/收益文件未读，但两次来源网页/搜索已暴露部分2026指数行情和市场汇总摘要。保留两份暴露记录，不能称完全盲态。"
     }
   ],
   "next_actions": [
     {
       "priority": 1,
       "track_id": "research",
-      "title": "选择机制不同且具备实际收益空间的新候选",
+      "title": "准备日亏2%及清仓后冷却5日的独立风险研究",
       "command": "",
-      "reason": "先核对既有失败家族、来源时点、交易成本与资金利用，缩小到一个明确假设；通过独立准入前不运行收益筛选。"
+      "reason": "用户选择允许满仓并重新定义日亏及恢复；先合成验证、冻结范围再运行，旧60元永久停机结果不改判。"
     },
     {
       "priority": 2,
       "track_id": "costs",
       "title": "核实实际ETF最低佣金",
       "command": "",
-      "reason": "费用会直接影响千元仓位的可行性。"
+      "reason": "实际费用未认证；满仓新研究仍保留九费用情景。"
     },
     {
       "priority": 3,
@@ -71,5 +71,12 @@
       "command": "",
       "reason": "约20.24GB原始证据及本轮研究已跨物理盘校验备份、恢复抽查；后续新增结果继续增量保全。"
     }
-  ]
+  ],
+  "max_single_position_fraction_NAV": 1,
+  "current_risk_policy": {
+    "daily_loss_cny": 60,
+    "drawdown": 0.08,
+    "halt": "permanent_no_restart",
+    "user_new_full_position_authorization": "2026-11-04; applies prospectively, old results unchanged"
+  }
 }
