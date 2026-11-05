@@ -2509,5 +2509,21 @@
     "account_candidate_count": 12,
     "account_count": 324,
     "conditional_pass_count": 0
+  },
+  "dd40_reentry_decision": {
+    "status": "authorized_once",
+    "registration_id": "d007562289181e93cb36e3971afbb7ed1be2584c08e87aea65cac8c7bd48feda",
+    "registration_path": "data/reports/dd40_reentry_20261104/registration.json",
+    "registration_sha256": "3b4a1b963c26ff39024378c1de3b51adf4df0c5bc16adc054ff319371c1f3447",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_dd40_reentry_only",
+    "ledger_path": "data/reports/dd40_reentry_20261104/attempt_claim.json",
+    "conditional_account_only": true,
+    "net_account_allowed": true,
+    "general_factor_batch_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
