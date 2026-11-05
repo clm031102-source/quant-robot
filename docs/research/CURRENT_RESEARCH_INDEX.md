@@ -1,6 +1,31 @@
 # Current Research And Cloud Sync Index
 
 Current authority (2026-11-04): [deployment continuation](project_delivery_2026-11-04.md).
+The continuation sequence now records **16 return studies, 4 source screens,
+0 qualified strategies and 0 new real forward days**; 16 is not the lifetime trial count.
+The user explicitly permitted full single-asset NAV allocation and then redefined the
+new study's daily-loss/recovery policy. The two completed studies contain **648 accounts**:
+24 indicators / 4,648 training combinations selected six combinations at two cadences,
+then 324 accounts under the original CNY60 permanent daily halt and another 324 under
+the separately frozen 2% previous-NAV daily pause / five complete flat-session cooldown.
+The second study reuses all twelve original cases, with **zero new training searches**.
+Both scopes are consumed and rejected; ordinary research budget remains zero.
+
+See [full-position search](cn_etf_full_position_technicals_2026-11-04.md) and
+[daily recovery results](cn_etf_full_position_recovery_2026-11-04.md).
+The best new primary net PnL is CNY3,066.08, earned during 2019–2020 before the
+unchanged 8% peak-drawdown halt. It is not sustained five-year profitability.
+The 2026 ETF data remains sealed; both previously recorded public-context exposures
+remain disclosed. Actual fees are unverified. There is no paper candidate, live permission,
+or newly scheduled automation. Source originals, ledgers and executed-code snapshots
+remain local with independently verified backups and restore samples.
+
+## Earlier November 4 record — historical
+
+The following record precedes the full-position mandate; its current-result wording
+and 14-study count describe that earlier stage and do not override the authority above.
+
+Current authority (2026-11-04): [deployment continuation](project_delivery_2026-11-04.md).
 The user resumed sustained research-to-paper delivery after the full project audit.
 PR #30 is merged as `9b1be890`; 4,158 local tests pass, including the previously blocked
 19 admission tests. Fourteen return studies, zero qualified strategies and zero new
