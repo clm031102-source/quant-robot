@@ -2482,19 +2482,32 @@
     "review_sha256": "e2e9355861d4765798344cfc1415d5b538dc3929528595daca8c8ed16630d879"
   },
   "full_position_recovery_decision": {
-    "status": "authorized_once",
+    "status": "consumed_rejected",
     "registration_id": "480eb2c97ecd0bcb19583b57cbe3ac7ec753368495e25b9b0d439089f73c6773",
     "registration_path": "data/reports/full_position_recovery_20261104/registration.json",
     "registration_sha256": "7ba617b493928323a99496386b68909187958dfe83dfb3bf18be75ba6794ef8d",
     "max_executions": 1,
-    "execution_count": 0,
+    "execution_count": 1,
     "allowed_stage": "single_full_position_recovery_only",
     "ledger_path": "data/reports/full_position_recovery_20261104/attempt_claim.json",
     "conditional_account_only": true,
-    "net_account_allowed": true,
+    "net_account_allowed": false,
     "general_factor_batch_allowed": false,
     "promotion_allowed": false,
     "final_holdout_allowed": false,
-    "live_boundary_allowed": false
+    "live_boundary_allowed": false,
+    "rerun_allowed": false,
+    "conditional_screen_passed": false,
+    "review_path": "configs/cn_etf_full_position_recovery_review_20261104.json",
+    "review_sha256": "eeb348e62e93964e14146bd054c4024f94786175fa639f4a4e092e5da2abd6c3",
+    "result_path": "data/reports/full_position_recovery_20261104/result.json",
+    "result_sha256": "09cb7bd21e1bc8e43a88fd5ebb8d7a6174afeac3037a57dfbb13fbc139d3953d",
+    "outcome_path": "data/reports/full_position_recovery_20261104/outcome.json",
+    "outcome_sha256": "2c40d2dd9001583e01a3c9e3c51986fa8eff4de9089644b18e85754aec297b45",
+    "new_training_combinations": 0,
+    "reused_training_combinations": 4648,
+    "account_candidate_count": 12,
+    "account_count": 324,
+    "conditional_pass_count": 0
   }
 }

@@ -3,11 +3,11 @@
   "display_only": true,
   "market": "CN_ETF",
   "updated_at": "2026-11-04",
-  "state": "research_in_progress",
-  "state_label": "首轮满仓因子0合格；已获新风险制度研究授权",
+  "state": "evidence_blocked",
+  "state_label": "两批满仓研究已完成，0合格；持续收益与回撤未通过",
   "authority_document": "docs/research/project_delivery_2026-11-04.md",
   "counts": {
-    "return_studies": 15,
+    "return_studies": 16,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,13 +22,13 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "接续序列15项收益研究、0合格；本轮24指标4648组合筛选、12方案324账户全部未通过，主费用净利−169.80至117.10元。15不等于项目全生命周期试验总数。"
+      "evidence": "接续序列16项收益研究（非全生命周期总数），0合格。本轮4648组合筛选及两套风险规则共648账户完成；新规则主费用净损益−286.57至3066.08元，但12方案均未通过。"
     },
     {
-      "blocker_id": "full_position_risk_policy_next_study",
+      "blocker_id": "persistence_drawdown_and_excess_return_failed",
       "severity": "block",
       "track_id": "research",
-      "evidence": "本轮12方案均在2019年1—2月触发日亏60元永久停机，后段收益均0。下一轮需前瞻决定保留硬线研究较小/动态仓位，或另定暂停恢复政策；不能改判已消费结果。"
+      "evidence": "新日亏2%/清仓冷却5日规则已执行。沪深方案均超过8%回撤触发停止；持续到2023年的黄金方案落后同规则持有。还缺足够完成段、费用稳健性和正的条件区间。"
     },
     {
       "blocker_id": "actual_costs_unverified",
@@ -53,9 +53,9 @@
     {
       "priority": 1,
       "track_id": "research",
-      "title": "准备日亏2%及清仓后冷却5日的独立风险研究",
+      "title": "为不同机制或仓位控制建立新的前瞻研究规格",
       "command": "",
-      "reason": "用户选择允许满仓并重新定义日亏及恢复；先合成验证、冻结范围再运行，旧60元永久停机结果不改判。"
+      "reason": "两批已消费；保持旧结果，先明确新机制和检验范围，不自动继续放宽风险或更换指标救回。"
     },
     {
       "priority": 2,
@@ -74,9 +74,10 @@
   ],
   "max_single_position_fraction_NAV": 1,
   "current_risk_policy": {
-    "daily_loss_cny": 60,
+    "daily_loss_fraction_previous_NAV": 0.02,
+    "complete_flat_cooldown_sessions": 5,
     "drawdown": 0.08,
-    "halt": "permanent_no_restart",
-    "user_new_full_position_authorization": "2026-11-04; applies prospectively, old results unchanged"
+    "drawdown_halt": "permanent_no_peak_or_capital_reset",
+    "user_new_full_position_authorization": "2026-11-04; prospective new study only"
   }
 }
