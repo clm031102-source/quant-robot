@@ -2452,5 +2452,21 @@
     "outcome_sha256": "2768f143d00f02bb85710164e9244252dbb5eb33db25aef5da0ea23a080c0bcf",
     "attempt_claim_path": "data/reports/geopolitical_account_20261104/account/attempt_claim.json",
     "attempt_claim_sha256": "42b726c6a04d09ca55afc290691f86bf2200d89d6d2404ed8170d4fcb7891981"
+  },
+  "full_position_factor_search_decision": {
+    "status": "authorized_once",
+    "registration_id": "db01e769ffaad7bba60a4c39a2ed1bee8ef47b31e62d839149df169d3076c2cc",
+    "registration_path": "data/reports/full_position_factor_search_20261104/registration.json",
+    "registration_sha256": "f9a16690e1ed1f2951736d0f0df1bd3d62d32a8be96eb6a38868273933e2a222",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_full_position_factor_search_only",
+    "ledger_path": "data/reports/full_position_factor_search_20261104/attempt_claim.json",
+    "conditional_account_only": true,
+    "net_account_allowed": true,
+    "general_factor_batch_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
