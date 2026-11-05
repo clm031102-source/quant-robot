@@ -9,6 +9,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from quant_robot.paper.annual_allocation import AllocationConfig, run_allocation_account
 from quant_robot.paper.position_buffer import BUFFER
+from quant_robot.paper.daily_recovery import RECOVERY
 
 HOLDING = dict(kind='unconditional_same_asset',
     initial_entry='first_study_session_with_20_prior_sessions',
@@ -59,14 +60,38 @@ def buffered_policy_template(**kwargs):
                             position_limit_action='permanent_no_restart')
     return policy
 
+
+def full_nav_policy_template(**kwargs):
+    """Prospective 100% NAV mode; old fixed-budget policies remain unchanged."""
+    policy = policy_template(**kwargs)
+    policy['schema_version'] = 3
+    policy['common'].update(all_in_entry_budget_CNY=None,
+        marked_position_limit_CNY=None, marked_position_limit_fraction_NAV=1,
+        sizing='all_available_prior_cash_including_fees_prior_close_and_prior20_volumes',
+        position_trim='none_no_borrowing_no_topup')
+    return policy
+
+def recovery_policy_template(**kwargs):
+    policy = full_nav_policy_template(**kwargs)
+    policy['schema_version'] = 4
+    policy['daily_recovery'] = deepcopy(RECOVERY)
+    policy['common'].update(daily_loss_limit_CNY=None, daily_loss_fraction_previous_NAV=.02,
+                            daily_risk_action='pause_then_five_complete_flat_sessions')
+    policy['controls']['holding']['account_stop'] = 'daily_pause_recovery_drawdown_permanent'
+    return policy
+
+
 def validate_policy(policy, sessions):
     """Reject incomplete controls before iterating any market bars or actions."""
-    if not isinstance(policy,dict) or policy.get('schema_version') not in (1, 2):
+    if not isinstance(policy,dict) or policy.get('schema_version') not in (1, 2, 3, 4):
         raise ValueError('Explicit prospective comparison policy required')
     controls=policy.get('controls')
     if not isinstance(controls,dict) or set(controls)!={'holding','cash'}:
         raise ValueError('Both holding and cash controls must be frozen before outcomes')
-    if controls['holding']!=HOLDING or controls['cash']!=CASH:
+    expected_holding = deepcopy(HOLDING)
+    if policy['schema_version'] == 4:
+        expected_holding['account_stop'] = 'daily_pause_recovery_drawdown_permanent'
+    if controls['holding']!=expected_holding or controls['cash']!=CASH:
         raise ValueError('Complete fixed holding renewal and cash policies required')
     expected_common = deepcopy(COMMON)
     if policy['schema_version'] == 2:
@@ -75,8 +100,22 @@ def validate_policy(policy, sessions):
         expected_common.update(all_in_entry_budget_CNY=800,
                                position_trim='above900_next_open_toward800_no_topup',
                                position_limit_action='permanent_no_restart')
+    elif policy['schema_version'] in (3, 4):
+        expected_common.update(all_in_entry_budget_CNY=None,
+            marked_position_limit_CNY=None, marked_position_limit_fraction_NAV=1,
+            sizing='all_available_prior_cash_including_fees_prior_close_and_prior20_volumes',
+            position_trim='none_no_borrowing_no_topup')
+        if 'position_buffer' in policy:
+            raise ValueError('Full NAV mode cannot use a fixed buffer')
     elif 'position_buffer' in policy:
         raise ValueError('Buffered policy cannot masquerade as historical v1')
+    if policy['schema_version'] == 4:
+        if policy.get('daily_recovery') != RECOVERY:
+            raise ValueError('Exact daily recovery policy required')
+        expected_common.update(daily_loss_limit_CNY=None, daily_loss_fraction_previous_NAV=.02,
+                               daily_risk_action='pause_then_five_complete_flat_sessions')
+    elif 'daily_recovery' in policy:
+        raise ValueError('Recovery cannot masquerade as a historical policy')
     if policy.get('common')!=expected_common:
         raise ValueError('Identical fixed CNY10000 execution and risk policy required')
     if policy.get('cost_cases')!=CASES or policy.get('primary')!={'minimum_commission_CNY':5,'slippage_bps_each':10}:
@@ -162,14 +201,16 @@ def run_comparison(bars, *, sessions, asset, strategy_cycles, actions, policy):
         m,s=case['minimum_commission_CNY'],case['slippage_bps_each']
         key=f'min{m}_slip{s}'
         settings=AllocationConfig(initial_cash=COMMON['initial_cash_CNY'],
-            max_position_cny=COMMON['all_in_entry_budget_CNY'],max_daily_loss_cny=COMMON['daily_loss_limit_CNY'],
+            max_position_cny=(10000 if policy['schema_version'] in (3,4) else COMMON['all_in_entry_budget_CNY']),
+            max_position_fraction=(1 if policy['schema_version'] in (3,4) else None),max_daily_loss_cny=COMMON['daily_loss_limit_CNY'],
             max_drawdown=COMMON['paper_drawdown_limit'],max_holding_sessions=COMMON['max_holding_sessions'],
             commission_bps=COMMON['commission_bps_each'],participation=COMMON['ADV_fraction'],
             minimum_commission=m,slippage_bps=s,execution_price_field='open')
         accounts[key]={}
         for role,cycles in [('strategy',strategy_cycles),('holding',control_cycles),('cash',[])]:
             accounts[key][role]=run_allocation_account(bars,sessions=sessions,assets=(asset,),cycles=cycles,actions=actions,config=settings,
-                **({'position_buffer':policy['position_buffer']} if policy['schema_version']==2 else {}))
+                **({'position_buffer':policy['position_buffer']} if policy['schema_version']==2 else {}),
+                **({'daily_recovery':policy['daily_recovery']} if policy['schema_version']==4 else {}))
         a=accounts[key]
         if any([r['date'] for r in value['equity_curve']]!=sessions or value['config']!=a['strategy']['config'] for value in a.values()):
             raise ValueError('Account calendar or execution identity differs')

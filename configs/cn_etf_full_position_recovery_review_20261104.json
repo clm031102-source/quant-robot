@@ -1,0 +1,946 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_full_position_recovery_v1",
+  "stage": "consumed_recovery_sensitivity_rejected",
+  "execution_commit": "6199609958a8165adf1fdeafbf0e958b4a2e8127",
+  "registration_id": "480eb2c97ecd0bcb19583b57cbe3ac7ec753368495e25b9b0d439089f73c6773",
+  "execution_count": 1,
+  "rerun_allowed": false,
+  "indicator_count": 24,
+  "new_training_combinations": 0,
+  "reused_training_combinations": 4648,
+  "account_candidate_count": 12,
+  "account_count": 324,
+  "conditional_pass_count": 0,
+  "qualified_strategies": 0,
+  "new_forward_days": 0,
+  "primary_case": "min5_slip10",
+  "daily_loss_fraction_previous_NAV": 0.02,
+  "complete_flat_cooldown_sessions": 5,
+  "maximum_peak_drawdown": 0.08,
+  "historical_sensitivity_only": true,
+  "fresh_out_of_sample": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "primary_cases": [
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+signed_amount20_positive+atr14_below_prior60__every1",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "signed_amount20_positive",
+        "atr14_below_prior60"
+      ],
+      "cadence": 1,
+      "summary": {
+        "average_idle_cash_CNY": 10444.25741563786,
+        "average_invested_CNY": 1924.8558847736624,
+        "completed_episode_count": 21,
+        "completed_episode_win_fraction": 0.38095238095238093,
+        "exposed_sessions": 196,
+        "fees_CNY": 255.25,
+        "fill_count": 42,
+        "later_net_contribution_CNY": -424.66,
+        "maximum_daily_loss_CNY": 338.4,
+        "maximum_drawdown": 0.08786498794535226,
+        "net_PnL_CNY": 2496.35,
+        "terminal_settled": true,
+        "risk_breach_count": 557,
+        "risk_first_breach": {
+          "date": "2021-09-14",
+          "equity": 12535.08,
+          "reason": "drawdown_limit"
+        },
+        "risk_last_breach": {
+          "date": "2024-01-02",
+          "equity": 12496.35,
+          "reason": "drawdown_limit"
+        },
+        "risk_reasons": [
+          "drawdown_limit"
+        ]
+      },
+      "holding_PnL_CNY": 825.62,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": false,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 4,
+      "recovery_count": 4,
+      "permanent_halt": true,
+      "last_fill_date": "2021-09-15",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -3.1031298010973964,
+        "corrected_one_sided_net_lower_CNY": -2.6866877914952005,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": 2.0546090534979427,
+        "mean_daily_difference_CNY": 1.375086419753086,
+        "net_PnL_mean_CI95_CNY": [
+          -1.5654660493827184,
+          6.184163786008226
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -1.9827788065843661,
+          5.052541152263371
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+signed_amount20_positive+atr14_below_prior60__every5",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "signed_amount20_positive",
+        "atr14_below_prior60"
+      ],
+      "cadence": 5,
+      "summary": {
+        "average_idle_cash_CNY": 11396.178419753085,
+        "average_invested_CNY": 1328.1263374485598,
+        "completed_episode_count": 11,
+        "completed_episode_win_fraction": 0.45454545454545453,
+        "exposed_sessions": 136,
+        "fees_CNY": 134.72,
+        "fill_count": 22,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 281.3,
+        "maximum_drawdown": 0.08435565410075249,
+        "net_PnL_CNY": 3066.08,
+        "terminal_settled": true,
+        "risk_breach_count": 765,
+        "risk_first_breach": {
+          "date": "2020-11-11",
+          "equity": 13069.95,
+          "reason": "drawdown_limit"
+        },
+        "risk_last_breach": {
+          "date": "2024-01-02",
+          "equity": 13066.08,
+          "reason": "drawdown_limit"
+        },
+        "risk_reasons": [
+          "drawdown_limit"
+        ]
+      },
+      "holding_PnL_CNY": 825.62,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": false,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 4,
+      "recovery_count": 4,
+      "permanent_halt": true,
+      "last_fill_date": "2020-11-12",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -2.8136411865569277,
+        "corrected_one_sided_net_lower_CNY": -2.14345144032922,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": 2.523522633744856,
+        "mean_daily_difference_CNY": 1.8439999999999992,
+        "net_PnL_mean_CI95_CNY": [
+          -1.2982345679012326,
+          7.3906012345678995
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -1.9437417695473278,
+          6.840154732510283
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+obv20_positive+atr14_below_prior60__every1",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "obv20_positive",
+        "atr14_below_prior60"
+      ],
+      "cadence": 1,
+      "summary": {
+        "average_idle_cash_CNY": 10400.255333333334,
+        "average_invested_CNY": 1915.0595061728393,
+        "completed_episode_count": 22,
+        "completed_episode_win_fraction": 0.4090909090909091,
+        "exposed_sessions": 196,
+        "fees_CNY": 265.53,
+        "fill_count": 44,
+        "later_net_contribution_CNY": -424.66,
+        "maximum_daily_loss_CNY": 338.4,
+        "maximum_drawdown": 0.08804673551382661,
+        "net_PnL_CNY": 2468.07,
+        "terminal_settled": true,
+        "risk_breach_count": 557,
+        "risk_first_breach": {
+          "date": "2021-09-14",
+          "equity": 12506.8,
+          "reason": "drawdown_limit"
+        },
+        "risk_last_breach": {
+          "date": "2024-01-02",
+          "equity": 12468.07,
+          "reason": "drawdown_limit"
+        },
+        "risk_reasons": [
+          "drawdown_limit"
+        ]
+      },
+      "holding_PnL_CNY": 825.62,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": false,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 4,
+      "recovery_count": 4,
+      "permanent_halt": true,
+      "last_fill_date": "2021-09-15",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -2.889048113854594,
+        "corrected_one_sided_net_lower_CNY": -2.5655816529492417,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": 2.031333333333333,
+        "mean_daily_difference_CNY": 1.3518106995884764,
+        "net_PnL_mean_CI95_CNY": [
+          -1.5103930041152278,
+          6.067045884773658
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -1.9369465020576155,
+          4.932570987654321
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+obv20_positive+atr14_below_prior60__every5",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "obv20_positive",
+        "atr14_below_prior60"
+      ],
+      "cadence": 5,
+      "summary": {
+        "average_idle_cash_CNY": 11396.178419753085,
+        "average_invested_CNY": 1328.1263374485598,
+        "completed_episode_count": 11,
+        "completed_episode_win_fraction": 0.45454545454545453,
+        "exposed_sessions": 136,
+        "fees_CNY": 134.72,
+        "fill_count": 22,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 281.3,
+        "maximum_drawdown": 0.08435565410075249,
+        "net_PnL_CNY": 3066.08,
+        "terminal_settled": true,
+        "risk_breach_count": 765,
+        "risk_first_breach": {
+          "date": "2020-11-11",
+          "equity": 13069.95,
+          "reason": "drawdown_limit"
+        },
+        "risk_last_breach": {
+          "date": "2024-01-02",
+          "equity": 13066.08,
+          "reason": "drawdown_limit"
+        },
+        "risk_reasons": [
+          "drawdown_limit"
+        ]
+      },
+      "holding_PnL_CNY": 825.62,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": false,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 4,
+      "recovery_count": 4,
+      "permanent_halt": true,
+      "last_fill_date": "2020-11-12",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -2.8136411865569277,
+        "corrected_one_sided_net_lower_CNY": -2.14345144032922,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": 2.523522633744856,
+        "mean_daily_difference_CNY": 1.8439999999999992,
+        "net_PnL_mean_CI95_CNY": [
+          -1.2982345679012326,
+          7.3906012345678995
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -1.9437417695473278,
+          6.840154732510283
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+rsi14_above50+cmf20_positive__every1",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "rsi14_above50",
+        "cmf20_positive"
+      ],
+      "cadence": 1,
+      "summary": {
+        "average_idle_cash_CNY": 10595.553654320987,
+        "average_invested_CNY": 858.0519341563786,
+        "completed_episode_count": 9,
+        "completed_episode_win_fraction": 0.4444444444444444,
+        "exposed_sessions": 89,
+        "fees_CNY": 104.17,
+        "fill_count": 18,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 815.59,
+        "maximum_drawdown": 0.11087267974020308,
+        "net_PnL_CNY": 1332.23,
+        "terminal_settled": true,
+        "risk_breach_count": 955,
+        "risk_first_breach": {
+          "date": "2020-02-03",
+          "equity": 11332.23,
+          "reason": "drawdown_limit"
+        },
+        "risk_last_breach": {
+          "date": "2024-01-02",
+          "equity": 11332.23,
+          "reason": "drawdown_limit"
+        },
+        "risk_reasons": [
+          "drawdown_limit"
+        ]
+      },
+      "holding_PnL_CNY": 825.62,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": false,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 5,
+      "recovery_count": 3,
+      "permanent_halt": true,
+      "last_fill_date": "2020-02-03",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -2.412351611796985,
+        "corrected_one_sided_net_lower_CNY": -3.6272413923182434,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": 1.0964855967078186,
+        "mean_daily_difference_CNY": 0.4169629629629619,
+        "net_PnL_mean_CI95_CNY": [
+          -2.4740681069958885,
+          4.697909053497939
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -1.6529127572016482,
+          2.8111543209876517
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_510300__ema13_34_trend+rsi14_above50+cmf20_positive__every5",
+      "asset": "CN_ETF_XSHG_510300",
+      "components": [
+        "ema13_34_trend",
+        "rsi14_above50",
+        "cmf20_positive"
+      ],
+      "cadence": 5,
+      "summary": {
+        "average_idle_cash_CNY": 10317.225119341563,
+        "average_invested_CNY": 731.9447736625515,
+        "completed_episode_count": 6,
+        "completed_episode_win_fraction": 0.5,
+        "exposed_sessions": 80,
+        "fees_CNY": 66.94,
+        "fill_count": 12,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 386.4,
+        "maximum_drawdown": 0.08791469590359835,
+        "net_PnL_CNY": 914.56,
+        "terminal_settled": true,
+        "risk_breach_count": 880,
+        "risk_first_breach": {
+          "date": "2020-05-22",
+          "equity": 10939.49,
+          "reason": "drawdown_limit"
+        },
+        "risk_last_breach": {
+          "date": "2024-01-02",
+          "equity": 10914.56,
+          "reason": "drawdown_limit"
+        },
+        "risk_reasons": [
+          "drawdown_limit"
+        ]
+      },
+      "holding_PnL_CNY": 825.62,
+      "checks": {
+        "beat_holding": true,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": false,
+        "high_cost_positive": true,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 4,
+      "recovery_count": 3,
+      "permanent_halt": true,
+      "last_fill_date": "2020-05-25",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -2.9076863168724287,
+        "corrected_one_sided_net_lower_CNY": -2.3413472565157774,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": 0.7527242798353905,
+        "mean_daily_difference_CNY": 0.0732016460905339,
+        "net_PnL_mean_CI95_CNY": [
+          -1.620102469135804,
+          3.7630720164609017
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -2.176728806584365,
+          3.1163211934156356
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__macd12_26_9_positive+cmf20_positive+adx14_directional__every1",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "macd12_26_9_positive",
+        "cmf20_positive",
+        "adx14_directional"
+      ],
+      "cadence": 1,
+      "summary": {
+        "average_idle_cash_CNY": 8954.327983539095,
+        "average_invested_CNY": 1103.095061728395,
+        "completed_episode_count": 27,
+        "completed_episode_win_fraction": 0.4444444444444444,
+        "exposed_sessions": 135,
+        "fees_CNY": 270.71,
+        "fill_count": 54,
+        "later_net_contribution_CNY": -281.11,
+        "maximum_daily_loss_CNY": 325.0,
+        "maximum_drawdown": 0.07008943830465991,
+        "net_PnL_CNY": -205.81,
+        "terminal_settled": true,
+        "risk_breach_count": 0,
+        "risk_first_breach": null,
+        "risk_last_breach": null,
+        "risk_reasons": []
+      },
+      "holding_PnL_CNY": 3186.76,
+      "checks": {
+        "beat_holding": false,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": false,
+        "no_risk_breaches": true,
+        "profitable_years": true,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 1,
+      "recovery_count": 1,
+      "permanent_halt": false,
+      "last_fill_date": "2023-11-09",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -6.199602400548694,
+        "corrected_one_sided_net_lower_CNY": -1.7296475994513054,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": -0.1693909465020572,
+        "mean_daily_difference_CNY": -2.7922386831275716,
+        "net_PnL_mean_CI95_CNY": [
+          -1.3367010288065824,
+          1.1310368312757215
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -5.234439917695467,
+          -0.5005730452674898
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__macd12_26_9_positive+cmf20_positive+adx14_directional__every5",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "macd12_26_9_positive",
+        "cmf20_positive",
+        "adx14_directional"
+      ],
+      "cadence": 5,
+      "summary": {
+        "average_idle_cash_CNY": 8961.537456790124,
+        "average_invested_CNY": 1245.5932510288067,
+        "completed_episode_count": 15,
+        "completed_episode_win_fraction": 0.5333333333333333,
+        "exposed_sessions": 148,
+        "fees_CNY": 152.31,
+        "fill_count": 30,
+        "later_net_contribution_CNY": -57.29,
+        "maximum_daily_loss_CNY": 338.0,
+        "maximum_drawdown": 0.07775075021291061,
+        "net_PnL_CNY": 140.49,
+        "terminal_settled": true,
+        "risk_breach_count": 0,
+        "risk_first_breach": null,
+        "risk_last_breach": null,
+        "risk_reasons": []
+      },
+      "holding_PnL_CNY": 3186.76,
+      "checks": {
+        "beat_holding": false,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": true,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 1,
+      "recovery_count": 1,
+      "permanent_halt": false,
+      "last_fill_date": "2023-11-14",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -5.769446090534978,
+        "corrected_one_sided_net_lower_CNY": -1.608057338820298,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": 0.11562962962962944,
+        "mean_daily_difference_CNY": -2.507218106995885,
+        "net_PnL_mean_CI95_CNY": [
+          -1.134555144032919,
+          1.4250899176954694
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -4.856205967078196,
+          -0.3289767489711942
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__macd12_26_9_positive+cmf20_positive+ema21_55_fibonacci__every1",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "macd12_26_9_positive",
+        "cmf20_positive",
+        "ema21_55_fibonacci"
+      ],
+      "cadence": 1,
+      "summary": {
+        "average_idle_cash_CNY": 9590.422477366255,
+        "average_invested_CNY": 416.2116049382716,
+        "completed_episode_count": 11,
+        "completed_episode_win_fraction": 0.45454545454545453,
+        "exposed_sessions": 50,
+        "fees_CNY": 111.03,
+        "fill_count": 22,
+        "later_net_contribution_CNY": 0.0,
+        "maximum_daily_loss_CNY": 255.0,
+        "maximum_drawdown": 0.08671371840822607,
+        "net_PnL_CNY": -52.33,
+        "terminal_settled": true,
+        "risk_breach_count": 939,
+        "risk_first_breach": {
+          "date": "2020-02-25",
+          "equity": 9912.17,
+          "reason": "drawdown_limit"
+        },
+        "risk_last_breach": {
+          "date": "2024-01-02",
+          "equity": 9947.67,
+          "reason": "drawdown_limit"
+        },
+        "risk_reasons": [
+          "drawdown_limit"
+        ]
+      },
+      "holding_PnL_CNY": 3186.76,
+      "checks": {
+        "beat_holding": false,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": false,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": false,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 2,
+      "recovery_count": 1,
+      "permanent_halt": true,
+      "last_fill_date": "2020-02-26",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -5.903734465020577,
+        "corrected_one_sided_net_lower_CNY": -1.4840157407407406,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": -0.04306995884773657,
+        "mean_daily_difference_CNY": -2.6659176954732513,
+        "net_PnL_mean_CI95_CNY": [
+          -1.0882456790123463,
+          1.2407343621399176
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -4.989466872427987,
+          -0.5133333333333343
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__macd12_26_9_positive+cmf20_positive+ema21_55_fibonacci__every5",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "macd12_26_9_positive",
+        "cmf20_positive",
+        "ema21_55_fibonacci"
+      ],
+      "cadence": 5,
+      "summary": {
+        "average_idle_cash_CNY": 9046.098609053499,
+        "average_invested_CNY": 1192.9761316872427,
+        "completed_episode_count": 13,
+        "completed_episode_win_fraction": 0.38461538461538464,
+        "exposed_sessions": 143,
+        "fees_CNY": 131.47,
+        "fill_count": 26,
+        "later_net_contribution_CNY": -60.05,
+        "maximum_daily_loss_CNY": 338.0,
+        "maximum_drawdown": 0.06528378934718992,
+        "net_PnL_CNY": 237.93,
+        "terminal_settled": true,
+        "risk_breach_count": 0,
+        "risk_first_breach": null,
+        "risk_last_breach": null,
+        "risk_reasons": []
+      },
+      "holding_PnL_CNY": 3186.76,
+      "checks": {
+        "beat_holding": false,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": true,
+        "no_risk_breaches": true,
+        "profitable_years": true,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 1,
+      "recovery_count": 1,
+      "permanent_halt": false,
+      "last_fill_date": "2023-11-14",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -5.410756927297671,
+        "corrected_one_sided_net_lower_CNY": -1.652341941015087,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": 0.1958271604938274,
+        "mean_daily_difference_CNY": -2.427020576131687,
+        "net_PnL_mean_CI95_CNY": [
+          -1.216635390946501,
+          1.7363709876543185
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -4.636782716049381,
+          -0.3842018518518535
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__cmf20_positive+amount5_over20+adx14_directional__every1",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "cmf20_positive",
+        "amount5_over20",
+        "adx14_directional"
+      ],
+      "cadence": 1,
+      "summary": {
+        "average_idle_cash_CNY": 9323.139950617284,
+        "average_invested_CNY": 861.7851851851852,
+        "completed_episode_count": 23,
+        "completed_episode_win_fraction": 0.5652173913043478,
+        "exposed_sessions": 104,
+        "fees_CNY": 232.37,
+        "fill_count": 46,
+        "later_net_contribution_CNY": 324.02,
+        "maximum_daily_loss_CNY": 325.0,
+        "maximum_drawdown": 0.07608000824827302,
+        "net_PnL_CNY": 411.63,
+        "terminal_settled": true,
+        "risk_breach_count": 0,
+        "risk_first_breach": null,
+        "risk_last_breach": null,
+        "risk_reasons": []
+      },
+      "holding_PnL_CNY": 3186.76,
+      "checks": {
+        "beat_holding": false,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": true,
+        "high_cost_positive": false,
+        "later_positive": true,
+        "net_positive": true,
+        "no_risk_breaches": true,
+        "profitable_years": true,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 2,
+      "recovery_count": 2,
+      "permanent_halt": false,
+      "last_fill_date": "2023-11-01",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -5.156898628257892,
+        "corrected_one_sided_net_lower_CNY": -1.074217969821677,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": 0.33879012345678944,
+        "mean_daily_difference_CNY": -2.284057613168725,
+        "net_PnL_mean_CI95_CNY": [
+          -0.7553170781893033,
+          1.573845473251025
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -4.355088888888895,
+          -0.2497121399176929
+        ],
+        "seed": 20261104
+      }
+    },
+    {
+      "case_id": "CN_ETF_XSHG_518880__cmf20_positive+amount5_over20+adx14_directional__every5",
+      "asset": "CN_ETF_XSHG_518880",
+      "components": [
+        "cmf20_positive",
+        "amount5_over20",
+        "adx14_directional"
+      ],
+      "cadence": 5,
+      "summary": {
+        "average_idle_cash_CNY": 9501.423144032922,
+        "average_invested_CNY": 323.8681481481481,
+        "completed_episode_count": 8,
+        "completed_episode_win_fraction": 0.375,
+        "exposed_sessions": 40,
+        "fees_CNY": 80.07,
+        "fill_count": 16,
+        "later_net_contribution_CNY": -82.5,
+        "maximum_daily_loss_CNY": 247.5,
+        "maximum_drawdown": 0.08356422275679119,
+        "net_PnL_CNY": -286.57,
+        "terminal_settled": true,
+        "risk_breach_count": 1,
+        "risk_first_breach": {
+          "date": "2021-05-28",
+          "equity": 9638.43,
+          "reason": "drawdown_limit"
+        },
+        "risk_last_breach": {
+          "date": "2021-05-28",
+          "equity": 9638.43,
+          "reason": "drawdown_limit"
+        },
+        "risk_reasons": [
+          "drawdown_limit"
+        ]
+      },
+      "holding_PnL_CNY": 3186.76,
+      "checks": {
+        "beat_holding": false,
+        "completed_episodes": false,
+        "conditional_difference_interval_positive": false,
+        "conditional_net_interval_positive": false,
+        "drawdown": false,
+        "high_cost_positive": false,
+        "later_positive": false,
+        "net_positive": false,
+        "no_risk_breaches": false,
+        "profitable_years": false,
+        "terminal_settled": true
+      },
+      "daily_pause_count": 3,
+      "recovery_count": 3,
+      "permanent_halt": true,
+      "last_fill_date": "2021-05-31",
+      "conditional_uncertainty": {
+        "block_sessions": 20,
+        "bootstrap_replications": 5000,
+        "corrected_one_sided_difference_lower_CNY": -6.147753052126199,
+        "corrected_one_sided_net_lower_CNY": -1.2802144375857314,
+        "correction": "Bonferroni12_within_batch_not_all_historical_search",
+        "evaluation_sessions": 1215,
+        "interpretation": "conditional_historical_sensitivity_only; 4648_training_searches_and_prior_data_exposure_remain_disclosed; not_certified_EV",
+        "mean_daily_PnL_CNY": -0.2358600823045265,
+        "mean_daily_difference_CNY": -2.858707818930041,
+        "net_PnL_mean_CI95_CNY": [
+          -1.0419582304526738,
+          0.6958372427983542
+        ],
+        "paired_difference_mean_CI95_CNY": [
+          -5.254538065843624,
+          -0.6639109053497946
+        ],
+        "seed": 20261104
+      }
+    }
+  ],
+  "unique_primary_economic_paths": 11,
+  "files": {
+    "registration.json": {
+      "path": "data/reports/full_position_recovery_20261104/registration.json",
+      "sha256": "7ba617b493928323a99496386b68909187958dfe83dfb3bf18be75ba6794ef8d"
+    },
+    "attempt_claim.json": {
+      "path": "data/reports/full_position_recovery_20261104/attempt_claim.json",
+      "sha256": "0c4951cb5d652369d51a10b6b231f2c91f0fa7887e95737cde351d7d88da0229"
+    },
+    "outcome.json": {
+      "path": "data/reports/full_position_recovery_20261104/outcome.json",
+      "sha256": "2c40d2dd9001583e01a3c9e3c51986fa8eff4de9089644b18e85754aec297b45"
+    },
+    "result.json": {
+      "path": "data/reports/full_position_recovery_20261104/result.json",
+      "sha256": "09cb7bd21e1bc8e43a88fd5ebb8d7a6174afeac3037a57dfbb13fbc139d3953d"
+    },
+    "strategy_cycles.json": {
+      "path": "data/reports/full_position_recovery_20261104/strategy_cycles.json",
+      "sha256": "80301a778698ffa45e2bbc97816d9b437a878b74690ebc1a623f079e09d060a4"
+    },
+    "pre_execution_review.json": {
+      "path": "data/reports/full_position_recovery_20261104/pre_execution_review.json",
+      "sha256": "64bda55b755b5a5f8b3ba2b03375f30d9a96449a3c38b4dae62b3e8f42ce301f"
+    }
+  },
+  "independent_result_review": {
+    "status": "passed_result_integrity_not_financial_qualification",
+    "path": "data/reports/full_position_recovery_20261104/independent_result_review.json",
+    "sha256": "304a5b62e77b016fe2c0fd7d79305a131671d22db409a5ab1bd107aa532767e2",
+    "pinned_files": 25,
+    "accounts": 324,
+    "equity_rows": 795096,
+    "major_findings": 0,
+    "original_case_identity": true
+  },
+  "backup": {
+    "status": "verified",
+    "files": 57,
+    "bytes": 15956235,
+    "archive": "D:\\quant_robot_backups\\20261104\\full_position_recovery_result.zip",
+    "verified_files": 57,
+    "restored_samples": 1,
+    "offsite": false
+  }
+}
