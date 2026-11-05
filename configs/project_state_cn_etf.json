@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-04",
   "state": "evidence_blocked",
-  "state_label": "40%回撤可恢复新研究准备中；既有16项研究0合格",
+  "state_label": "40%回撤可恢复研究已完成，0合格；主要缺口是持续收益",
   "authority_document": "docs/research/project_delivery_2026-11-04.md",
   "counts": {
-    "return_studies": 16,
+    "return_studies": 17,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,13 +22,13 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "接续序列16项收益研究（非全生命周期总数），0合格。本轮4648组合筛选及两套风险规则共648账户完成；新规则主费用净损益−286.57至3066.08元，但12方案均未通过。"
+      "evidence": "接续序列17项收益研究（非全生命周期总数），0合格。满仓研究原4648组合、三种风险制度累计972账户；最新324账户均完成，0方案通过。"
     },
     {
-      "blocker_id": "persistence_drawdown_and_excess_return_failed",
+      "blocker_id": "persistence_excess_return_and_costs_failed",
       "severity": "block",
       "track_id": "research",
-      "evidence": "新日亏2%/清仓冷却5日规则已执行。沪深方案均超过8%回撤触发停止；持续到2023年的黄金方案落后同规则持有。还缺足够完成段、费用稳健性和正的条件区间。"
+      "evidence": "40%规则下12主情景均无永久停机、均未触发40%回撤；沪深六方案后段全亏，黄金六方案全落后同规则持有，12方案的条件区间均未通过。"
     },
     {
       "blocker_id": "actual_costs_unverified",
@@ -53,9 +53,9 @@
     {
       "priority": 1,
       "track_id": "research",
-      "title": "冻结并执行40%回撤可恢复的12方案比较",
+      "title": "形成有独立收益机制的新候选与可检验规格",
       "command": "",
-      "reason": "用户新授权；沿用原12方案与周期、日亏2%和清仓冷却5日，324账户一次执行。此前结果保留。"
+      "reason": "新40%口径已执行；保持当前风险规则和三批结果，不能继续调阈值或从已见历史选赢家。已消费范围不能重复运行。"
     },
     {
       "priority": 2,
