@@ -157,8 +157,9 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
         raise ValueError('Full NAV mode cannot reuse the fixed CNY buffer')
     from quant_robot.paper.daily_recovery import DailyRecovery
     recovery = DailyRecovery(daily_recovery) if daily_recovery is not None else None
-    if recovery is not None and (not full_nav or settings['max_drawdown'] != Decimal('.08')):
-        raise ValueError('Recovery requires full NAV mode and unchanged 8 percent drawdown')
+    if recovery is not None and (not full_nav or settings['max_drawdown'] !=
+            (Decimal('.40') if recovery.recover_drawdown else Decimal('.08'))):
+        raise ValueError('Recovery requires full NAV mode and its exact drawdown threshold')
     from quant_robot.paper.position_buffer import buffer_limits
     budget, trigger, trim_target = buffer_limits(position_buffer, config)
     cash = settings['initial_cash']
@@ -231,7 +232,7 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
             if halted_before_open:
                 mandatory[asset] = 'account_risk_exit'
             elif recovery is not None and recovery.paused:
-                mandatory[asset] = 'daily_loss_pause_exit'
+                mandatory[asset] = ('daily_or_drawdown_pause_exit' if recovery.recover_drawdown else 'daily_loss_pause_exit')
             elif index >= cycle['exit_index']:
                 mandatory.setdefault(asset, 'scheduled_exit')
             elif index >= cycle['entry_index']+config.max_holding_sessions:
@@ -303,12 +304,14 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
         reasons = []
         if recovery is None and previous-equity >= settings['max_daily_loss_cny']:
             reasons.append('daily_loss_limit')
-        if 1-equity/peak >= settings['max_drawdown']:
+        if (1-equity/peak >= settings['max_drawdown']
+                and not (recovery is not None and recovery.recover_drawdown)):
             reasons.append('drawdown_limit')
         if reasons:
             halted = True
         if recovery is not None:
-            recovery.after_close(index, day, previous=previous, equity=equity, positions=positions)
+            recovery.after_close(index, day, previous=previous, equity=equity, positions=positions,
+                drawdown=1-equity/peak, had_exposure=bool(occupied or positions))
         breaches.extend(dict(date=day, reason=reason, equity=equity) for reason in reasons)
         trims = {}  # Expired unfilled trims are replaced from the current mark.
         for asset, position in marked.items():

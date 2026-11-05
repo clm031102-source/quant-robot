@@ -4,7 +4,7 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-04",
   "state": "evidence_blocked",
-  "state_label": "两批满仓研究已完成，0合格；持续收益与回撤未通过",
+  "state_label": "40%回撤可恢复新研究准备中；既有16项研究0合格",
   "authority_document": "docs/research/project_delivery_2026-11-04.md",
   "counts": {
     "return_studies": 16,
@@ -53,9 +53,9 @@
     {
       "priority": 1,
       "track_id": "research",
-      "title": "为不同机制或仓位控制建立新的前瞻研究规格",
+      "title": "冻结并执行40%回撤可恢复的12方案比较",
       "command": "",
-      "reason": "两批已消费；保持旧结果，先明确新机制和检验范围，不自动继续放宽风险或更换指标救回。"
+      "reason": "用户新授权；沿用原12方案与周期、日亏2%和清仓冷却5日，324账户一次执行。此前结果保留。"
     },
     {
       "priority": 2,
@@ -76,8 +76,8 @@
   "current_risk_policy": {
     "daily_loss_fraction_previous_NAV": 0.02,
     "complete_flat_cooldown_sessions": 5,
-    "drawdown": 0.08,
-    "drawdown_halt": "permanent_no_peak_or_capital_reset",
-    "user_new_full_position_authorization": "2026-11-04; prospective new study only"
+    "drawdown": 0.4,
+    "drawdown_halt": "pause_then_five_complete_flat_sessions_no_peak_or_capital_reset",
+    "user_new_full_position_authorization": "2026-11-04 explicit40percent drawdown and reentry; prospective new study only"
   }
 }

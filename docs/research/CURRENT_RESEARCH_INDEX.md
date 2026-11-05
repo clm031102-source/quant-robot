@@ -1,5 +1,12 @@
 # Current Research And Cloud Sync Index
 
+New mandate (2026-11-04): user explicitly authorized40% global drawdown and reentry.
+A distinct [prospective policy5 study](cn_etf_dd40_reentry_2026-11-04.md) is being frozen,
+retaining2% daily pause, five full flat sessions, the original peak/capital and all twelve
+frozen cases. It has not executed; the completed count below remains16.
+
+## Previous two full-position studies
+
 Current authority (2026-11-04): [deployment continuation](project_delivery_2026-11-04.md).
 The continuation sequence now records **16 return studies, 4 source screens,
 0 qualified strategies and 0 new real forward days**; 16 is not the lifetime trial count.
