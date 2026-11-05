@@ -2480,5 +2480,21 @@
     "account_count": 324,
     "conditional_pass_count": 0,
     "review_sha256": "e2e9355861d4765798344cfc1415d5b538dc3929528595daca8c8ed16630d879"
+  },
+  "full_position_recovery_decision": {
+    "status": "authorized_once",
+    "registration_id": "480eb2c97ecd0bcb19583b57cbe3ac7ec753368495e25b9b0d439089f73c6773",
+    "registration_path": "data/reports/full_position_recovery_20261104/registration.json",
+    "registration_sha256": "7ba617b493928323a99496386b68909187958dfe83dfb3bf18be75ba6794ef8d",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_full_position_recovery_only",
+    "ledger_path": "data/reports/full_position_recovery_20261104/attempt_claim.json",
+    "conditional_account_only": true,
+    "net_account_allowed": true,
+    "general_factor_batch_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
