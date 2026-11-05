@@ -6,11 +6,15 @@ RECOVERY = dict(daily_loss_fraction_previous_NAV=.02,
     resume='new_preexisting_signal_cycle_only_no_retry',
     drawdown='original_8percent_peak_permanent_no_reset')
 
+RECOVERY_40 = {**RECOVERY,
+    'drawdown': 'global_40percent_pause_on_exposed_session_no_peak_reset'}
+
 
 class DailyRecovery:
     def __init__(self, policy):
-        if policy != RECOVERY:
+        if policy not in (RECOVERY, RECOVERY_40):
             raise ValueError('Exact frozen daily recovery policy required')
+        self.recover_drawdown = policy == RECOVERY_40
         self.paused = False
         self.flat_index = None
         self.journal = []
@@ -22,13 +26,22 @@ class DailyRecovery:
             self.flat_index = None
             self.journal.append(dict(date=day,kind='eligible_after_five_complete_flat_sessions'))
 
-    def after_close(self, index, day, *, previous, equity, positions):
+    def after_close(self, index, day, *, previous, equity, positions,
+                    drawdown=None, had_exposure=None):
+        if self.recover_drawdown and (drawdown is None or had_exposure is None):
+            raise ValueError('Global drawdown and exposure state required')
         threshold = previous * Decimal('.02')
         if previous-equity >= threshold:
             self.paused = True
             self.flat_index = None
             self.journal.append(dict(date=day,kind='daily_loss_pause',
                 previous_NAV=previous,loss=previous-equity,threshold=threshold))
+        if self.recover_drawdown and had_exposure and drawdown >= Decimal('.40'):
+            self.paused = True
+            self.flat_index = None
+            self.journal.append(dict(date=day,kind='global_drawdown_pause',
+                global_drawdown=drawdown,threshold=Decimal('.40')))
+        # Cash-only days below the original peak must not restart cooling.
         if self.paused and not positions and self.flat_index is None:
             self.flat_index = index
             self.journal.append(dict(date=day,kind='flat_cooldown_started',

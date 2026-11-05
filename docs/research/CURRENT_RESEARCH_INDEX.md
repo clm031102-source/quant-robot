@@ -1,6 +1,27 @@
 # Current Research And Cloud Sync Index
 
 Current authority (2026-11-04): [deployment continuation](project_delivery_2026-11-04.md).
+The explicit40% drawdown/reentry mandate has been executed as one separate
+[policy5 study](cn_etf_dd40_reentry_2026-11-04.md): twelve original frozen cases,
+324 complete accounts, zero new training searches, zero conditional passes.
+Current continuation count is **17 return studies, 4 source screens, 0 qualified
+strategies, 0 real forward days and 0 pending candidates**;17 is not a lifetime count.
+Three full-position studies contain972 accounts;4,648 training combinations were
+searched only in the first study. All three scopes are consumed.
+
+No primary account permanently halted or reached40% drawdown. The main gap is
+persistence: all six equity variants lose after2021 begins; all six gold variants
+trail the same-policy holding control. Best primary net PnL is CNY1,874.52 with
+18.30% maximum drawdown, but later contribution is minus CNY1,487.81. None passes
+both corrected conditional intervals. Existing fees/source/2026 exposure limitations
+remain; historical sensitivity is not independent validation or paper permission.
+
+The following two-study record is historical and does not override the current
+40% policy or17-study count.
+
+## Previous two full-position studies
+
+Current authority (2026-11-04): [deployment continuation](project_delivery_2026-11-04.md).
 The continuation sequence now records **16 return studies, 4 source screens,
 0 qualified strategies and 0 new real forward days**; 16 is not the lifetime trial count.
 The user explicitly permitted full single-asset NAV allocation and then redefined the
