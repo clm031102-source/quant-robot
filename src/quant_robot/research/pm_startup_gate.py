@@ -35,6 +35,7 @@ from quant_robot.research.indicator_combination_study import scope as indicator_
 from quant_robot.research.slow_indicator_study import scope as slow_indicator_scope
 from quant_robot.research.geopolitical_cadence_study import scope as geopolitical_cadence_scope
 from quant_robot.research.geopolitical_account_study import scope as geopolitical_account_scope
+from quant_robot.research.full_position_study import scope as full_position_scope
 
 
 STAGE = "quant_pm_startup_gate"
@@ -92,6 +93,7 @@ def build_quant_pm_startup_gate(
         slow_indicator_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         geopolitical_cadence_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         geopolitical_account_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        full_position_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
     ) if scope]
     restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)
@@ -138,6 +140,8 @@ def build_quant_pm_startup_gate(
         warnings.append("research_family_scheduler_single_electricity_activity_diagnostic_mode")
     elif restricted_mode == "single_term_structure_diagnostic_only":
         warnings.append("research_family_scheduler_single_term_structure_diagnostic_mode")
+    elif restricted_mode == "single_full_position_factor_search_only":
+        warnings.append("research_family_scheduler_full_position_factor_search_mode")
     elif restricted_mode == "single_slow_indicator_account_only":
         warnings.append("research_family_scheduler_single_slow_indicator_account_mode")
     elif restricted_mode == "single_indicator_combination_account_only":
@@ -216,7 +220,7 @@ def build_quant_pm_startup_gate(
                 not blockers
                 and (not restricted_mode or restricted_mode == "single_prescreen_only")
             ),
-            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only"} else {},
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only", "single_full_position_factor_search_only"} else {},
             "monthly_diagnostic_allowed": not blockers and restricted_mode == "single_monthly_diagnostic_only",
             "monthly_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_monthly_diagnostic_only" else {},
             "household_diagnostic_allowed": not blockers and restricted_mode == "single_household_diagnostic_only",
@@ -243,6 +247,8 @@ def build_quant_pm_startup_gate(
             "electricity_activity_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_electricity_activity_diagnostic_only" else {},
             "term_structure_diagnostic_allowed": not blockers and restricted_mode == "single_term_structure_diagnostic_only",
             "term_structure_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_term_structure_diagnostic_only" else {},
+            "full_position_factor_search_allowed": not blockers and restricted_mode == "single_full_position_factor_search_only",
+            "full_position_factor_search_scope": _dict(restricted.get("scope")) if restricted_mode == "single_full_position_factor_search_only" else {},
             "slow_indicator_account_allowed": not blockers and restricted_mode == "single_slow_indicator_account_only",
             "slow_indicator_account_scope": _dict(restricted.get("scope")) if restricted_mode == "single_slow_indicator_account_only" else {},
             "indicator_combination_account_allowed": not blockers and restricted_mode == "single_indicator_combination_account_only",
@@ -670,6 +676,10 @@ def _next_actions(
     if restricted_mode == "single_currency_gold_account_only":
         return [{"action": "run_registered_currency_gold_net_account",
                  "command": "python scripts/run_cn_etf_currency_gold_account.py --execute"}]
+    if restricted_mode == "single_full_position_factor_search_only":
+        return [{"action": "run_registered_full_position_factor_search_once",
+                 "command": ".venv/Scripts/python.exe scripts/run_cn_etf_full_position_factor_search.py --execute",
+                 "reason": "Only the pinned one-use technical search; ordinary research budget stays zero."}]
     if restricted_mode == "single_slow_indicator_account_only":
         return [{"action": "run_registered_four_slow_indicator_accounts_once",
                  "command": ".venv/Scripts/python.exe scripts/run_cn_etf_slow_indicator_combinations.py",

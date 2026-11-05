@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_full_position_technical_search_v1",
+  "authorization": "2026-11-04 user explicitly permits full single-asset allocation and broad technical factor combinations including smart-money proxies, liquidity, Fibonacci and price-volume; new experiment only, old results unchanged.",
+  "assets": [
+    "CN_ETF_XSHG_510300",
+    "CN_ETF_XSHG_518880"
+  ],
+  "indicator_names": [
+    "sma20_trend",
+    "ema13_34_trend",
+    "macd12_26_9_positive",
+    "donchian20_breakout",
+    "rsi14_above50",
+    "rsi14_reentry30",
+    "stochastic14_3",
+    "cci20_positive",
+    "signed_amount20_positive",
+    "cmf20_positive",
+    "mfi14_above50",
+    "obv20_positive",
+    "amount5_over20",
+    "amihud20_below_prior60",
+    "close_above_vwap20",
+    "up_volume15",
+    "ema21_55_fibonacci",
+    "fib382_reentry60",
+    "fib618_reentry60",
+    "fib786_recovery60",
+    "bollinger20_upper_breakout",
+    "bollinger20_lower_reentry",
+    "atr14_below_prior60",
+    "adx14_directional"
+  ],
+  "families": [
+    "fibonacci",
+    "flow_proxy",
+    "liquidity",
+    "momentum",
+    "trend",
+    "volatility"
+  ],
+  "combination_operator": "AND; all distinct unordered subsets of sizes1,2,3",
+  "combination_count_per_asset": 2324,
+  "hypothesis_count": 4648,
+  "maximum_account_candidates": 12,
+  "source_calendar_first": "2013-12-05",
+  "source_calendar_last": "2024-01-02",
+  "training_first": "2015-04-01",
+  "training_last": "2018-12-28",
+  "evaluation_first": "2019-01-02",
+  "later_start": "2021-01-04",
+  "terminal_session": "2024-01-02",
+  "evaluation_years": [
+    2019,
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "selection": {
+    "label": "next-open through fifth subsequent open total-return proxy; independently constructed from raw opens and ex-date distributions, no closing adjustment factor; not cash profit",
+    "training_accounts": 0,
+    "horizon_sessions": 5,
+    "training_end_purge": true,
+    "minimum_selected_days": 30,
+    "minimum_other_days": 30,
+    "ranking": "positive point-biserial IC, positive selected-label mean; descending IC, candidate_id ascending tie break",
+    "retained_per_asset": 3,
+    "search_space_disclosed": true,
+    "selection_written_before_evaluation": true
+  },
+  "account": {
+    "schema_version": 3,
+    "initial_cash_cny": 10000,
+    "max_single_position_fraction_NAV": 1,
+    "entry": "all available prior cash, lot100, include fees; shares fixed using prior close and prior20 volumes; entire order canceled if next open cost exceeds cash",
+    "capital_reset": false,
+    "evaluation_account_start": "2019-01-02; all earlier rows cash-only warmup, no training account to restart",
+    "decision_cadences_sessions": [
+      1,
+      5
+    ],
+    "exit": "next open following off/unknown state at fixed decision cadence, or original mandatory252-session/risk rule; terminal liquidation",
+    "top_up": false,
+    "leverage": false,
+    "same_open_exit_and_reentry": false,
+    "daily_loss_limit_cny": 60,
+    "drawdown_limit": 0.08,
+    "risk_action": "permanent_no_restart; exit following session subject to availability; gaps may exceed trigger",
+    "price_appreciation": "100 percent of current NAV, no fixed10000 marked-value cap or old800/900 buffer",
+    "controls": "same asset full-NAV holding and cash, same calendar and all nine cost cases"
+  },
+  "cost_cases": {
+    "commission_bps_each": 5,
+    "minimum_cny": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bps_each": [
+      0,
+      10,
+      30
+    ],
+    "primary": [
+      5,
+      10
+    ],
+    "high_cost": [
+      10,
+      30
+    ]
+  },
+  "conditional_screen": {
+    "positive_full_and_later": true,
+    "beat_holding": true,
+    "profitable_years_minimum": 3,
+    "completed_episodes_minimum": 30,
+    "no_observed_risk_breach": true,
+    "all_primary_accounts_terminal_settled": true,
+    "high_cost_profit_positive": true
+  },
+  "uncertainty": {
+    "method": "paired circular20-session blocks on fixed evaluation accounts",
+    "replications": 5000,
+    "seed": 20261104,
+    "correction": "Bonferroni12 predeclared validation variants after training-only selection; all4648 training searches separately disclosed",
+    "interpretation": "conditional historical sensitivity, not newly independent significance or certified positiveEV"
+  },
+  "limitations": [
+    "Two selected surviving ETFs, not all listed funds",
+    "2013-2023 prices were exposed in prior studies; time separation is not fresh unseen out-of-sample",
+    "Smart-money and liquidity are OHLCV proxies, no institution identity or order-book claim",
+    "Training labels include modeled dividend reinvestment, not executable cash returns; complete accounts handle actual modeled entitlements and pay dates",
+    "Unknown historical suspension/limit flags, bid/ask, depth and first-publication versions",
+    "Actual fee schedule unverified; full-NAV risk60 can halt quickly",
+    "One-to-three combinations of24 explicit definitions, not every conceivable technical indicator or parameter",
+    "Existing2026 public proxy/context exposure remains disclosed;2026 ETF data stays sealed"
+  ],
+  "ordinary_research_budget": 0,
+  "new_data_requests": 0,
+  "financial_execution_allowed": true,
+  "max_executions": 1,
+  "final_holdout_allowed": false,
+  "paper_promotion_allowed": false,
+  "live_boundary_allowed": false
+}

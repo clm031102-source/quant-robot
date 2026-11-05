@@ -59,9 +59,20 @@ def buffered_policy_template(**kwargs):
                             position_limit_action='permanent_no_restart')
     return policy
 
+
+def full_nav_policy_template(**kwargs):
+    """Prospective 100% NAV mode; old fixed-budget policies remain unchanged."""
+    policy = policy_template(**kwargs)
+    policy['schema_version'] = 3
+    policy['common'].update(all_in_entry_budget_CNY=None,
+        marked_position_limit_CNY=None, marked_position_limit_fraction_NAV=1,
+        sizing='all_available_prior_cash_including_fees_prior_close_and_prior20_volumes',
+        position_trim='none_no_borrowing_no_topup')
+    return policy
+
 def validate_policy(policy, sessions):
     """Reject incomplete controls before iterating any market bars or actions."""
-    if not isinstance(policy,dict) or policy.get('schema_version') not in (1, 2):
+    if not isinstance(policy,dict) or policy.get('schema_version') not in (1, 2, 3):
         raise ValueError('Explicit prospective comparison policy required')
     controls=policy.get('controls')
     if not isinstance(controls,dict) or set(controls)!={'holding','cash'}:
@@ -75,6 +86,13 @@ def validate_policy(policy, sessions):
         expected_common.update(all_in_entry_budget_CNY=800,
                                position_trim='above900_next_open_toward800_no_topup',
                                position_limit_action='permanent_no_restart')
+    elif policy['schema_version'] == 3:
+        expected_common.update(all_in_entry_budget_CNY=None,
+            marked_position_limit_CNY=None, marked_position_limit_fraction_NAV=1,
+            sizing='all_available_prior_cash_including_fees_prior_close_and_prior20_volumes',
+            position_trim='none_no_borrowing_no_topup')
+        if 'position_buffer' in policy:
+            raise ValueError('Full NAV mode cannot use a fixed buffer')
     elif 'position_buffer' in policy:
         raise ValueError('Buffered policy cannot masquerade as historical v1')
     if policy.get('common')!=expected_common:
@@ -162,7 +180,8 @@ def run_comparison(bars, *, sessions, asset, strategy_cycles, actions, policy):
         m,s=case['minimum_commission_CNY'],case['slippage_bps_each']
         key=f'min{m}_slip{s}'
         settings=AllocationConfig(initial_cash=COMMON['initial_cash_CNY'],
-            max_position_cny=COMMON['all_in_entry_budget_CNY'],max_daily_loss_cny=COMMON['daily_loss_limit_CNY'],
+            max_position_cny=(10000 if policy['schema_version']==3 else COMMON['all_in_entry_budget_CNY']),
+            max_position_fraction=(1 if policy['schema_version']==3 else None),max_daily_loss_cny=COMMON['daily_loss_limit_CNY'],
             max_drawdown=COMMON['paper_drawdown_limit'],max_holding_sessions=COMMON['max_holding_sessions'],
             commission_bps=COMMON['commission_bps_each'],participation=COMMON['ADV_fraction'],
             minimum_commission=m,slippage_bps=s,execution_price_field='open')
