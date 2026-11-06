@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from quant_robot.execution.offline_runtime_health import read_health, SupervisorPermit, health_record, journal_identity
+from quant_robot.storage.atomic import atomic_write_json, open_atomic_read
 from quant_robot.execution.offline_runtime import OfflineRuntime
 from tests.unit.test_offline_runtime import create_book, observation
 from tests.unit.test_offline_order_admission import NOW, intent
@@ -23,14 +24,14 @@ class OfflineHealthReadContentionTests(unittest.TestCase):
     def error():return PermissionError(errno.EACCES,'synthetic Windows read contention')
 
     def test_transient_windows_denial_reopens_and_reads_new_bytes(self):
-        original=Path.open;attempts=[]
+        original=open_atomic_read;attempts=[]
         def open_file(path,*args,**kwargs):
             attempts.append(path)
             if len(attempts)<3:raise self.error()
             return original(path,*args,**kwargs)
         def wait(_seconds):
-            with original(self.health,'w',encoding='utf-8') as target:json.dump({'generation':2},target)
-        with patch('quant_robot.execution.offline_runtime_health._WINDOWS',True,create=True),patch.object(Path,'open',open_file), \
+            with self.health.open('w',encoding='utf-8') as target:json.dump({'generation':2},target)
+        with patch('quant_robot.execution.offline_runtime_health._WINDOWS',True,create=True),patch('quant_robot.execution.offline_runtime_health.open_atomic_read',side_effect=open_file), \
                 patch('quant_robot.execution.offline_runtime_health.time.sleep',side_effect=wait) as sleep:
             self.assertEqual(read_health(self.health),{'generation':2})
         self.assertEqual(len(attempts),3);self.assertEqual(sleep.call_count,2)
@@ -38,7 +39,7 @@ class OfflineHealthReadContentionTests(unittest.TestCase):
     def test_persistent_windows_denial_is_bounded_and_not_returned_as_health(self):
         error=self.error()
         with patch('quant_robot.execution.offline_runtime_health._WINDOWS',True,create=True), \
-                patch.object(Path,'open',side_effect=error) as opened,patch('quant_robot.execution.offline_runtime_health.time.sleep') as sleep:
+                patch('quant_robot.execution.offline_runtime_health.open_atomic_read',side_effect=error) as opened,patch('quant_robot.execution.offline_runtime_health.time.sleep') as sleep:
             with self.assertRaises(PermissionError) as caught:read_health(self.health)
         self.assertIs(caught.exception,error)
         self.assertEqual(opened.call_count,6);self.assertEqual(sleep.call_count,5)
@@ -47,30 +48,30 @@ class OfflineHealthReadContentionTests(unittest.TestCase):
         for windows,error in ((False,self.error()),(True,OSError(errno.EIO,'device error')),(True,FileNotFoundError('missing'))):
             with self.subTest(windows=windows,error=type(error).__name__), \
                     patch('quant_robot.execution.offline_runtime_health._WINDOWS',windows,create=True), \
-                    patch.object(Path,'open',side_effect=error) as opened,patch('quant_robot.execution.offline_runtime_health.time.sleep') as sleep:
+                    patch('quant_robot.execution.offline_runtime_health.open_atomic_read',side_effect=error) as opened,patch('quant_robot.execution.offline_runtime_health.time.sleep') as sleep:
                 with self.assertRaises(OSError):read_health(self.health)
                 self.assertEqual(opened.call_count,1);sleep.assert_not_called()
 
     def test_malformed_or_oversized_health_is_not_retried(self):
-        original=Path.open;attempts=[]
+        original=open_atomic_read;attempts=[]
         def open_file(path,*args,**kwargs):attempts.append(path);return original(path,*args,**kwargs)
         for value in ('{','[]','x'*65537):
             self.health.write_text(value,encoding='utf-8');attempts.clear()
-            with patch.object(Path,'open',open_file),patch('quant_robot.execution.offline_runtime_health.time.sleep') as sleep:
+            with patch('quant_robot.execution.offline_runtime_health.open_atomic_read',side_effect=open_file),patch('quant_robot.execution.offline_runtime_health.time.sleep') as sleep:
                 with self.assertRaises(ValueError):read_health(self.health)
                 self.assertEqual(len(attempts),1);sleep.assert_not_called()
 
     def test_permission_wait_does_not_refresh_an_expired_supervisor_timestamp(self):
         identity=dict(instance_id='a'*32,journal_path=str(self.root/'book.sqlite'),genesis_hash='b'*64,process_id=123)
         self.health.write_text(json.dumps(health_record('supervisor',**identity,phase='running',monotonic_ns=10_000_000_000)),encoding='utf-8')
-        now=[11_995_000_000];original=Path.open;attempts=[]
+        now=[11_995_000_000];original=open_atomic_read;attempts=[]
         def open_file(path,*args,**kwargs):
             attempts.append(path)
             if len(attempts)==1:raise self.error()
             return original(path,*args,**kwargs)
         def wait(seconds):now[0]+=int(seconds*1_000_000_000)
         permit=SupervisorPermit(self.health,**identity,max_age_seconds=2,monotonic_ns=lambda:now[0])
-        with patch('quant_robot.execution.offline_runtime_health._WINDOWS',True,create=True),patch.object(Path,'open',open_file), \
+        with patch('quant_robot.execution.offline_runtime_health._WINDOWS',True,create=True),patch('quant_robot.execution.offline_runtime_health.open_atomic_read',side_effect=open_file), \
                 patch('quant_robot.execution.offline_runtime_health.time.sleep',side_effect=wait):
             with self.assertRaisesRegex(ValueError,'stale'):permit()
         self.assertEqual(len(attempts),2)
@@ -84,12 +85,59 @@ class OfflineHealthReadContentionTests(unittest.TestCase):
             runtime.tick(observation(runtime,opening=True))
             feed=observation(runtime);feed['intents']=[intent()]
             with patch('quant_robot.execution.offline_runtime_health._WINDOWS',True,create=True), \
-                    patch.object(Path,'open',side_effect=self.error()),patch('quant_robot.execution.offline_runtime_health.time.sleep'):
+                    patch('quant_robot.execution.offline_runtime_health.open_atomic_read',side_effect=self.error()),patch('quant_robot.execution.offline_runtime_health.time.sleep'):
                 runtime.tick(feed)
             snapshot=runtime.book.snapshot()
         self.assertIn('runtime_supervision_requires_review',snapshot['faults'])
         self.assertTrue(snapshot['paused']);self.assertEqual(snapshot['orders'],{})
         self.assertIsNotNone(snapshot['portfolio_valuation']['last_valid'])
+
+    @unittest.skipUnless(os.name=='nt','Windows file sharing semantics')
+    def test_paused_health_reader_keeps_old_snapshot_without_blocking_publication(self):
+        opened = threading.Event()
+        release = threading.Event()
+        result = []
+        failures = []
+
+        class PausedRead:
+            def __init__(self, handle):
+                self.handle = handle
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.handle.close()
+
+            def read(self, size):
+                opened.set()
+                if not release.wait(3):
+                    raise RuntimeError('test reader was not released')
+                return self.handle.read(size)
+
+        def read():
+            try:
+                result.append(read_health(self.health))
+            except BaseException as exc:
+                failures.append(exc)
+
+        def open_file(path):
+            handle = open_atomic_read(path)
+            return handle if opened.is_set() else PausedRead(handle)
+
+        worker = threading.Thread(target=read)
+        with patch('quant_robot.execution.offline_runtime_health.open_atomic_read', side_effect=open_file):
+            try:
+                worker.start()
+                self.assertTrue(opened.wait(2))
+                atomic_write_json(self.health, {'generation':2})
+                self.assertEqual(read_health(self.health), {'generation':2})
+            finally:
+                release.set()
+                worker.join(timeout=2)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(failures, [])
+        self.assertEqual(result, [{'generation':1}])
 
     @unittest.skipUnless(os.name=='nt','Windows file sharing semantics')
     def test_real_windows_exclusive_handle_release_allows_pending_read(self):
@@ -101,7 +149,7 @@ class OfflineHealthReadContentionTests(unittest.TestCase):
         kernel.CloseHandle.argtypes=[wintypes.HANDLE];kernel.CloseHandle.restype=wintypes.BOOL
         handle=kernel.CreateFileW(str(self.health),0x80000000,0,None,3,0x80,None)
         self.assertNotIn(handle,(None,ctypes.c_void_p(-1).value))
-        attempted=threading.Event();released=threading.Event();result=[];failures=[];original=Path.open
+        attempted=threading.Event();released=threading.Event();result=[];failures=[];original=open_atomic_read
         def open_file(path,*args,**kwargs):
             try:return original(path,*args,**kwargs)
             except PermissionError:
@@ -112,7 +160,7 @@ class OfflineHealthReadContentionTests(unittest.TestCase):
             try:result.append(read_health(self.health))
             except BaseException as exc:failures.append(exc)
         worker=threading.Thread(target=read)
-        with patch.object(Path,'open',open_file):
+        with patch('quant_robot.execution.offline_runtime_health.open_atomic_read',side_effect=open_file):
             try:
                 worker.start();self.assertTrue(attempted.wait(2))
             finally:

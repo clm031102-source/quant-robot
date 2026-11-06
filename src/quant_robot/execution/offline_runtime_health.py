@@ -11,7 +11,7 @@ import re
 import sqlite3
 import time
 
-from quant_robot.storage.atomic import atomic_write_json
+from quant_robot.storage.atomic import atomic_write_json, open_atomic_read
 
 _WINDOWS = os.name == "nt"
 
@@ -57,12 +57,12 @@ def health_record(role, *, instance_id, journal_path, genesis_hash, phase, proce
 
 
 def read_health(path):
-    # Windows CRT reads can report EACCES without winerror while a replacement
-    # or exclusive handle is transiently in progress. Reopen, never cache a prior
+    # Windows reads can report EACCES while an exclusive handle is transiently
+    # in progress. Reopen, never cache a prior
     # success. Persistent denial still propagates after at most five 10 ms waits.
     for attempt in range(6):
         try:
-            with Path(path).open("rb") as handle:
+            with open_atomic_read(path) as handle:
                 payload = handle.read(65537)
             break
         except PermissionError as exc:
