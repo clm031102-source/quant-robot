@@ -40,6 +40,7 @@ CODE_FILES = (
     'research/indicator_combinations.py', 'ops/frozen_candidate_forward.py',
     'ops/frozen_cash_actions.py',
     'ops/frozen_input_clocks.py',
+    'paper/daily_entry_policy.py',
 )
 
 

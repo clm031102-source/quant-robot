@@ -9,12 +9,15 @@ RECOVERY = dict(daily_loss_fraction_previous_NAV=.02,
 RECOVERY_40 = {**RECOVERY,
     'drawdown': 'global_40percent_pause_on_exposed_session_no_peak_reset'}
 
+RECOVERY_40_DAILY_RETRY = {**RECOVERY_40,
+    'resume': 'current_daily_desired_position_after_five_complete_flat_sessions'}
+
 
 class DailyRecovery:
     def __init__(self, policy):
-        if policy not in (RECOVERY, RECOVERY_40):
+        if policy not in (RECOVERY, RECOVERY_40, RECOVERY_40_DAILY_RETRY):
             raise ValueError('Exact frozen daily recovery policy required')
-        self.recover_drawdown = policy == RECOVERY_40
+        self.recover_drawdown = policy in (RECOVERY_40, RECOVERY_40_DAILY_RETRY)
         self.paused = False
         self.flat_index = None
         self.journal = []
