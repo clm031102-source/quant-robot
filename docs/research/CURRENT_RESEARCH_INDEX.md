@@ -1,5 +1,13 @@
 # Current Research And Cloud Sync Index
 
+Current mandate (2026-11-06): [72-hour quantitative-manager campaign](campaign_72h_2026-11-06.md).
+The user explicitly authorized sustained coordination, new strategies and cross-asset
+research, with delivery review at2026-11-09T16:21:39Z. A manager agent and two audit
+workstreams are active; the current-thread heartbeat is72. New bounded studies must
+be separately frozen; previously consumed studies remain closed. The initial campaign
+evidence count remains17 return studies /4 source screens /0 qualified /0 forward.
+The November4 record below is the inherited baseline, not a denial of this new mandate.
+
 Current authority (2026-11-04): [deployment continuation](project_delivery_2026-11-04.md).
 The explicit40% drawdown/reentry mandate has been executed as one separate
 [policy5 study](cn_etf_dd40_reentry_2026-11-04.md): twelve original frozen cases,

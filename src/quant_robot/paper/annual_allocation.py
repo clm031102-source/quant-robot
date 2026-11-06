@@ -73,7 +73,9 @@ def _json(value):
     return value
 
 
-def _inputs(bars, sessions, assets, cycles, actions, config):
+def _inputs(bars, sessions, assets, cycles, actions, config, allow_open_cycle=False):
+    if type(allow_open_cycle) is not bool:
+        raise ValueError('Explicit boolean open-cycle mode required')
     if not isinstance(config, AllocationConfig):
         raise ValueError('Explicit allocation config required')
     if config.execution_price_field not in ('open', 'close'):
@@ -124,13 +126,18 @@ def _inputs(bars, sessions, assets, cycles, actions, config):
         identity = cycle['cycle_id']
         if not isinstance(identity, str) or not identity or identity in ids:
             raise ValueError('Unique cycle identity required')
-        entry, exit_day = _day(cycle['entry_date']), _day(cycle['exit_date'])
-        if entry not in calendar or exit_day not in calendar:
+        entry = _day(cycle['entry_date'])
+        exit_day = (None if allow_open_cycle and cycle['exit_date'] is None
+                    else _day(cycle['exit_date']))
+        if entry not in calendar or exit_day is not None and exit_day not in calendar:
             raise ValueError('Cycle date outside calendar')
-        start, end = calendar.index(entry), calendar.index(exit_day)
-        if start < 20 or end <= start or start <= previous_exit:
+        start = calendar.index(entry)
+        end = calendar.index(exit_day) if exit_day is not None else None
+        if start < 20 or end is not None and end <= start or start <= previous_exit:
             raise ValueError('Ordered nonoverlapping cycles after complete warmup required')
-        ids.add(identity); previous_exit = end
+        # An unresolved signal episode may only be the final cycle.  It is not
+        # liquidated at the end of a newly observed causal prefix.
+        ids.add(identity); previous_exit = end if end is not None else len(calendar)
         plan[start] = {**cycle, 'entry_index': start, 'exit_index': end}
     events, seen = [], set()
     for raw in actions:
@@ -150,8 +157,9 @@ def _inputs(bars, sessions, assets, cycles, actions, config):
     return settings, calendar, selected, prices, plan, events
 
 
-def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=AllocationConfig(), position_buffer=None, daily_recovery=None):
-    settings, calendar, selected, prices, plan, actions = _inputs(bars, sessions, assets, cycles, actions, config)
+def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=AllocationConfig(), position_buffer=None, daily_recovery=None, allow_open_cycle=False):
+    settings, calendar, selected, prices, plan, actions = _inputs(
+        bars, sessions, assets, cycles, actions, config, allow_open_cycle)
     full_nav = config.max_position_fraction is not None
     if full_nav and position_buffer is not None:
         raise ValueError('Full NAV mode cannot reuse the fixed CNY buffer')
@@ -233,7 +241,7 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
                 mandatory[asset] = 'account_risk_exit'
             elif recovery is not None and recovery.paused:
                 mandatory[asset] = ('daily_or_drawdown_pause_exit' if recovery.recover_drawdown else 'daily_loss_pause_exit')
-            elif index >= cycle['exit_index']:
+            elif cycle['exit_index'] is not None and index >= cycle['exit_index']:
                 mandatory.setdefault(asset, 'scheduled_exit')
             elif index >= cycle['entry_index']+config.max_holding_sessions:
                 mandatory.setdefault(asset, 'max_holding_exit')
