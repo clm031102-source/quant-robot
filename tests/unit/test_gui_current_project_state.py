@@ -110,3 +110,53 @@ class CurrentProjectStateTests(unittest.TestCase):
         self.assertEqual(result['ticket_count'],0)
         self.assertEqual(result['candidate'],{})
         self.assertFalse(result['legacy_artifact_is_current_authority'])
+
+    def test_risk_and_campaign_are_display_only_without_paper_permission(self):
+        self.state['max_single_position_fraction_NAV'] = 1
+        self.state['current_risk_policy'] = dict(drawdown=.4,
+            daily_loss_fraction_previous_NAV=.02, complete_flat_cooldown_sessions=5)
+        self.state['campaign'] = dict(id='campaign', deadline='2026-11-09T16:21:39Z',
+                                     checkpoint='checkpoint.json')
+        (self.root/'checkpoint.json').write_text(json.dumps(dict(campaign_id='campaign',
+            deadline='2026-11-09T16:21:39Z', at='2026-11-04T10:00:00Z',
+            phase='synthetic_validation', active_tasks=[dict(id='paper_bridge',
+            stage='in_progress', next='Verify recovery')], paper_observation_allowed=True)), encoding='utf-8')
+        self.write()
+        result = self.get()
+        self.assertEqual(result['current_risk_policy']['drawdown'], .4)
+        self.assertEqual(result['campaign']['tasks'][0]['task_id'], 'paper_bridge')
+        self.assertTrue(result['campaign']['checkpoint_available'])
+        self.assertFalse(result['paper_observation_allowed'])
+        self.assertEqual(result['selected_candidate'], {})
+
+    def test_missing_or_mismatched_campaign_record_does_not_hide_current_blockers(self):
+        self.state['campaign'] = dict(id='campaign', deadline='2026-11-09T16:21:39Z',
+                                     checkpoint='checkpoint.json')
+        self.write()
+        for content in (None, '{', json.dumps(dict(campaign_id='old'))):
+            if content is not None:
+                (self.root/'checkpoint.json').write_text(content, encoding='utf-8')
+            result = self.get()
+            self.assertEqual(result['overall_status'], 'research_in_progress')
+            self.assertFalse(result['campaign']['checkpoint_available'])
+            self.assertFalse(result['paper_observation_allowed'])
+
+    def test_campaign_path_cannot_escape_project(self):
+        self.state['campaign'] = dict(id='campaign', deadline='2026-11-09T16:21:39Z',
+                                     checkpoint='../checkpoint.json')
+        self.write()
+        self.assertFalse(self.get()['campaign']['checkpoint_available'])
+
+    def test_incomplete_risk_fields_do_not_inherit_old_profile(self):
+        self.state['max_single_position_fraction_NAV'] = 1
+        for risk in (None, [], {}, dict(drawdown=.4),
+                     dict(drawdown='0.4', daily_loss_fraction_previous_NAV=.02,
+                          complete_flat_cooldown_sessions=5),
+                     dict(drawdown=.4, daily_loss_fraction_previous_NAV=.02,
+                          complete_flat_cooldown_sessions=True)):
+            self.state['current_risk_policy'] = risk
+            self.write()
+            result = self.get()
+            self.assertEqual(result['current_risk_policy'], {})
+            self.assertIsNone(result['max_single_position_fraction_NAV'])
+            self.assertFalse(result['paper_observation_allowed'])

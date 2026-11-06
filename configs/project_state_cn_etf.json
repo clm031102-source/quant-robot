@@ -2,10 +2,10 @@
   "schema_version": 1,
   "display_only": true,
   "market": "CN_ETF",
-  "updated_at": "2026-11-04",
-  "state": "evidence_blocked",
-  "state_label": "40%回撤可恢复研究已完成，0合格；主要缺口是持续收益",
-  "authority_document": "docs/research/project_delivery_2026-11-04.md",
+  "updated_at": "2026-11-06",
+  "state": "research_in_progress",
+  "state_label": "72小时量化经理持续推进中；现有0合格策略",
+  "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
     "return_studies": 17,
     "source_screens": 4,
@@ -46,30 +46,30 @@
       "blocker_id": "holdout_proxy_context_exposure",
       "severity": "review",
       "track_id": "research",
-      "evidence": "2026 ETF价格/收益文件未读，但两次来源网页/搜索已暴露部分2026指数行情和市场汇总摘要。保留两份暴露记录，不能称完全盲态。"
+      "evidence": "当前封存的2026 ETF分区未读；旧etf_csv数据的2015-01-05至2026-05-22已由Round17研究消费，不能称全项目2026盲态。另保留两次网页/搜索暴露记录，本次未读2026价格。"
     }
   ],
   "next_actions": [
     {
       "priority": 1,
-      "track_id": "research",
-      "title": "形成有独立收益机制的新候选与可检验规格",
+      "track_id": "delivery",
+      "title": "接通冻结候选与统一风险模拟账户",
       "command": "",
-      "reason": "新40%口径已执行；保持当前风险规则和三批结果，不能继续调阈值或从已见历史选赢家。已消费范围不能重复运行。"
+      "reason": "旧日常入口尚未接入40%/2%/5日规则，先用合成数据实现幂等记账与恢复，不冒充真实前向。"
     },
     {
       "priority": 2,
-      "track_id": "costs",
-      "title": "核实实际ETF最低佣金",
+      "track_id": "research",
+      "title": "核实广谱数据并冻结新的可检验机制",
       "command": "",
-      "reason": "实际费用未认证；满仓新研究仍保留九费用情景。"
+      "reason": "用户已授权72小时持续推进及跨标的研究；最多两条新主线，不重复包装已消费旧因子。"
     },
     {
       "priority": 3,
-      "track_id": "delivery",
-      "title": "保存新增证据并保持可恢复",
+      "track_id": "costs",
+      "title": "核实候选所需的来源与交易成本",
       "command": "",
-      "reason": "约20.24GB原始证据及本轮研究已跨物理盘校验备份、恢复抽查；后续新增结果继续增量保全。"
+      "reason": "只核实选定路径实际依赖的数据、公司行动及费用；保留九费用情景和来源限制。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -79,5 +79,11 @@
     "drawdown": 0.4,
     "drawdown_halt": "pause_then_five_complete_flat_sessions_no_peak_or_capital_reset",
     "user_new_full_position_authorization": "2026-11-04 explicit40percent drawdown and reentry; prospective new study only"
+  },
+  "campaign": {
+    "id": "quant_manager_72h_20261106",
+    "deadline": "2026-11-09T16:21:39Z",
+    "heartbeat_id": "72",
+    "checkpoint": "data\\reports\\campaign_72h_20261106\\checkpoint.json"
   }
 }

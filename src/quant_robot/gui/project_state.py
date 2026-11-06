@@ -15,6 +15,50 @@ COUNT_KEYS = {'return_studies', 'source_screens', 'qualified_strategies',
               'forward_observation_days', 'prepared_candidates'}
 
 
+def _risk_projection(data: dict) -> tuple[dict, float | None]:
+    """An incomplete display record must not inherit an old risk profile."""
+    risk = data.get('current_risk_policy')
+    exposure = data.get('max_single_position_fraction_NAV')
+    if not isinstance(risk, dict):
+        return {}, None
+    fractions = [exposure, risk.get('drawdown'), risk.get('daily_loss_fraction_previous_NAV')]
+    if (any(type(v) not in (int, float) or not 0 < v <= 1 for v in fractions)
+            or type(risk.get('complete_flat_cooldown_sessions')) is not int
+            or risk['complete_flat_cooldown_sessions'] < 0):
+        return {}, None
+    return {key: risk[key] for key in ('drawdown', 'daily_loss_fraction_previous_NAV',
+                                       'complete_flat_cooldown_sessions')}, exposure
+
+
+def _campaign_projection(root: Path, campaign: dict) -> dict:
+    """Show a checkpoint as a work record, never as proof a worker is alive."""
+    if not isinstance(campaign, dict) or not campaign:
+        return {}
+    summary = dict(campaign_id=campaign.get('id'), deadline=campaign.get('deadline'),
+                   checkpoint_available=False, checkpoint_at=None, tasks=[])
+    try:
+        checkpoint_path = Path(campaign['checkpoint'])
+        if (checkpoint_path.is_absolute() or '..' in checkpoint_path.parts
+                or not (root / checkpoint_path).resolve().is_relative_to(root.resolve())):
+            return summary
+        checkpoint = json.loads((root / checkpoint_path).read_text(encoding='utf-8-sig'))
+        if (checkpoint['campaign_id'] != campaign['id']
+                or checkpoint['deadline'] != campaign['deadline']
+                or not isinstance(checkpoint['at'], str)
+                or not isinstance(checkpoint['phase'], str)
+                or not isinstance(checkpoint['active_tasks'], list)):
+            return summary
+        tasks = []
+        for row in checkpoint['active_tasks']:
+            if any(not isinstance(row.get(k), str) for k in ('id', 'stage', 'next')):
+                return summary
+            tasks.append(dict(task_id=row['id'], stage=row['stage'], next=row['next']))
+        return dict(summary, checkpoint_available=True, checkpoint_at=checkpoint['at'],
+                    phase=checkpoint['phase'], tasks=tasks)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return summary
+
+
 def _load(root: Path, today: date) -> dict:
     data = json.loads((root / STATE_PATH).read_text(encoding='utf-8'))
     if (not isinstance(data, dict) or data.get('schema_version') != 1
@@ -77,10 +121,14 @@ def current_project_status(root: str | Path = '.', *, today: date | None = None)
                     blockers=[blocker], readiness_items=[], next_actions=[
                         dict(priority=1, track_id='status', title='核对最新项目状态',
                              command='', reason=blocker['evidence'])])
+    risk, exposure = _risk_projection(data)
     return dict(base, overall_status=data['state'], state_label=data['state_label'],
                 generated_at=data['updated_at'], authority_document=data['authority_document'],
                 evidence_counts=data['counts'], capital_cny=data['capital_cny'],
                 actual_fees_verified=data['actual_fees_verified'],
+                current_risk_policy=risk,
+                max_single_position_fraction_NAV=exposure,
+                campaign=_campaign_projection(root, data.get('campaign', {})),
                 blockers=data['blockers'], blocker_count=len(data['blockers']),
                 readiness_items=[], next_actions=data['next_actions'])
 

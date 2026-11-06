@@ -5761,7 +5761,7 @@ function renderOrdinaryHome() {
   if (project.authority === "current_project_state") {
     const counts = project.evidence_counts || {};
     metricsNode.innerHTML = [
-      metric("完成的收益研究", counts.return_studies ?? "--", "全部保留通过与拒绝结果"),
+      metric("接续收益研究", counts.return_studies ?? "--", "非历史全部试验；拒绝结果保留"),
       metric("合格策略", counts.qualified_strategies ?? "--", "按完整验收口径"),
       metric("真实前向观察", counts.forward_observation_days ?? "--", "历史回放不累计天数"),
       metric("计划本金", project.capital_cny ?? "--", "人民币；尚未投入实盘"),
@@ -6631,25 +6631,61 @@ function renderFactorLeaderboardTable(rows) {
   return `${head}${body}`;
 }
 
+function groupHistoricalDashboard() {
+  const dashboard = byId("page-dashboard");
+  const currentStatus = byId("project-status-list")?.closest(".page-grid");
+  if (!dashboard || !currentStatus || byId("historical-dashboard-details")) return;
+  const history = document.createElement("details");
+  history.id = "historical-dashboard-details";
+  history.className = "panel";
+  const summary = document.createElement("summary");
+  summary.textContent = "历史工具与旧报告（展开查阅；旧风险档位和回执不代表当前资格）";
+  history.appendChild(summary);
+  // Keep existing nodes and event handlers; only their presentation changes.
+  for (const child of [...dashboard.children]) {
+    if (child.id !== "ordinary-home-board" && child !== currentStatus) history.appendChild(child);
+  }
+  dashboard.appendChild(history);
+}
+
 function renderProjectStatus() {
   const project = state.projectStatus || {};
   if (project.authority === "current_project_state") {
     const counts = project.evidence_counts || {};
+    const risk = project.current_risk_policy || {};
+    const campaign = project.campaign || {};
+    const localTime = (value) => {
+      if (!value) return "待核实";
+      const instant = new Date(value);
+      return Number.isNaN(instant.valueOf()) ? "待核实" : instant.toLocaleString("zh-CN", { timeZoneName: "short" });
+    };
     const tag = byId("project-status-tag");
     if (tag) { tag.textContent = project.state_label || "状态待核实"; tag.classList.add("tag-warn"); }
     byId("project-status-list").innerHTML = statusRows([
       ["当前阶段", project.state_label || "状态待核实", "warn"],
       ["证据日期", project.generated_at || "待更新", "muted"],
-      ["完成的收益研究", `${counts.return_studies ?? "--"} 项`, "muted"],
+      ["接续收益研究", `${counts.return_studies ?? "--"} 项（非历史全部试验）`, "muted"],
       ["合格策略", `${counts.qualified_strategies ?? "--"} 个`, "warn"],
       ["真实前向观察", `${counts.forward_observation_days ?? "--"} 天`, "warn"],
       ["准备中的候选", `${counts.prepared_candidates ?? "--"} 个`, "muted"],
       ["计划本金", project.capital_cny == null ? "待核实" : `${project.capital_cny} 元`, "muted"],
+      ...(project.max_single_position_fraction_NAV == null ? [["当前风控口径", "待核实", "warn"]] : [
+        ["单仓上限", `${formatPercent(project.max_single_position_fraction_NAV)} 净值，不加杠杆`, "muted"],
+      ]),
+      ...(risk.drawdown == null ? [] : [
+        ["回撤暂停线", `${formatPercent(risk.drawdown)}，历史峰值和本金不重置`, "muted"],
+        ["日亏与恢复", `前日净值 ${formatPercent(risk.daily_loss_fraction_previous_NAV)}；清仓后 ${risk.complete_flat_cooldown_sessions} 个完整交易日冷却`, "muted"],
+      ]),
+      ...(campaign.campaign_id ? [
+        ["72小时交付检查", localTime(campaign.deadline), "muted"],
+        ["最新工作记录", campaign.checkpoint_available ? localTime(campaign.checkpoint_at) : "工作记录待核实", "muted"],
+      ] : []),
       ["实际费用", project.actual_fees_verified ? "已核实" : "尚未核实，研究保留费用情景", "warn"],
       ["模拟运行", "尚无通过验收的候选，暂不开启", "warn"],
       ["项目范围", project.safety || "研究与模拟", "muted"],
     ]);
     byId("project-action-table").innerHTML = tableRows(project.next_actions || [], ["priority", "title", "reason"]);
+    groupHistoricalDashboard();
     renderOrdinaryHome();
     return;
   }
