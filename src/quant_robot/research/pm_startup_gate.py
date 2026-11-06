@@ -40,6 +40,7 @@ from quant_robot.research.full_position_recovery_study import scope as recovery_
 from quant_robot.research.dd40_reentry_study import scope as dd40_scope
 from quant_robot.research.commodity_proxy_admission import scope as commodity_proxy_scope
 from quant_robot.research.commodity_proxy_repair_admission import scope as commodity_repair_scope
+from quant_robot.research.crypto_monthly_admission import scope as crypto_monthly_scope
 
 
 STAGE = "quant_pm_startup_gate"
@@ -102,6 +103,7 @@ def build_quant_pm_startup_gate(
         recovery_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         commodity_proxy_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         commodity_repair_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        crypto_monthly_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
     ) if scope]
     restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)
@@ -113,6 +115,8 @@ def build_quant_pm_startup_gate(
         blockers.append("multiple_dedicated_diagnostics_authorized")
 
     blockers.extend(_context_blockers(workstations_config, machine, task, selected_branch, current_branch))
+    if restricted_mode == "single_campaign_crypto_monthly_10_account_only" and machine != "office_desktop":
+        blockers.append("crypto_monthly_diagnostic_requires_office_desktop")
     blockers.extend(f"required_reading_missing:{path}" for path in missing_reading)
     if str(resolved_family_config.get("primary_market", "")).upper() != primary_market:
         blockers.append("research_family_primary_market_mismatch")
@@ -130,6 +134,8 @@ def build_quant_pm_startup_gate(
         warnings.append("campaign_single_commodity_proxy_conditional_account_mode")
     elif restricted_mode == "single_campaign_commodity_lifecycle_repair_36_account_only":
         warnings.append("campaign_single_commodity_lifecycle_technical_repair_mode")
+    elif restricted_mode == "single_campaign_crypto_monthly_10_account_only":
+        warnings.append("campaign_conditional_crypto_month_not_alpha_or_promotion")
     elif restricted_mode == "single_monthly_diagnostic_only":
         warnings.append("research_family_scheduler_single_monthly_diagnostic_mode")
     elif restricted_mode == "single_household_diagnostic_only":
@@ -236,11 +242,13 @@ def build_quant_pm_startup_gate(
             "commodity_proxy_36_account_scope": _dict(restricted.get("scope")) if restricted_mode == "single_campaign_commodity_proxy_36_account_only" else {},
             "commodity_proxy_lifecycle_repair_allowed": not blockers and restricted_mode == "single_campaign_commodity_lifecycle_repair_36_account_only",
             "commodity_proxy_lifecycle_repair_scope": _dict(restricted.get("scope")) if restricted_mode == "single_campaign_commodity_lifecycle_repair_36_account_only" else {},
+            "crypto_monthly_10_account_allowed": not blockers and restricted_mode == "single_campaign_crypto_monthly_10_account_only",
+            "crypto_monthly_10_account_scope": _dict(restricted.get("scope")) if restricted_mode == "single_campaign_crypto_monthly_10_account_only" else {},
             "factor_batch_allowed": bool(
                 not blockers
                 and (not restricted_mode or restricted_mode == "single_prescreen_only")
             ),
-            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only", "single_full_position_factor_search_only", "single_full_position_recovery_only", "single_dd40_reentry_only", "single_campaign_commodity_proxy_36_account_only", "single_campaign_commodity_lifecycle_repair_36_account_only"} else {},
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only", "single_full_position_factor_search_only", "single_full_position_recovery_only", "single_dd40_reentry_only", "single_campaign_commodity_proxy_36_account_only", "single_campaign_commodity_lifecycle_repair_36_account_only", "single_campaign_crypto_monthly_10_account_only"} else {},
             "monthly_diagnostic_allowed": not blockers and restricted_mode == "single_monthly_diagnostic_only",
             "monthly_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_monthly_diagnostic_only" else {},
             "household_diagnostic_allowed": not blockers and restricted_mode == "single_household_diagnostic_only",
@@ -661,6 +669,9 @@ def _next_actions(
                 "reason": "Exactly one prescreen bound to the scheduler's current authorization is allowed; all portfolio, walk-forward, holdout, paper, and live actions remain disabled.",
             }
         ]
+    if restricted_mode == "single_campaign_crypto_monthly_10_account_only":
+        return [{"action": "run_registered_conditional_crypto_month_once",
+                 "reason": "Only the frozen January2025 nine-fee accounts and cash mechanism diagnostic may execute once; no holding comparison, alpha qualification, promotion, general batch, holdout or live permission."}]
     if restricted_mode == "single_monthly_diagnostic_only":
         return [{"action": "run_registered_single_monthly_diagnostic",
             "reason": "Only the exact unconsumed registered monthly gross diagnostic may execute; general batches, account runs, holdout and promotion remain disabled."}]

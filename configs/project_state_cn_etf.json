@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-06",
   "state": "research_in_progress",
-  "state_label": "72小时推进中；商品研究已完成，对冲来源补齐中，0合格策略",
+  "state_label": "72小时推进中；对冲月度检验遇输入一致性问题，0合格策略",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 18,
+    "return_studies": 19,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "接续序列18项收益研究（非全生命周期总数），0合格。新商品期限结构36账户及2现金对照已完成并独立复核，预设财务条件未通过。"
+      "evidence": "接续序列19项收益研究尝试（非全生命周期总数），0合格。第19项已进入金融数据解码，但分钟标记价与资金费事件价一致性校验失败，0账户、无盈亏结论；旧商品研究拒绝结果保留。"
     },
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
@@ -47,22 +47,28 @@
       "severity": "review",
       "track_id": "research",
       "evidence": "当前封存的2026 ETF分区未读；旧etf_csv的部分2026已被Round17消费。原有及本轮网页背景暴露记录保留，不能称全项目完全盲态；2026日历与规则元数据另行取证，不是价格解封。"
+    },
+    {
+      "blocker_id": "funding_mark_minute_consistency_unresolved",
+      "severity": "block",
+      "track_id": "research",
+      "evidence": "固定2025年1月诊断因event_mark_outside_minute_ohlc停止；尚未判定是来源时间/价格口径差异还是校验假设问题。原执行已消费，不放宽检查自动重跑。"
     }
   ],
   "next_actions": [
     {
       "priority": 1,
       "track_id": "delivery",
-      "title": "接通原件验证与模拟运营",
+      "title": "完成日常来源接入与容量核验",
       "command": "",
-      "reason": "商品研究和既有工程已合主线；新预热、原件到账本与落盘时钟修复已通过独立复核，日常采集实现及来源完整性继续补齐。真实前向未开通。"
+      "reason": "原件绑定、一次取件、候选准备均已合主线并通过独立复核；20日合成跨进程恢复已验收。来源完整性和合格策略仍缺，容量改进在隔离验证中。"
     },
     {
       "priority": 2,
       "track_id": "research",
-      "title": "验证资金费对冲机制",
+      "title": "查明资金费标记价一致性问题",
       "command": "",
-      "reason": "预选2025年1月三套分钟时间轴完整，93次资金费事件的时刻及费率逐条一致且标记价齐备；准备有限条件诊断，尚未运行收益或认定合格。"
+      "reason": "第19项在账户开始前停止，完整失败记录已备份。先依据既存官方定义制定有限来源取证，不算策略盈亏失败，也不以改日期、费用或容差救回。"
     },
     {
       "priority": 3,
