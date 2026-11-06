@@ -730,7 +730,7 @@ async function loadSnapshot() {
   byId("mode-pill").textContent = `${zhConsoleText(state.snapshot.data_mode)} / 本地`;
   byId("data-mode-label").textContent = zhConsoleText(state.snapshot.data_mode || "local");
   byId("broker-status-label").textContent = state.snapshot.risk?.account_connected ? "已连接" : "无券商连接";
-  byId("run-state-label").textContent = "就绪";
+  byId("run-state-label").textContent = "待命";
   fillFactorSelect(state.snapshot.available_factors || []);
   applySourcePreset(false);
   renderDashboard();
@@ -2187,7 +2187,7 @@ async function runDailyPretradeCheckup(button = null) {
       button.disabled = false;
       button.textContent = label || "运行";
     }
-    byId("run-state-label").textContent = "就绪";
+    byId("run-state-label").textContent = "待命";
   }
 }
 
@@ -14791,7 +14791,7 @@ async function runVerificationGate(gateId, button = null) {
       button.disabled = false;
       button.textContent = label || "运行";
     }
-    byId("run-state-label").textContent = "就绪";
+    byId("run-state-label").textContent = "待命";
   }
 }
 
@@ -14937,7 +14937,7 @@ async function withBusy(buttonId, action, operation = null) {
   } finally {
     button.disabled = false;
     button.textContent = label;
-    byId("run-state-label").textContent = "就绪";
+    byId("run-state-label").textContent = "待命";
   }
 }
 

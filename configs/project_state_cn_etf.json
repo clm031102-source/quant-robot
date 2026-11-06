@@ -4,7 +4,7 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-06",
   "state": "research_in_progress",
-  "state_label": "72小时任务推进中；商品36账户已完成，现有0合格策略",
+  "state_label": "72小时推进中；商品研究已完成，对冲来源补齐中，0合格策略",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
     "return_studies": 18,
@@ -53,23 +53,23 @@
     {
       "priority": 1,
       "track_id": "delivery",
-      "title": "完成新研究的独立核对和集成",
+      "title": "接通原件验证与模拟运营",
       "command": "",
-      "reason": "商品36账户结果及主格原价订单已独立复核，正在集成；原始数据接入和本机运行故障修复已合主线。"
+      "reason": "商品研究和既有工程已合主线；新预热、原件到账本与落盘时钟修复已通过独立复核，日常采集实现及来源完整性继续补齐。真实前向未开通。"
     },
     {
       "priority": 2,
       "track_id": "research",
-      "title": "修复对冲策略并继续有依据的新研究",
+      "title": "验证资金费对冲机制",
       "command": "",
-      "reason": "修正已复现的估值与风控时序问题，补全合成多日流程；已失败商品机制保持结论，不改参数复跑。"
+      "reason": "预选2025年1月三套分钟时间轴完整，93次资金费事件的时刻及费率逐条一致且标记价齐备；准备有限条件诊断，尚未运行收益或认定合格。"
     },
     {
       "priority": 3,
       "track_id": "costs",
-      "title": "核实真实成本并准备前向运行",
+      "title": "补齐ETF交易状态与真实费用",
       "command": "",
-      "reason": "保留九费用情景；只有候选和来源同时通过才启动真实时间模拟，工程演练不计前向。"
+      "reason": "已找到ETF涨跌停专用来源定义；停牌完整覆盖与当前公告仍待核实。九费用情景保留，真实费用未确认。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
