@@ -175,6 +175,24 @@ class _Context(source.EvidenceContext):
 
 
 def build_warmup_bundle(spec, *, evidence_root, adapters=None, adapter_dependencies=None):
+    return _build_warmup_bundle(spec,evidence_root=evidence_root,adapters=adapters,
+                                adapter_dependencies=adapter_dependencies)
+
+
+def prepare_warmup_bundle(spec, *, session):
+    """Stage an entire synthetic prefix; no ready bundle escapes before commit."""
+    try:
+        assembly=source._DeferredAssembly(session)
+        result=_build_warmup_bundle(spec,evidence_root=session.root,
+            adapters=source.SYNTHETIC_DEFERRED_ADAPTERS,_deferred=assembly)
+        if result['input_contract_complete'] is not True:
+            raise source.BundleError('deferred_warmup_incomplete:'+','.join(row['code'] for row in result['blockers']))
+        return assembly.propose(result)
+    except BaseException:
+        session.abort();raise
+
+
+def _build_warmup_bundle(spec, *, evidence_root, adapters=None, adapter_dependencies=None,_deferred=None):
     """Assemble complete originals as known now, without backdating old sessions.
 
     input_contract_complete describes evidence structure, not feature readiness.
@@ -222,7 +240,8 @@ def build_warmup_bundle(spec, *, evidence_root, adapters=None, adapter_dependenc
             raise source.BundleError('unique_ordered_explicit_prefix_required')
         source._keys(spec['evidence'], ('calendar', 'identity', 'actions'))
         registry = dict(DEFAULT_ADAPTERS if adapters is None else adapters)
-        before = runtime_binding(adapters=adapters, adapter_dependencies=adapter_dependencies)
+        before = (runtime_binding(adapters=adapters, adapter_dependencies=adapter_dependencies)
+                  if _deferred is None else _deferred.binding())
         if source._canonical(before) != source._canonical(spec['implementation_binding']):
             raise source.BundleError('implementation_binding_mismatch')
 
@@ -231,11 +250,13 @@ def build_warmup_bundle(spec, *, evidence_root, adapters=None, adapter_dependenc
             stage = label
             source._keys(entry, ('adapter_id', 'receipt'))
             adapter = registry.get(entry['adapter_id'])
-            if not isinstance(adapter, source.SourceAdapter) or adapter.component != kind:
+            if (not isinstance(adapter, source.SourceAdapter) and _deferred is None) or adapter is None or adapter.component != kind:
                 raise source.BundleError('unsupported_component_adapter')
-            context = _Context(evidence_root, component=kind, ledger=ledger)
+            context = (_Context(evidence_root, component=kind, ledger=ledger) if _deferred is None
+                       else _deferred.context(kind,ledger))
             context.read_json(entry['receipt'])
-            parsed = adapter.parse(context, entry['receipt'])
+            parsed = (adapter.parse(context, entry['receipt']) if _deferred is None
+                      else _deferred.parse(adapter,context,entry['receipt']))
             if not isinstance(parsed, source.Evidence) or len(context.references) < 2:
                 raise source.BundleError('parsed_original_evidence_required')
             if parsed.evidence_class not in ('recorded_observation', 'synthetic_only'):
@@ -318,7 +339,8 @@ def build_warmup_bundle(spec, *, evidence_root, adapters=None, adapter_dependenc
         stage = 'final_recheck'
         for context in contexts:
             context.recheck()
-        after = runtime_binding(adapters=adapters, adapter_dependencies=adapter_dependencies)
+        after = (runtime_binding(adapters=adapters, adapter_dependencies=adapter_dependencies)
+                 if _deferred is None else _deferred.binding())
         if source._canonical(before) != source._canonical(after):
             raise source.BundleError('implementation_changed_during_assembly')
         if source._canonical(original_spec) != spec_bytes:
