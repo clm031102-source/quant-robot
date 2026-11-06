@@ -55,6 +55,9 @@ class _Policy:
 
 
 SYNTHETIC_POLICY = _Policy('synthetic_original_prefix_prototype_v1')
+# Explicit G1-only engineering policy. Existing four-stage policy and all its
+# values are unchanged; the cumulative physical budget does not increase.
+G1_SYNTHETIC_POLICY = replace(SYNTHETIC_POLICY,policy_id='synthetic_g1_deferred_operation_v1',stages=5)
 # Fixed code-owned reduced policies exist only to exercise hard-stop boundaries
 # without reading gigabytes. Constructors accept these exact objects, not IDs,
 # dataclass lookalikes, JSON, environment settings, or caller-supplied limits.
@@ -69,7 +72,7 @@ _OPEN_POLICY = replace(SYNTHETIC_POLICY, policy_id='synthetic_open_budget_probe_
 _UNION_POLICY = replace(SYNTHETIC_POLICY, policy_id='synthetic_union_byte_probe_v1',
     union_files=10,union_bytes=128)
 _POLICIES = MappingProxyType({p.policy_id:p for p in
-    (SYNTHETIC_POLICY,_SMALL_POLICY,_IO_POLICY,_OPEN_POLICY,_UNION_POLICY)})
+    (SYNTHETIC_POLICY,G1_SYNTHETIC_POLICY,_SMALL_POLICY,_IO_POLICY,_OPEN_POLICY,_UNION_POLICY)})
 PREFIX_TYPE = 'journal_original_prefix_v2_prototype'
 EVENT_TYPE = 'frozen_candidate_forward_event_v1'
 _DESCRIPTOR_KEYS = {'dependency_type','policy_id','journal_relative_path',
@@ -82,6 +85,7 @@ _KINDS = {'activation','decision','decision_durability','observation','observati
 # filesystem paths or callbacks supplied by a source document.
 SOURCE_CATALOG = 'synthetic_deferred_sources_v1'
 V2_CATALOG = 'synthetic_prospective_transport_v2'
+G1_CATALOG = 'synthetic_g1_account_originals_v1'
 _REPO = Path(__file__).resolve().parents[3]
 _SOURCE_FILES = (
     'src/quant_robot/ops/paper_source_bundle.py',
@@ -105,7 +109,13 @@ _V2_FILES = tuple(sorted(set(_SOURCE_FILES) | {
     'scripts/capture_tushare_prospective_source.py',
     'scripts/run_quant_pm_startup_gate.py',
 }))
-_CATALOGS = MappingProxyType({SOURCE_CATALOG:_SOURCE_FILES, V2_CATALOG:_V2_FILES})
+_G1_FILES = tuple(sorted(set(_V2_FILES) | {
+    'src/quant_robot/paper/annual_allocation.py',
+    'src/quant_robot/paper/daily_recovery.py',
+    'src/quant_robot/paper/position_buffer.py',
+    'src/quant_robot/paper/daily_entry_policy.py',
+}))
+_CATALOGS = MappingProxyType({SOURCE_CATALOG:_SOURCE_FILES, V2_CATALOG:_V2_FILES,G1_CATALOG:_G1_FILES})
 
 
 def _canonical(value):
@@ -225,6 +235,11 @@ class EvidenceOperation:
         if self._active is not None:self._active._abort()
         if self._state=='open':self._state='closed'
 
+    def fail(self):
+        """Root cleanup failure cannot turn a completed source stage into success."""
+        if self._active is not None:self._active._abort()
+        self._state='failed'
+
     def measurements(self):
         return dict(state=self._state,stages_started=len(self._stages),
             io_bytes_returned=self._bytes,open_attempts=self._opens,read_calls=self._reads,
@@ -232,7 +247,7 @@ class EvidenceOperation:
             prototype_only=True,real_network_requests=0,credentials_read=0,
             existing_top_level_paths_measured=False)
 
-    def _read(self,stage,path,limit,label):
+    def _read(self,stage,path,limit,label,*,flush=False,expected_sha=None):
         """The sole file-content I/O gateway, including implementation reads."""
         p=self._policy
         if self._opens>=p.operation_opens:raise EvidenceSessionError('operation_open_budget_exceeded')
@@ -240,7 +255,7 @@ class EvidenceOperation:
         self._opens+=1;stage._opens+=1
         counts=stage._per_path.setdefault(label,dict(opens=0,bytes=0,reads=0))
         counts['opens']+=1
-        flags=os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_NOFOLLOW',0)
+        flags=(os.O_RDWR if flush else os.O_RDONLY)|getattr(os,'O_BINARY',0)|getattr(os,'O_NOFOLLOW',0)
         fd=os.open(path,flags)
         try:
             info=os.fstat(fd)
@@ -257,16 +272,31 @@ class EvidenceOperation:
                 self._bytes+=len(raw);stage._bytes+=len(raw);counts['bytes']+=len(raw)
                 if not raw:raise EvidenceSessionError('original_truncated_during_read')
                 parts.append(raw);received+=len(raw)
-            if os.fstat(fd).st_size!=received:raise EvidenceSessionError('original_size_changed_during_read')
-            return b''.join(parts)
+            final_info=os.fstat(fd)
+            if final_info.st_size!=received:raise EvidenceSessionError('original_size_changed_during_read')
+            if stage._control_journal is not None and label==stage._control_journal+'/.writer.lock':
+                stage._read_metadata[label]=dict(device=final_info.st_dev,inode=final_info.st_ino,
+                    size=final_info.st_size,mtime_ns=final_info.st_mtime_ns)
+            result=b''.join(parts)
+            if flush:
+                if expected_sha is None or _sha(result)!=expected_sha:
+                    raise EvidenceSessionError('publication_changed_before_fsync_confirmation')
+                os.fsync(fd)
+            return result
         finally:os.close(fd)
 
 
 class _Child:
     def __init__(self,session,name):
-        self._session=session;self.name=name;self._refs={};self._bytes=0;self._prefixes=set()
+        self._session=session;self.name=name;self._refs={};self._bytes=0;self._prefixes=set();self._heads=set()
 
     def read_bytes(self,reference):return self._session._ordinary(self,reference)
+
+    def snapshot_original(self,relative):return self._session._bootstrap(self,relative)
+
+    def confirm_durable(self,reference):return self._session._confirm_durable(self,reference)
+
+    def current_journal(self,journal):return self._session._current_journal(self,journal)
 
     def require_prefix(self,descriptor):return self._session._prefix_dependency(self,descriptor)
 
@@ -341,6 +371,7 @@ class VerificationSession:
         self._children={};self._payloads=[];self._output_bytes=0
         self._prefix=None;self._descriptors={};self._code=None;self._binding=None
         self._catalog_code={};self._code_bytes=0
+        self._heads={};self._guards={};self._control_journal=None;self._control_expected=None;self._read_metadata={}
 
     @property
     def root(self):return self._operation.root
@@ -380,6 +411,70 @@ class VerificationSession:
             self._code_bytes+=len(raw);self._catalog_code[name]=item
         return dict(catalog_id=catalog_id,code={name:self._catalog_code[name]['sha256'] for name in names},
                     session=self.binding(),production_admission=False)
+
+    @_guarded
+    def read_writer_guard(self,journal,expected,*,require_at_commit=False):
+        # Ephemeral owned lock bytes are control evidence, never a reusable
+        # ordinary original. Only this fixed role/path is supported.
+        if not isinstance(expected,bytes) or not 0<len(expected)<=16384:
+            raise EvidenceSessionError('bounded_writer_guard_required')
+        if self._control_journal is None:
+            self._metadata_charge(len(expected)+len(journal.encode()))
+            self._control_journal=journal;self._control_expected=expected
+        elif journal!=self._control_journal or expected!=self._control_expected:
+            raise EvidenceSessionError('one_exact_owned_writer_guard_required')
+        path,key,_=self._path(journal+'/.writer.lock')
+        raw=self._operation._read(self,path,16384,key)
+        if raw!=expected:raise EvidenceSessionError('writer_guard_ownership_changed')
+        if require_at_commit:
+            if journal not in self._guards:
+                if self._guards:raise EvidenceSessionError('one_owned_journal_guard_required')
+            elif self._guards[journal]!=expected:raise EvidenceSessionError('writer_guard_ownership_changed')
+            self._guards[journal]=expected
+        return raw
+
+    def _journal_names(self,journal):
+        directory,_,_=self._path(journal)
+        names=[];pending=False
+        with os.scandir(directory) as entries:
+            # Bound directory metadata work too; do not materialize an arbitrary
+            # directory before deciding that the journal is oversized.
+            for count,entry in enumerate(entries,1):
+                if count>self._policy.prefix_events+64:
+                    raise EvidenceSessionError('journal_directory_entry_budget_exceeded')
+                if entry.name.startswith('.pending-'):pending=True
+                if re.fullmatch(r'[0-9]{8}\.json',entry.name):names.append(entry.name)
+        if pending:raise EvidenceSessionError('journal_pending_publication')
+        names.sort()
+        if len(names)>self._policy.prefix_events or names!=[f'{i:08d}.json' for i in range(len(names))]:
+            raise EvidenceSessionError('current_journal_gap_or_event_budget')
+        return names
+
+    @_guarded
+    def check_publication_head(self,journal,count,*,require_at_commit=False):
+        if type(count) is not int or not 0<=count<=self._policy.prefix_events:
+            raise EvidenceSessionError('bounded_publication_head_required')
+        if self._journal_names(journal)!=[f'{i:08d}.json' for i in range(count)]:
+            raise EvidenceSessionError('publication_journal_head_changed')
+        if require_at_commit:
+            names=[f'{i:08d}.json' for i in range(count)]
+            if journal not in self._heads:self._metadata_charge(len(_canonical(names))+len(journal.encode()))
+            elif self._heads[journal]!=names:raise EvidenceSessionError('active_journal_head_changed')
+            self._heads[journal]=names
+
+    @_guarded
+    def _current_journal(self,child,journal):
+        names=self._journal_names(journal)
+        previous=self._heads.get(journal)
+        if previous is not None and previous!=names:raise EvidenceSessionError('active_journal_head_changed')
+        if journal not in self._heads:
+            if self._heads:raise EvidenceSessionError('one_active_journal_required')
+            self._metadata_charge(len(_canonical(names))+len(journal.encode()));self._heads[journal]=names
+        child._heads.add(journal)
+        if not names:return []
+        first=self._original(journal+'/'+names[0]);activation=_decode(first['raw'])['sha256']
+        view=child.snapshot_prefix(journal,activation,len(names))
+        return [_decode(item['raw']) for item in view.originals()]
 
     def __enter__(self):self._require_open();return self
 
@@ -463,6 +558,26 @@ class VerificationSession:
         return original['raw']
 
     @_guarded
+    def _bootstrap(self,child,relative):
+        _,_,identity=self._path(relative)
+        if identity not in child._refs and len(child._refs)>=self._policy.ordinary_files:
+            raise EvidenceSessionError('ordinary_file_budget_exceeded')
+        item=self._original(relative)
+        ref=dict(path=item['path'],sha256=item['sha256'])
+        raw=self._ordinary(child,ref)
+        return raw,ref
+
+    @_guarded
+    def _confirm_durable(self,child,reference):
+        # Register first under the unchanged ordinary limits; the writable
+        # descriptor only rereads and fsyncs, never changes source bytes.
+        original=self._ordinary(child,reference)
+        path,key,_=self._path(reference['path'])
+        raw=self._operation._read(self,path,self._policy.per_file_bytes,key,flush=True,expected_sha=_sha(original))
+        if raw!=original:raise EvidenceSessionError('publication_changed_before_fsync_confirmation')
+        return raw
+
+    @_guarded
     def _prefix_dependency(self,child,descriptor):
         p=self._policy
         if (not isinstance(descriptor,dict) or set(descriptor)!=_DESCRIPTOR_KEYS
@@ -534,7 +649,7 @@ class VerificationSession:
 
     @_guarded
     def _propose(self,child,value):
-        if not child._refs and not child._prefixes:raise EvidenceSessionError('originals_required_before_proposal')
+        if not child._refs and not child._prefixes and not child._heads:raise EvidenceSessionError('originals_required_before_proposal')
         raw=_canonical(value)
         if len(raw)>self._policy.per_file_bytes or self._output_bytes+len(raw)>self._policy.output_bytes:
             raise EvidenceSessionError('proposed_output_budget_exceeded')
@@ -557,8 +672,14 @@ class VerificationSession:
             raw=self._operation._read(self,_REPO/name,2_000_000,'@code/'+name)
             if len(raw)!=item['bytes'] or _sha(raw)!=item['sha256']:
                 raise EvidenceSessionError('implementation_changed_at_final_read')
+        for journal,names in self._heads.items():
+            if self._journal_names(journal)!=names:raise EvidenceSessionError('active_journal_head_changed')
+        for journal,expected in self._guards.items():self.read_writer_guard(journal,expected)
         record=dict(status='synthetic_originals_verified_at_read_boundary',binding=self._binding,
             code={name:dict(item) for name,item in self._catalog_code.items()},
+            active_journal_heads={journal:list(names) for journal,names in self._heads.items()},
+            writer_guards_checked=list(self._guards),
+            guard_metadata={journal:dict(self._read_metadata[journal+'/.writer.lock']) for journal in self._guards},
             measurements={**self.measurements(),'state':'committed'},prefix_dependencies=[_decode(raw) for raw in self._descriptors.values()],
             originals=[{key:item[key] for key in ('path','sha256','bytes')} for item in self._originals.values()],
             production_admission=False,qualification_granted=False,real_forward_days_added=0,
@@ -575,4 +696,5 @@ class VerificationSession:
             read_calls=self._reads,unique_original_files=self._unique_files,unique_original_bytes=self._unique_bytes,
             metadata_bytes=self._metadata,prefix_events=len(self._prefix['tails']) if self._prefix else 0,
             children=len(self._children),code_files=len(self._catalog_code),code_bytes=self._code_bytes,
+            active_journal_lengths={journal:len(names) for journal,names in self._heads.items()},
             prefix_descriptors=len(self._descriptors),per_path=json.loads(json.dumps(self._per_path)))

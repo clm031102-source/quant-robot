@@ -226,7 +226,8 @@ class _DeferredContext(EvidenceContext):
 class _DeferredAssembly:
     """Private preparation engine. Public entrypoints release only opaque tickets."""
     def __init__(self,stage):
-        if type(stage) is not sessions.VerificationSession or stage.policy is not sessions.SYNTHETIC_POLICY:
+        if (type(stage) is not sessions.VerificationSession or not any(stage.policy is policy for policy in
+                (sessions.SYNTHETIC_POLICY,sessions.G1_SYNTHETIC_POLICY))):
             raise BundleError('exact_synthetic_session_required')
         stage.require_open();self.stage=stage
         self.catalog=stage.bind_implementation(sessions.SOURCE_CATALOG)
