@@ -288,6 +288,59 @@ class FrozenForwardTests(unittest.TestCase):
                 self.activate()
             self.assertFalse(self.journal.exists())
 
+    def test_activation_requires_actual_selected_predicate_warmup(self):
+        for component, count, ready in (
+                ('ema21_55_fibonacci', 54, False),
+                ('ema21_55_fibonacci', 55, True),
+                ('amihud20_below_prior60', 80, False),
+                ('amihud20_below_prior60', 81, True)):
+            with self.subTest(component=component, count=count):
+                day = self.days[count-1]
+                warmup = dict(bars=self.bars[:count], actions=[], corporate_actions_complete=True,
+                    generated_at=day+'T07:00:01Z', available_at=day+'T07:00:02Z',
+                    acquired_at=day+'T07:01:00Z')
+                self.manifest.update(first_session=self.days[count],
+                    warmup=save(self.root/'warmup.json', warmup))
+                self.manifest['strategy']['components'] = [component]
+                self.freeze()
+                self.qualification['issued_at'] = day+'T07:10:00Z'
+                save(self.qual_path, self.qualification)
+                directory = self.journal/f'{component}-{count}'
+                if ready:
+                    forward.activate(directory, self.manifest_path, self.qual_path,
+                                     mode='synthetic', now=day+'T08:00:00Z')
+                    decision = forward.decide(directory, now=self.days[count]+'T01:00:00Z')
+                    self.assertTrue(decision['payload']['known'])
+                else:
+                    with self.assertRaisesRegex(ValueError, component):
+                        forward.activate(directory, self.manifest_path, self.qual_path,
+                                         mode='synthetic', now=day+'T08:00:00Z')
+                    self.assertFalse(directory.exists())
+
+    def test_degenerate_selected_component_cannot_hide_behind_false_signal(self):
+        warmup = json.loads((self.root/'warmup.json').read_text(encoding='utf-8'))
+        for bar in warmup['bars']:
+            bar.update(open='5', high='5', low='5', close='5')
+        self.manifest['warmup'] = save(self.root/'warmup.json', warmup)
+        self.manifest['strategy']['components'] = ['sma20_trend', 'cmf20_positive']
+        self.freeze()
+        with self.assertRaisesRegex(ValueError, 'cmf20_positive'):
+            self.activate()
+        self.assertFalse(self.journal.exists())
+
+    def test_defined_false_initial_signal_is_ready_and_does_not_buy(self):
+        warmup = json.loads((self.root/'warmup.json').read_text(encoding='utf-8'))
+        for bar in warmup['bars']:
+            bar.update(open='5', high='5', low='5', close='5')
+        self.manifest['warmup'] = save(self.root/'warmup.json', warmup)
+        self.freeze()
+        self.activate()
+        decision = forward.decide(self.journal, now=self.days[80]+'T01:00:00Z')
+        self.assertTrue(decision['payload']['known'])
+        self.assertFalse(decision['payload']['desired'])
+        observation = forward.observe(self.journal, self.packet(80), now=self.days[80]+'T08:00:00Z')
+        self.assertEqual(observation['payload']['account']['fills'], [])
+
     def test_missing_late_future_and_conflicting_packets_block(self):
         self.activate()
         with self.assertRaisesRegex(ValueError, 'registered decision'):

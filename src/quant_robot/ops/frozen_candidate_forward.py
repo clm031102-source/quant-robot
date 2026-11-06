@@ -10,7 +10,7 @@ No broker is involved.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 from importlib.metadata import version
@@ -26,6 +26,7 @@ from quant_robot.paper.daily_recovery import RECOVERY_40
 from quant_robot.research.full_position_factors import CATALOG, combined_state, feature_frame
 from quant_robot.ops.frozen_cash_actions import cash_action_snapshot
 from quant_robot.ops.frozen_input_clocks import BASES, session_clocks, validate_schedule, validate_input_clocks
+from quant_robot.ops import paper_source_connection as source_connection
 
 
 MANIFEST_TYPE = 'frozen_candidate_forward_manifest_v1'
@@ -41,6 +42,8 @@ CODE_FILES = (
     'ops/frozen_cash_actions.py',
     'ops/frozen_input_clocks.py',
     'paper/daily_entry_policy.py',
+    'ops/paper_source_connection.py', 'ops/paper_source_bundle.py',
+    'ops/paper_warmup_bundle.py',
 )
 
 
@@ -97,11 +100,46 @@ def _clock(now=None):
     return result, result.isoformat(timespec='microseconds').replace('+00:00', 'Z')
 
 
-def _require_verified_forward_source():
-    # No raw-source parser plus independently bound acquisition receipt has yet
-    # been reviewed. Self-reported source names/timestamps are not certification.
-    # A real adapter must be added and reviewed before this boundary can open.
-    raise ValueError('verified_raw_source_adapter_missing: declared packet metadata cannot certify real forward evidence')
+def _require_verified_forward_source(manifest):
+    # Only reviewed application profiles can supply provenance. The shipped
+    # profile is synthetic; JSON metadata cannot turn it into a production one.
+    source_connection.validate_contract(manifest, require_recorded=True)
+
+
+def _has_originals(manifest):
+    return 'originals_binding' in manifest['source_contract']
+
+
+def _verify_bound_prefix(events, manifest, schedule, *, now, require_recorded):
+    if not _has_originals(manifest):
+        if require_recorded:
+            _require_verified_forward_source(manifest)
+        return
+    warmup = json.loads(_reference(manifest['warmup']))
+    source_connection.verify_warmup_input(manifest, schedule, warmup,
+                                         now=now, require_recorded=require_recorded)
+    for event in events:
+        if event['kind'] == 'observation':
+            packet = event['payload']['packet']
+            recorded = _instant(event['received_at'])
+            if recorded > now:
+                raise ValueError('Observation record is later than the actual journal clock')
+            session = next(row for row in schedule if row['date'] == packet['session_date'])
+            validate_input_clocks(packet, session, manifest['source_contract']['timestamp_basis'], now=recorded)
+            decisions = [entry for entry in events if entry['kind']=='decision'
+                and entry['sha256']==event['payload']['decision_sha256']
+                and entry['payload']['session_date']==packet['session_date']
+                and entry['sequence']<event['sequence']]
+            if (len(decisions)!=1 or _decision_receipt(events,decisions[0],
+                    cutoff=session_clocks(session,manifest['source_contract']['timestamp_basis'])['cutoff'],
+                    replay=events[0]['payload']['mode']=='replay') is None):
+                raise ValueError('Observation lacks its prior durable pre-open decision')
+            source_connection.verify_daily_input(manifest, schedule, packet,
+                                                  now=recorded, require_recorded=require_recorded)
+            receipt = _observation_receipt(events, event, manifest, schedule,
+                                           mode=events[0]['payload']['mode'])
+            if receipt is not None and _instant(receipt['received_at']) > now:
+                raise ValueError('Observation confirmation is later than the actual journal clock')
 
 
 def _validate_bar(bar, *, asset, session):
@@ -286,10 +324,13 @@ def _active(events, *, now=None):
     activation = events[0]['payload']
     if now is not None and activation['mode'] == 'forward':
         raise ValueError('Real forward mode does not accept a caller supplied clock')
-    if activation['mode'] == 'forward':
-        _require_verified_forward_source()
     manifest, qualification, schedule, config = _contracts(
         activation['manifest'], activation['qualification'])
+    if activation['mode'] == 'forward':
+        _require_verified_forward_source(manifest)
+    if _has_originals(manifest):
+        _verify_bound_prefix(events, manifest, schedule, now=_clock(now)[0],
+                             require_recorded=activation['mode'] == 'forward')
     if qualification['evidence_class'] != activation['evidence_class']:
         raise ValueError('Qualification class changed')
     return activation, manifest, qualification, schedule, config
@@ -309,7 +350,7 @@ def activate(directory, manifest_path, qualification_path, *, mode='forward', no
     if mode == 'forward' and evidence_class != 'reviewed_research':
         raise ValueError('Synthetic qualification cannot activate real forward observation')
     if mode == 'forward':
-        _require_verified_forward_source()
+        _require_verified_forward_source(manifest)
     if _instant(qualification['issued_at']) > instant:
         raise ValueError('Qualification was issued in the future')
     first = next(row for row in schedule if row['date'] == manifest['first_session'])
@@ -317,6 +358,9 @@ def activate(directory, manifest_path, qualification_path, *, mode='forward', no
     if mode != 'replay' and instant >= session_clocks(first, basis)['cutoff']:
         raise ValueError('Activation must precede the first execution session')
     warmup = json.loads(_reference(manifest['warmup']))
+    if _has_originals(manifest):
+        source_connection.verify_warmup_input(manifest, schedule, warmup,
+                                             now=instant, require_recorded=mode == 'forward')
     start = [row['date'] for row in schedule].index(first['date'])
     if [row['date'] for row in warmup['bars']] != [row['date'] for row in schedule[:start]]:
         raise ValueError('Exact consecutive warmup prefix required')
@@ -328,12 +372,26 @@ def activate(directory, manifest_path, qualification_path, *, mode='forward', no
     if warmup.get('corporate_actions_complete') is not True:
         raise ValueError('Warmup requires a complete cash action response')
     actions = cash_action_snapshot(warmup.get('actions'), asset=manifest['asset_id'],
-        sessions=[row['date'] for row in schedule], as_of_session=schedule[start-1]['date'], warmup=True)
+        sessions=[row['date'] for row in schedule],
+        as_of_session=(warmup['action_as_of_session'] if _has_originals(manifest)
+                       else schedule[start-1]['date']), warmup=True)
+    # A calendar count alone does not establish readiness for the selected
+    # predicates. Use the exact frozen prefix and seed policy, including cash
+    # actions; longer but degenerate inputs can still leave a predicate unknown.
+    initial_frame = feature_frame(warmup['bars'], actions)
+    unknown = [name for name in manifest['strategy']['components']
+               if not math.isfinite(float(initial_frame[name].iloc[-1]))]
+    if unknown:
+        raise ValueError('Initial signal warmup incomplete or degenerate: ' + ', '.join(unknown))
     # The same engine validates warmup without fabricated orders or terminal exits.
     run_allocation_account(warmup['bars'], sessions=[r['date'] for r in schedule[:start]],
         assets=[manifest['asset_id']], cycles=[], actions=actions, config=config,
         daily_recovery=RECOVERY_40, allow_open_cycle=True)
     # Validation must finish before activation; a slow validation may cross open.
+    if _has_originals(manifest):
+        _contracts(manifest_ref, qualification_ref)
+        source_connection.verify_warmup_input(manifest, schedule, warmup,
+                                             now=_clock(now)[0], require_recorded=mode == 'forward')
     instant, stamp = _clock(now)
     if mode != 'replay' and instant >= session_clocks(first, basis)['cutoff']:
         raise ValueError('Activation validation crossed the first execution open')
@@ -355,8 +413,13 @@ def _prefix(events, manifest, schedule):
     observations = [e for e in events if e['kind'] == 'observation']
     start = [r['date'] for r in schedule].index(manifest['first_session'])
     actions = cash_action_snapshot(warmup['actions'], asset=manifest['asset_id'],
-        sessions=[row['date'] for row in schedule], as_of_session=schedule[start-1]['date'], warmup=True)
+        sessions=[row['date'] for row in schedule],
+        as_of_session=(warmup['action_as_of_session'] if _has_originals(manifest)
+                       else schedule[start-1]['date']), warmup=True)
     for offset, event in enumerate(observations):
+        if (_has_originals(manifest) and _observation_receipt(events, event, manifest, schedule,
+                mode=events[0]['payload']['mode']) is None):
+            raise ValueError('Unconfirmed observation cannot feed a subsequent decision')
         packet = event['payload']['packet']
         if packet['session_date'] != schedule[start+offset]['date']:
             raise ValueError('Skipped or reordered observed session')
@@ -364,6 +427,37 @@ def _prefix(events, manifest, schedule):
         actions = cash_action_snapshot(packet['corporate_actions'], asset=manifest['asset_id'],
             sessions=[row['date'] for row in schedule], as_of_session=packet['session_date'], previous=actions)
     return bars, observations, start, actions
+
+
+def _decision_receipt(events, decision, *, cutoff, replay=False):
+    receipts = [e for e in events if e['kind'] == 'decision_durability'
+                and e['payload'].get('decision_sha256') == decision['sha256']]
+    if not receipts:
+        return None
+    if (len(receipts) != 1 or receipts[0]['sequence'] <= decision['sequence']
+            or receipts[0]['payload'] != dict(decision_sha256=decision['sha256'],
+                                             decision_sequence=decision['sequence'])
+            or _instant(receipts[0]['received_at']) < _instant(decision['received_at'])
+            or not replay and _instant(receipts[0]['received_at']) >= cutoff):
+        raise ValueError('Invalid pre-open decision durability receipt')
+    return receipts[0]
+
+
+def _confirm_decision(directory, events, decision, *, cutoff, replay, now):
+    receipt = _decision_receipt(events, decision, cutoff=cutoff, replay=replay)
+    if receipt is not None:
+        _confirm_durable_event(directory, receipt)
+        return decision
+    # This clock is sampled AFTER the decision file and directory have been
+    # flushed. A timestamp taken before publication cannot prove pre-open
+    # durability. A late or interrupted confirmation never backdates success.
+    _confirm_durable_event(directory, decision)
+    instant, stamp = _clock(now)
+    if not replay and instant >= cutoff:
+        raise ValueError('Decision durability confirmation missed the pre-open cutoff')
+    _append(directory, events, 'decision_durability',
+            dict(decision_sha256=decision['sha256'], decision_sequence=decision['sequence']), stamp)
+    return decision
 
 
 def decide(directory, *, now=None):
@@ -379,6 +473,10 @@ def decide(directory, *, now=None):
         decisions = [e for e in events if e['kind'] == 'decision']
         existing = [e for e in decisions if e['payload']['session_date'] == session['date']]
         if existing:
+            if _has_originals(manifest):
+                return _confirm_decision(directory, events, existing[0],
+                    cutoff=session_clocks(session, manifest['source_contract']['timestamp_basis'])['cutoff'],
+                    replay=activation['mode'] == 'replay', now=now)
             return _confirm_durable_event(directory, existing[0])
         instant, stamp = _clock(now)
         basis = manifest['source_contract']['timestamp_basis']
@@ -398,6 +496,10 @@ def decide(directory, *, now=None):
         else:
             known, desired = decisions[-1]['payload']['known'], decisions[-1]['payload']['desired']
         generated_stamp = stamp
+        if _has_originals(manifest):
+            _contracts(activation['manifest'], activation['qualification'])
+            _verify_bound_prefix(events, manifest, schedule, now=_instant(generated_stamp),
+                                 require_recorded=activation['mode'] == 'forward')
         instant, stamp = _clock(now)
         if instant < _instant(generated_stamp):
             raise ValueError('Signal calculation clock regressed')
@@ -409,7 +511,12 @@ def decide(directory, *, now=None):
                        signal_input_available_at=input_available_at,
                        signal_generated_at=generated_stamp, signal_available_at=stamp,
                        known=known, desired=desired)
-        return _append(directory, events, 'decision', payload, stamp)
+        decision = _append(directory, events, 'decision', payload, stamp)
+        if _has_originals(manifest):
+            return _confirm_decision(directory, events+[decision], decision,
+                cutoff=session_clocks(session, basis)['cutoff'],
+                replay=activation['mode'] == 'replay', now=now)
+        return decision
 
 
 def _cycles(decisions, through):
@@ -428,6 +535,54 @@ def _cycles(decisions, through):
     return cycles
 
 
+def _observation_deadline(manifest, schedule, packet):
+    index = [row['date'] for row in schedule].index(packet['session_date'])
+    basis = manifest['source_contract']['timestamp_basis']
+    end = session_clocks(schedule[index], basis)['observable']
+    end += timedelta(seconds=manifest['source_contract']['maximum_receive_delay_seconds'])
+    if index+1 < len(schedule):
+        end = min(end, session_clocks(schedule[index+1], basis)['cutoff'])
+    return end
+
+
+def _observation_receipt(events, observation, manifest, schedule, *, mode):
+    receipts = [e for e in events if e['kind']=='observation_durability'
+                and e['payload'].get('observation_sha256')==observation['sha256']]
+    if observation['payload'].get('durability_confirmation_required') is not True or observation['payload']['real_forward_day'] is not False:
+        raise ValueError('Bound observation requires separate durability evidence')
+    if not receipts:
+        return None
+    expected = dict(observation_sha256=observation['sha256'],
+                    observation_sequence=observation['sequence'], real_forward_day=mode=='forward')
+    if (len(receipts)!=1 or receipts[0]['sequence']<=observation['sequence']
+            or receipts[0]['payload']!=expected
+            or _instant(receipts[0]['received_at'])<_instant(observation['received_at'])
+            or mode!='replay' and _instant(receipts[0]['received_at'])>=_observation_deadline(manifest,schedule,observation['payload']['packet'])):
+        raise ValueError('Invalid observation durability receipt')
+    return receipts[0]
+
+
+def _confirm_observation(directory, events, observation, manifest, schedule, *, activation, now):
+    receipt = _observation_receipt(events, observation, manifest, schedule, mode=activation['mode'])
+    if receipt is not None:
+        _confirm_durable_event(directory, receipt)
+        return observation
+    _confirm_durable_event(directory, observation)
+    _contracts(activation['manifest'], activation['qualification'])
+    checked_at, _ = _clock(now)
+    _verify_bound_prefix(events, manifest, schedule, now=checked_at,
+                         require_recorded=activation['mode']=='forward')
+    instant, stamp = _clock(now)
+    if instant < max(checked_at, _instant(observation['received_at'])):
+        raise ValueError('Observation durability clock regressed')
+    if activation['mode']!='replay' and instant>=_observation_deadline(manifest,schedule,observation['payload']['packet']):
+        raise ValueError('Observation durability confirmation crossed the receipt deadline')
+    _append(directory, events, 'observation_durability',
+            dict(observation_sha256=observation['sha256'],observation_sequence=observation['sequence'],
+                 real_forward_day=activation['mode']=='forward'),stamp)
+    return observation
+
+
 def observe(directory, packet, *, now=None):
     """Receive one final daily bar; replay the immutable causal prefix, never a future bar."""
     with _locked(directory):
@@ -437,6 +592,9 @@ def observe(directory, packet, *, now=None):
                  and e['payload']['packet']['session_date'] == packet.get('session_date')]
         if prior:
             if prior[0]['payload']['packet'] == packet:
+                if _has_originals(manifest):
+                    return _confirm_observation(directory, events, prior[0], manifest, schedule,
+                                                 activation=activation, now=now)
                 return _confirm_durable_event(directory, prior[0])
             raise ValueError('Conflicting replacement of immutable observation')
         bars, observations, start, actions = _prefix(events, manifest, schedule)
@@ -451,7 +609,14 @@ def observe(directory, packet, *, now=None):
         if decision is None:
             raise ValueError('Prospectively registered decision required')
         instant, stamp = _clock(now)
+        calculation_started = instant
+        if _has_originals(manifest):
+            source_connection.verify_daily_input(manifest, schedule, packet, now=instant,
+                require_recorded=activation['mode'] == 'forward')
         clocks = validate_input_clocks(packet, session, manifest['source_contract']['timestamp_basis'], now=instant)
+        if (_has_originals(manifest) and _decision_receipt(events, decision,
+                cutoff=clocks['cutoff'], replay=activation['mode'] == 'replay') is None):
+            raise ValueError('Durable pre-open decision confirmation required')
         if activation['mode'] != 'replay':
             if _instant(decision['received_at']) >= clocks['cutoff']:
                 raise ValueError('Decision was not registered before execution open')
@@ -475,10 +640,35 @@ def observe(directory, packet, *, now=None):
         prior_curve = observations[-1]['payload']['account']['equity_curve'] if observations else []
         if prior_curve and account['equity_curve'][:len(prior_curve)] != prior_curve:
             raise ValueError('New input changed historical account marks')
+        # Recheck the transaction's original read set after account computation.
+        # This is not a multi-file atomicity guarantee; a post-flush confirmation
+        # below is separately required before using/counting the observation.
+        if _has_originals(manifest):
+            _contracts(activation['manifest'], activation['qualification'])
+            _verify_bound_prefix(events, manifest, schedule, now=calculation_started,
+                                 require_recorded=activation['mode']=='forward')
+            source_connection.verify_daily_input(manifest,schedule,packet,now=calculation_started,
+                require_recorded=activation['mode']=='forward')
+        instant, stamp = _clock(now)
+        if instant < calculation_started:
+            raise ValueError('Observation calculation clock regressed')
+        validate_input_clocks(packet, session, manifest['source_contract']['timestamp_basis'], now=instant)
+        if activation['mode'] != 'replay':
+            if (instant-clocks['observable']).total_seconds() > manifest['source_contract']['maximum_receive_delay_seconds']:
+                raise ValueError('Observation validation crossed the receipt deadline')
+            if (_has_originals(manifest) and index+1 < len(schedule)
+                    and instant >= session_clocks(schedule[index+1], manifest['source_contract']['timestamp_basis'])['cutoff']):
+                raise ValueError('Observation validation crossed the next decision cutoff')
         payload = dict(packet=packet, decision_sha256=decision['sha256'], account=account,
-                       real_forward_day=activation['mode'] == 'forward',
+                       real_forward_day=activation['mode'] == 'forward' and not _has_originals(manifest),
                        execution_claim='conditional_daily_bar_paper_model_not_actual_fills')
-        return _append(directory, events, 'observation', payload, stamp)
+        if _has_originals(manifest):
+            payload['durability_confirmation_required']=True
+        observation = _append(directory, events, 'observation', payload, stamp)
+        if _has_originals(manifest):
+            return _confirm_observation(directory,events+[observation],observation,manifest,schedule,
+                                         activation=activation,now=now)
+        return observation
 
 
 def status(directory):
@@ -490,24 +680,38 @@ def status(directory):
                     real_forward_available=False, source_adapter_status='not_verified',
                     live_trading_allowed=False)
     else:
-        activation, manifest, _, _, _ = _active(events)
+        activation, manifest, _, schedule, _ = _active(events)
         observations = [e for e in events if e['kind'] == 'observation']
+        pending = []
+        if _has_originals(manifest):
+            pending = [e for e in observations if _observation_receipt(events,e,manifest,schedule,
+                       mode=activation['mode']) is None]
+            observations = [e for e in observations if e not in pending]
         latest = observations[-1]['payload']['account'] if observations else None
         result = dict(status='awaiting_prospective_session' if not observations else 'paper_journal_active',
                 candidate_id=manifest['candidate_id'], mode=activation['mode'],
                 qualified_candidate=activation['evidence_class'] == 'reviewed_research',
-                real_forward_days=sum(e['payload']['real_forward_day'] is True for e in observations),
+                real_forward_days=(sum(_observation_receipt(events,e,manifest,schedule,
+                    mode=activation['mode'])['payload']['real_forward_day'] is True for e in observations)
+                    if _has_originals(manifest) else sum(e['payload']['real_forward_day'] is True for e in observations)),
                 paper_fills=len(latest['fills']) if latest else 0,
                 last_session=observations[-1]['payload']['packet']['session_date'] if observations else None,
                 latest_account_sha256=digest(latest) if latest else None,
                 activation_sha256=events[0]['sha256'], last_event_sha256=events[-1]['sha256'],
-                real_forward_available=False, source_adapter_status='not_verified',
+                real_forward_available=activation['mode'] == 'forward',
+                source_adapter_status=('verified_recorded_originals' if activation['mode'] == 'forward'
+                    else 'bound_originals_synthetic' if _has_originals(manifest) else 'not_verified'),
                 live_trading_allowed=False)
+        if pending:
+            result.update(status='blocked',reason='observation_durability_unconfirmed',
+                          unconfirmed_observation_count=len(pending),real_forward_available=False,
+                          recovery_hint='Preserve unconfirmed events. Only a timely post-flush confirmation can enable use; never backdate or delete a late observation.')
     # This reports a lock, not that its process is dead. Never probe or kill its PID.
     result['writer_lock_present'] = (Path(directory) / '.writer.lock').exists()
     result['pending_event_files'] = _pending_files(directory)
-    result['recovery_required'] = bool(result['writer_lock_present'] or result['pending_event_files'])
-    if result['recovery_required']:
+    result['recovery_required'] = bool(result['writer_lock_present'] or result['pending_event_files']
+                                       or result.get('unconfirmed_observation_count',0))
+    if result['writer_lock_present'] or result['pending_event_files']:
         result.update(status='blocked', reason='journal_writer_or_recovery_pending',
             recovery_hint='Verify writers stopped; preserve original files and hashes; validate '
                           'the committed prefix and restore a verified copy. Do not remove locks '
