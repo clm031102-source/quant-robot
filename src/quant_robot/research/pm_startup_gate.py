@@ -38,6 +38,8 @@ from quant_robot.research.geopolitical_account_study import scope as geopolitica
 from quant_robot.research.full_position_study import scope as full_position_scope
 from quant_robot.research.full_position_recovery_study import scope as recovery_scope
 from quant_robot.research.dd40_reentry_study import scope as dd40_scope
+from quant_robot.research.commodity_proxy_admission import scope as commodity_proxy_scope
+from quant_robot.research.commodity_proxy_repair_admission import scope as commodity_repair_scope
 
 
 STAGE = "quant_pm_startup_gate"
@@ -98,6 +100,8 @@ def build_quant_pm_startup_gate(
         full_position_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         dd40_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         recovery_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        commodity_proxy_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        commodity_repair_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
     ) if scope]
     restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)
@@ -122,6 +126,10 @@ def build_quant_pm_startup_gate(
         warnings.append("research_family_scheduler_single_prescreen_mode")
     elif restricted_mode == "family_rotation_review_only":
         warnings.append("research_family_scheduler_family_rotation_review_mode")
+    elif restricted_mode == "single_campaign_commodity_proxy_36_account_only":
+        warnings.append("campaign_single_commodity_proxy_conditional_account_mode")
+    elif restricted_mode == "single_campaign_commodity_lifecycle_repair_36_account_only":
+        warnings.append("campaign_single_commodity_lifecycle_technical_repair_mode")
     elif restricted_mode == "single_monthly_diagnostic_only":
         warnings.append("research_family_scheduler_single_monthly_diagnostic_mode")
     elif restricted_mode == "single_household_diagnostic_only":
@@ -224,11 +232,15 @@ def build_quant_pm_startup_gate(
         "safety": {
             "research_only": True,
             "paper_only_next_step": True,
+            "commodity_proxy_36_account_allowed": not blockers and restricted_mode == "single_campaign_commodity_proxy_36_account_only",
+            "commodity_proxy_36_account_scope": _dict(restricted.get("scope")) if restricted_mode == "single_campaign_commodity_proxy_36_account_only" else {},
+            "commodity_proxy_lifecycle_repair_allowed": not blockers and restricted_mode == "single_campaign_commodity_lifecycle_repair_36_account_only",
+            "commodity_proxy_lifecycle_repair_scope": _dict(restricted.get("scope")) if restricted_mode == "single_campaign_commodity_lifecycle_repair_36_account_only" else {},
             "factor_batch_allowed": bool(
                 not blockers
                 and (not restricted_mode or restricted_mode == "single_prescreen_only")
             ),
-            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only", "single_full_position_factor_search_only", "single_full_position_recovery_only", "single_dd40_reentry_only"} else {},
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only", "single_full_position_factor_search_only", "single_full_position_recovery_only", "single_dd40_reentry_only", "single_campaign_commodity_proxy_36_account_only", "single_campaign_commodity_lifecycle_repair_36_account_only"} else {},
             "monthly_diagnostic_allowed": not blockers and restricted_mode == "single_monthly_diagnostic_only",
             "monthly_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_monthly_diagnostic_only" else {},
             "household_diagnostic_allowed": not blockers and restricted_mode == "single_household_diagnostic_only",

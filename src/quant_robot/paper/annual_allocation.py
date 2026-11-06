@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 from datetime import date
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP
 
+from quant_robot.paper.daily_entry_policy import daily_entry_plans, entry_budget, policy_evidence
+
 
 @dataclass(frozen=True)
 class AllocationConfig:
@@ -157,13 +159,18 @@ def _inputs(bars, sessions, assets, cycles, actions, config, allow_open_cycle=Fa
     return settings, calendar, selected, prices, plan, events
 
 
-def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=AllocationConfig(), position_buffer=None, daily_recovery=None, allow_open_cycle=False):
+def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=AllocationConfig(), position_buffer=None, daily_recovery=None, allow_open_cycle=False, entry_policy=None):
     settings, calendar, selected, prices, plan, actions = _inputs(
         bars, sessions, assets, cycles, actions, config, allow_open_cycle)
     full_nav = config.max_position_fraction is not None
+    plan = daily_entry_plans(entry_policy, plan, calendar=calendar, full_nav=full_nav, holding_sessions=config.max_holding_sessions)
+    if entry_policy is not None and config.execution_price_field != 'open':
+        raise ValueError('Daily retry entry contract requires raw opening prices')
     if full_nav and position_buffer is not None:
         raise ValueError('Full NAV mode cannot reuse the fixed CNY buffer')
-    from quant_robot.paper.daily_recovery import DailyRecovery
+    from quant_robot.paper.daily_recovery import DailyRecovery, RECOVERY_40_DAILY_RETRY
+    if (entry_policy is not None) != (daily_recovery == RECOVERY_40_DAILY_RETRY):
+        raise ValueError('Daily retry entries and explicit daily retry recovery must be selected together')
     recovery = DailyRecovery(daily_recovery) if daily_recovery is not None else None
     if recovery is not None and (not full_nav or settings['max_drawdown'] !=
             (Decimal('.40') if recovery.recover_drawdown else Decimal('.08'))):
@@ -211,16 +218,22 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
         occupied = set(positions)
         prior_cash = cash
         entry_plans = {}
+        entry_budgets = {}
+        scheduled_cycle = plan.get(index)
+        if entry_policy is not None and (occupied or halted or recovery is not None and recovery.paused):
+            scheduled_cycle = None
         # All entry sizes are fixed from information available before this session.
-        if index in plan:
+        if scheduled_cycle is not None:
             reserve = prior_cash
             for asset in selected:
                 prior_price = _price(prices[calendar[index-1], asset]['close'], 1, settings)
-                limit = reserve if full_nav else min(budget, reserve)
+                limit = entry_budget(entry_policy, cash=reserve, prior_nav=previous,
+                                     ordinary_budget=budget, full_nav=full_nav)
                 quantity = min(int(limit / prior_price / 100)*100, capacity(index, asset)//100*100)
                 while quantity > 0 and quantity*prior_price+_fee(quantity*prior_price, settings) > limit:
                     quantity -= 100
                 entry_plans[asset] = quantity
+                entry_budgets[asset] = limit
                 if quantity:
                     reserve -= quantity*prior_price+_fee(quantity*prior_price, settings)
 
@@ -269,8 +282,8 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
                 if asset not in positions:
                     active.pop(asset); mandatory.pop(asset, None)
 
-        if index in plan:
-            cycle = plan[index]
+        if scheduled_cycle is not None:
+            cycle = scheduled_cycle
             for asset in selected:
                 quantity = entry_plans[asset]
                 price = _price(prices[day, asset][config.execution_price_field], 1, settings)
@@ -282,12 +295,16 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
                             'entry_below_one_lot' if not quantity else
                             'known_execution_constraint' if _blocked(prices[day, asset], 'buy') else
                             'entry_current_capacity' if quantity > current_cap else
-                            'entry_budget_or_cash' if cost > (cash if full_nav else min(budget, cash)) else None)
+                            'entry_budget_or_cash' if cost > (min(cash, entry_budgets[asset]) if entry_policy is not None
+                                                              else cash if full_nav else min(budget, cash)) else None)
                 if rejected:
                     events.append(dict(date=day, asset_id=asset, reason=rejected, requested_quantity=quantity,
                                        cycle_id=cycle['cycle_id'], prior_capacity=capacity(index, asset), current_capacity=current_cap))
                 else:
                     fill(day, asset, quantity, 'buy', 'annual_entry', cycle['cycle_id'], quantity, capacity(index, asset), current_cap)
+                    if entry_policy is not None:
+                        fills[-1]['precommitted_entry_budget'] = entry_budgets[asset]
+                        fills[-1]['episode_id'] = cycle['episode_id']
                     active[asset] = cycle
                     filled_cycles[cycle['cycle_id']].add(asset)
 
@@ -338,13 +355,14 @@ def run_allocation_account(bars, *, sessions, assets, cycles, actions, config=Al
                          drawdown=1-equity/peak, daily_loss=max(previous-equity, Decimal(0))))
         previous = equity
 
-    return _json(dict(artifact_type=('conditional_full_nav_recovery_account_v1' if recovery is not None else 'conditional_full_nav_account_v1' if full_nav else 'annual_allocation_conditional_continuous_account_v1'),
+    return _json(dict(artifact_type=('conditional_nav90_daily_retry_account_v1' if entry_policy is not None else 'conditional_full_nav_recovery_account_v1' if recovery is not None else 'conditional_full_nav_account_v1' if full_nav else 'annual_allocation_conditional_continuous_account_v1'),
         executable=False, source_quality_verified=False, net_positive_EV_verified=False,
         unknown_execution_flag_rows=sum(any(row.get(k) is None for k in ('suspended','limit_up','limit_down')) for row in prices.values()),
         config={**{k:v for k,v in asdict(config).items() if v is not None},
                 **({'max_daily_loss_cny':None,'daily_recovery':dict(daily_recovery)} if recovery is not None else {})}, assets=selected, cycles=list(plan.values()),
         **({'daily_recovery_journal':recovery.journal,'daily_pause_active':recovery.paused} if recovery is not None else {}),
         **({'position_buffer': dict(position_buffer)} if position_buffer is not None else {}),
+        **({'entry_policy': policy_evidence()} if entry_policy is not None else {}),
         metrics=dict(initial_cash=settings['initial_cash'], ending_cash=cash, ending_equity=rows[-1]['equity'],
             pnl_cny=rows[-1]['equity']-settings['initial_cash'], fees_paid=sum((f['fee'] for f in fills), Decimal(0)),
             dividend_cash_received=received, maximum_drawdown=max(row['drawdown'] for row in rows),

@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-06",
   "state": "research_in_progress",
-  "state_label": "72小时量化经理持续推进中；现有0合格策略",
+  "state_label": "72小时任务推进中；商品36账户已完成，现有0合格策略",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 17,
+    "return_studies": 18,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,13 +22,13 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "接续序列17项收益研究（非全生命周期总数），0合格。满仓研究原4648组合、三种风险制度累计972账户；最新324账户均完成，0方案通过。"
+      "evidence": "接续序列18项收益研究（非全生命周期总数），0合格。新商品期限结构36账户及2现金对照已完成并独立复核，预设财务条件未通过。"
     },
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
       "severity": "block",
       "track_id": "research",
-      "evidence": "40%规则下12主情景均无永久停机、均未触发40%回撤；沪深六方案后段全亏，黄金六方案全落后同规则持有，12方案的条件区间均未通过。"
+      "evidence": "新商品策略开发主格亏1850.50元；后段赚2454.32元，低于同规则持有的2622.81元；超额收益统计下界未为正。36账户均符合40%收盘回撤条件并结清。"
     },
     {
       "blocker_id": "actual_costs_unverified",
@@ -53,16 +53,16 @@
     {
       "priority": 1,
       "track_id": "delivery",
-      "title": "接入真实来源与完整输入证据",
+      "title": "完成新研究的独立核对和集成",
       "command": "",
-      "reason": "账本及异常恢复已合主线；正在接入原始行情、现行交易时段、可交易状态和现金分配证据。"
+      "reason": "商品36账户结果及主格原价订单已独立复核，正在集成；原始数据接入和本机运行故障修复已合主线。"
     },
     {
       "priority": 2,
       "track_id": "research",
-      "title": "执行有限的新机制研究",
+      "title": "修复对冲策略并继续有依据的新研究",
       "command": "",
-      "reason": "推进商品期限结构与跨市场对冲的独立方法；先核格式、实现账户，再冻结有限试验，不重复旧失败因子。"
+      "reason": "修正已复现的估值与风控时序问题，补全合成多日流程；已失败商品机制保持结论，不改参数复跑。"
     },
     {
       "priority": 3,
