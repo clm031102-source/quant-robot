@@ -1,9 +1,14 @@
 """Synthetic acceptance checks; temporary receipts are never project qualifications."""
 from copy import deepcopy
+from contextlib import redirect_stdout
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
+import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
@@ -250,6 +255,253 @@ class FrozenForwardTests(unittest.TestCase):
         self.freeze()
         with self.assertRaisesRegex(ValueError, 'Exact full NAV'):
             self.activate()
+
+
+class JournalCrashRecoveryTests(unittest.TestCase):
+    """Fault boundaries omitted from the normal replay/restart acceptance set."""
+
+    def setUp(self):
+        self.fixture = FrozenForwardTests()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.fixture.activate()
+        self.journal = self.fixture.journal
+        self.stamp = self.fixture.days[80]+'T01:00:00Z'
+
+    def snapshot(self):
+        return {p.name: p.read_bytes() for p in self.journal.iterdir() if p.is_file()}
+
+    def test_failed_first_write_preserves_pending_without_numbered_partial_event(self):
+        original = Path.open
+
+        class FailedWriter:
+            def __init__(self, stream):
+                self.stream = stream
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                self.stream.close()
+            def write(self, value):
+                raise OSError('synthetic disk full')
+
+        def fault_open(path, *args, **kwargs):
+            stream = original(path, *args, **kwargs)
+            return FailedWriter(stream) if path.name.startswith('.pending-') and args[0] == 'x' else stream
+
+        with patch.object(Path, 'open', fault_open):
+            with self.assertRaisesRegex(OSError, 'disk full'):
+                forward.decide(self.journal, now=self.stamp)
+        self.assertFalse((self.journal/'00000001.json').exists())
+        self.assertEqual(len(forward._journal(self.journal)), 1)
+        self.assertFalse((self.journal/'.writer.lock').exists())
+        pending = list(self.journal.glob('.pending-*.json'))
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0].stat().st_size, 0)
+        original_evidence = self.snapshot()
+        result = forward.status(self.journal)
+        self.assertEqual(result['reason'], 'journal_writer_or_recovery_pending')
+        self.assertEqual(result['pending_event_files'], [pending[0].name])
+        with self.assertRaisesRegex(ValueError, 'Incomplete journal write'):
+            forward.decide(self.journal, now=self.stamp)
+        self.assertEqual(self.snapshot(), original_evidence)
+
+    def test_failed_fsync_does_not_publish_or_return_success_on_retry(self):
+        with patch('os.fsync', side_effect=OSError('synthetic fsync failure')):
+            with self.assertRaisesRegex(OSError, 'fsync failure'):
+                forward.decide(self.journal, now=self.stamp)
+        self.assertFalse((self.journal/'00000001.json').exists())
+        original = self.snapshot()
+        with self.assertRaisesRegex(ValueError, 'Incomplete journal write'):
+            forward.decide(self.journal, now=self.stamp)
+        self.assertEqual(self.snapshot(), original)
+        self.assertTrue(forward.status(self.journal)['recovery_required'])
+
+    def test_publish_never_overwrites_existing_event(self):
+        original = self.snapshot()
+        with forward._locked(self.journal):
+            with self.assertRaises(FileExistsError):
+                forward._append(self.journal, [], 'decision', {}, self.stamp)
+        self.assertEqual((self.journal/'00000000.json').read_bytes(), original['00000000.json'])
+        self.assertEqual(len(forward._journal(self.journal)), 1)
+        self.assertTrue(forward.status(self.journal)['recovery_required'])
+
+    def test_publish_sees_complete_synced_staging_and_no_partial_numbered_event(self):
+        original_link = os.link
+        synced = []
+        original_sync = os.fsync
+
+        def sync(fd):
+            synced.append(fd)
+            return original_sync(fd)
+
+        def publish(source, target):
+            self.assertTrue(synced)
+            event = json.loads(source.read_bytes())
+            self.assertEqual(event['sequence'], 1)
+            self.assertFalse(target.exists())
+            self.assertEqual(len(forward._journal(self.journal)), 1)
+            original_link(source, target)
+            self.assertEqual(target.read_bytes(), source.read_bytes())
+
+        with patch('os.fsync', side_effect=sync), patch('os.link', side_effect=publish):
+            decision = forward.decide(self.journal, now=self.stamp)
+        self.assertEqual(decision['sequence'], 1)
+        self.assertFalse(forward._pending_files(self.journal))
+        self.assertFalse(forward.status(self.journal)['recovery_required'])
+
+    def test_publication_unsupported_fails_closed_without_destructive_fallback(self):
+        with patch('os.link', side_effect=OSError('hard links unavailable')):
+            with self.assertRaisesRegex(OSError, 'hard links unavailable'):
+                forward.decide(self.journal, now=self.stamp)
+        self.assertFalse((self.journal/'00000001.json').exists())
+        self.assertTrue(forward.status(self.journal)['recovery_required'])
+
+    def test_idempotent_activation_decision_observation_confirm_persistence(self):
+        f = self.fixture
+        activation = forward._journal(self.journal)[0]
+        decision = forward.decide(self.journal, now=self.stamp)
+        observation = forward.observe(self.journal, f.packet(80), now=f.days[80]+'T08:00:00Z')
+        # The decision retry must be for the still pending next session.
+        pending_decision = forward.decide(self.journal, now=f.days[81]+'T01:00:00Z')
+        operations = (
+            (lambda: f.activate(), activation),
+            (lambda: forward.decide(self.journal, now=f.days[81]+'T01:00:01Z'), pending_decision),
+            (lambda: forward.observe(self.journal, f.packet(80), now=f.days[81]+'T08:00:00Z'), observation),
+        )
+        original = self.snapshot()
+        for operation, expected in operations:
+            with patch('os.fsync', wraps=os.fsync) as sync:
+                self.assertEqual(operation(), expected)
+                self.assertGreaterEqual(sync.call_count, 1)
+            with patch('os.fsync', side_effect=OSError('retry persistence unconfirmed')):
+                with self.assertRaisesRegex(OSError, 'persistence unconfirmed'):
+                    operation()
+            self.assertEqual(self.snapshot(), original)
+        self.assertEqual(decision['sequence'], 1)
+
+    def test_abrupt_exit_after_publish_preserves_evidence_and_blocks_status(self):
+        code = (
+            'import os,sys; from pathlib import Path; '
+            'from quant_robot.ops import frozen_candidate_forward as f; '
+            'link=os.link\n'
+            'def interrupted(source,target):\n'
+            ' link(source,target)\n'
+            ' os._exit(37)\n'
+            'os.link=interrupted\n'
+            'f.decide(Path(sys.argv[1]),now=sys.argv[2])\n'
+        )
+        proc = subprocess.run([sys.executable, '-c', code, str(self.journal), self.stamp],
+                              capture_output=True, text=True, timeout=20)
+        self.assertEqual(proc.returncode, 37, proc.stderr)
+        original = self.snapshot()
+        self.assertEqual(len(forward._journal(self.journal)), 2)
+        result = forward.status(self.journal)
+        self.assertEqual(result['status'], 'blocked')
+        self.assertTrue(result['writer_lock_present'])
+        self.assertEqual(len(result['pending_event_files']), 1)
+        self.assertEqual(result['real_forward_days'], 0)
+        lock = json.loads((self.journal/'.writer.lock').read_text(encoding='utf-8'))
+        self.assertIsInstance(lock['pid'], int)
+        self.assertTrue(lock['instance_id'])
+        with self.assertRaisesRegex(ValueError, 'writer active'):
+            forward.decide(self.journal, now=self.stamp)
+        self.assertEqual(self.snapshot(), original)
+
+    def test_process_exit_during_staging_keeps_numbered_prefix_intact(self):
+        for stage in ('before_fsync', 'after_fsync', 'partial_write'):
+            with self.subTest(stage=stage):
+                journal = self.fixture.root/('crash_'+stage)
+                self.fixture.journal = journal
+                self.fixture.activate()
+                code = (
+                    'import os,sys; from pathlib import Path; '
+                    'from quant_robot.ops import frozen_candidate_forward as f\n'
+                    'stage=sys.argv[3]\n'
+                    'sync=os.fsync\n'
+                    'def interrupted(fd):\n'
+                    ' if stage=="after_fsync": sync(fd)\n'
+                    ' os._exit(38)\n'
+                    'if stage!="partial_write": os.fsync=interrupted\n'
+                    'original_open=Path.open\n'
+                    'class HalfWriter:\n'
+                    ' def __init__(self,h): self.h=h\n'
+                    ' def __enter__(self): return self\n'
+                    ' def __exit__(self,*args): self.h.close()\n'
+                    ' def write(self,value):\n'
+                    '  self.h.write(value[:len(value)//2]); self.h.flush(); os._exit(38)\n'
+                    'def fault_open(path,*args,**kwargs):\n'
+                    ' h=original_open(path,*args,**kwargs)\n'
+                    ' return HalfWriter(h) if path.name.startswith(".pending-") and args[0]=="x" else h\n'
+                    'if stage=="partial_write": Path.open=fault_open\n'
+                    'f.decide(Path(sys.argv[1]),now=sys.argv[2])\n'
+                )
+                proc = subprocess.run([sys.executable, '-c', code, str(journal), self.stamp, stage],
+                                      capture_output=True, text=True, timeout=20)
+                self.assertEqual(proc.returncode, 38, proc.stderr)
+                self.assertEqual(len(forward._journal(journal)), 1)
+                self.assertFalse((journal/'00000001.json').exists())
+                result = forward.status(journal)
+                self.assertEqual(result['status'], 'blocked')
+                self.assertTrue(result['writer_lock_present'])
+                self.assertEqual(len(result['pending_event_files']), 1)
+
+    def test_completed_operation_with_lost_response_can_retry_without_duplicate(self):
+        code = (
+            'import os,sys; from pathlib import Path; '
+            'from quant_robot.ops import frozen_candidate_forward as f; '
+            'f.decide(Path(sys.argv[1]),now=sys.argv[2]); os._exit(39)'
+        )
+        proc = subprocess.run([sys.executable, '-c', code, str(self.journal), self.stamp],
+                              capture_output=True, text=True, timeout=20)
+        self.assertEqual(proc.returncode, 39, proc.stderr)
+        original = self.snapshot()
+        self.assertFalse(forward.status(self.journal)['recovery_required'])
+        with patch('os.fsync', wraps=os.fsync) as sync:
+            result = forward.decide(self.journal, now=self.stamp)
+        self.assertGreaterEqual(sync.call_count, 1)
+        self.assertEqual(result['sequence'], 1)
+        self.assertEqual(self.snapshot(), original)
+
+    def test_directory_sync_failure_is_not_hidden_by_successful_publication(self):
+        with patch.object(forward, '_sync_directory', side_effect=OSError('directory sync failed')):
+            with self.assertRaisesRegex(OSError, 'directory sync failed'):
+                forward.decide(self.journal, now=self.stamp)
+        self.assertEqual(len(forward._journal(self.journal)), 2)
+        self.assertTrue(forward.status(self.journal)['recovery_required'])
+        original = self.snapshot()
+        with self.assertRaisesRegex(ValueError, 'Incomplete journal write'):
+            forward.decide(self.journal, now=self.stamp)
+        self.assertEqual(self.snapshot(), original)
+
+    def test_lock_only_and_pending_only_status_exit_blocked_without_modifying_files(self):
+        from scripts.run_frozen_candidate_forward import main
+        for name in ('.writer.lock', '.pending-interrupted.json'):
+            path = self.journal/name
+            path.write_bytes(b'original incomplete evidence')
+            original = self.snapshot()
+            output = io.StringIO()
+            with redirect_stdout(output):
+                code = main(['--journal', str(self.journal), 'status'])
+            self.assertEqual(code, 2)
+            report = json.loads(output.getvalue())
+            self.assertEqual(report['status'], 'blocked')
+            self.assertTrue(report['recovery_required'])
+            self.assertEqual(self.snapshot(), original)
+            # Test fixture cleanup only; production status never removes this file.
+            path.unlink()
+
+    def test_malformed_numbered_event_returns_blocked_cli_without_changing_original(self):
+        from scripts.run_frozen_candidate_forward import main
+        path = self.journal/'00000001.json'
+        for raw in (b'{', b'[]', b'null'):
+            path.write_bytes(raw)
+            original = self.snapshot()
+            output = io.StringIO()
+            with redirect_stdout(output):
+                code = main(['--journal', str(self.journal), 'status'])
+            self.assertEqual(code, 2)
+            self.assertEqual(json.loads(output.getvalue())['status'], 'blocked')
+            self.assertEqual(self.snapshot(), original)
 
 
 class OpenCycleEngineTests(unittest.TestCase):

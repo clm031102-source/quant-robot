@@ -16,8 +16,10 @@ from hashlib import sha256
 from importlib.metadata import version
 import json
 import math
+import os
 from pathlib import Path
 import platform
+from uuid import uuid4
 
 from quant_robot.paper.annual_allocation import AllocationConfig, run_allocation_account
 from quant_robot.paper.daily_recovery import RECOVERY_40
@@ -188,6 +190,8 @@ def _journal(directory):
         if path.name != f'{index:08d}.json':
             raise ValueError('Missing or reordered journal event')
         event = _read(path)
+        if not isinstance(event, dict):
+            raise ValueError('Invalid journal event object')
         supplied = event.pop('sha256', None)
         if (supplied != digest(event) or event.get('previous_sha256') != previous
                 or event.get('sequence') != index or event.get('artifact_type') != EVENT_TYPE):
@@ -200,6 +204,36 @@ def _journal(directory):
     return events
 
 
+def _pending_files(directory):
+    return sorted(path.name for path in Path(directory).glob('.pending-*.json'))
+
+
+def _sync_directory(directory):
+    # POSIX can also persist directory entries. Python's Windows CRT has no
+    # equivalent directory fsync: file fsync + atomic publication does not prove
+    # physical power-loss durability on Windows. Never fall back to overwriting.
+    if os.name == 'nt':
+        return
+    descriptor = os.open(directory, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _confirm_durable_event(directory, event):
+    """An idempotent success still requires a fresh persistence confirmation."""
+    path = Path(directory) / f'{event["sequence"]:08d}.json'
+    # A writable descriptor is needed by Windows FlushFileBuffers via fsync.
+    # No bytes are changed; the complete event must still equal the validated one.
+    with path.open('r+b') as stream:
+        if json.loads(stream.read()) != event:
+            raise ValueError('Journal event changed before persistence confirmation')
+        os.fsync(stream.fileno())
+    _sync_directory(Path(directory))
+    return event
+
+
 @contextmanager
 def _locked(directory):
     directory = Path(directory)
@@ -210,8 +244,12 @@ def _locked(directory):
     except FileExistsError as exc:
         raise ValueError('Journal writer active or interrupted; inspect lock before recovery') from exc
     try:
-        handle.write('exclusive local paper journal writer\n')
+        handle.write(json.dumps(dict(pid=os.getpid(), instance_id=uuid4().hex,
+            acquired_at=datetime.now(timezone.utc).isoformat(),
+            automatic_lock_removal_allowed=False)) + '\n')
         handle.close()
+        if _pending_files(directory):
+            raise ValueError('Incomplete journal write; preserve pending files and inspect before recovery')
         yield
     finally:
         handle.close()
@@ -225,12 +263,22 @@ def _append(directory, events, kind, payload, received_at):
                  previous_sha256=events[-1]['sha256'] if events else None,
                  received_at=received_at, payload=payload)
     event['sha256'] = digest(event)
-    # Exclusive creation never overwrites a previous decision or settlement.
-    with (Path(directory) / f'{len(events):08d}.json').open('x', encoding='utf-8') as stream:
+    directory = Path(directory)
+    target = directory / f'{len(events):08d}.json'
+    pending = directory / f'.pending-{len(events):08d}-{uuid4().hex}.json'
+    # Failed/abandoned staging files remain available for forensic recovery.
+    # Only a complete, fsynced file can acquire a numbered journal name.
+    with pending.open('x', encoding='utf-8') as stream:
         stream.write(json.dumps(event, ensure_ascii=False, indent=2, allow_nan=False) + '\n')
         stream.flush()
-        import os
         os.fsync(stream.fileno())
+    # Same-directory hard-link creation publishes atomically and fails if the
+    # destination exists on both Windows and POSIX; rename/replace may overwrite.
+    # Filesystems without hard-link support fail closed, preserving the staging file.
+    os.link(pending, target)
+    _sync_directory(directory)
+    pending.unlink()
+    _sync_directory(directory)
     return event
 
 
@@ -297,7 +345,7 @@ def activate(directory, manifest_path, qualification_path, *, mode='forward', no
         events = _journal(directory)
         if events:
             if events[0]['kind'] == 'activation' and events[0]['payload'] == payload:
-                return events[0]
+                return _confirm_durable_event(directory, events[0])
             raise ValueError('Journal is already bound to another activation')
         return _append(directory, events, 'activation', payload, stamp)
 
@@ -328,7 +376,7 @@ def decide(directory, *, now=None):
         decisions = [e for e in events if e['kind'] == 'decision']
         existing = [e for e in decisions if e['payload']['session_date'] == session['date']]
         if existing:
-            return existing[0]
+            return _confirm_durable_event(directory, existing[0])
         instant, stamp = _clock(now)
         if activation['mode'] != 'replay' and instant >= _instant(session['open_at']):
             raise ValueError('Missed pre-open decision; historical entry cannot count as forward')
@@ -379,7 +427,7 @@ def observe(directory, packet, *, now=None):
                  and e['payload']['packet']['session_date'] == packet.get('session_date')]
         if prior:
             if prior[0]['payload']['packet'] == packet:
-                return prior[0]
+                return _confirm_durable_event(directory, prior[0])
             raise ValueError('Conflicting replacement of immutable observation')
         bars, observations, start = _prefix(events, manifest, schedule)
         index = start + len(observations)
@@ -429,14 +477,15 @@ def status(directory):
     """Read-only status; absent qualification cannot be inferred from legacy packs."""
     events = _journal(directory)
     if not events:
-        return dict(status='blocked', reason='no_qualified_frozen_candidate',
+        result = dict(status='blocked', reason='no_qualified_frozen_candidate',
                     qualified_candidate=False, real_forward_days=0, paper_fills=0,
                     real_forward_available=False, source_adapter_status='not_verified',
                     live_trading_allowed=False)
-    activation, manifest, _, _, _ = _active(events)
-    observations = [e for e in events if e['kind'] == 'observation']
-    latest = observations[-1]['payload']['account'] if observations else None
-    return dict(status='awaiting_prospective_session' if not observations else 'paper_journal_active',
+    else:
+        activation, manifest, _, _, _ = _active(events)
+        observations = [e for e in events if e['kind'] == 'observation']
+        latest = observations[-1]['payload']['account'] if observations else None
+        result = dict(status='awaiting_prospective_session' if not observations else 'paper_journal_active',
                 candidate_id=manifest['candidate_id'], mode=activation['mode'],
                 qualified_candidate=activation['evidence_class'] == 'reviewed_research',
                 real_forward_days=sum(e['payload']['real_forward_day'] is True for e in observations),
@@ -446,3 +495,13 @@ def status(directory):
                 activation_sha256=events[0]['sha256'], last_event_sha256=events[-1]['sha256'],
                 real_forward_available=False, source_adapter_status='not_verified',
                 live_trading_allowed=False)
+    # This reports a lock, not that its process is dead. Never probe or kill its PID.
+    result['writer_lock_present'] = (Path(directory) / '.writer.lock').exists()
+    result['pending_event_files'] = _pending_files(directory)
+    result['recovery_required'] = bool(result['writer_lock_present'] or result['pending_event_files'])
+    if result['recovery_required']:
+        result.update(status='blocked', reason='journal_writer_or_recovery_pending',
+            recovery_hint='Verify writers stopped; preserve original files and hashes; validate '
+                          'the committed prefix and restore a verified copy. Do not remove locks '
+                          'or pending files automatically, or backfill missed forward decisions.')
+    return result

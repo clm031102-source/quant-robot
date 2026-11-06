@@ -46,7 +46,7 @@ def main(argv=None):
                           'live_trading_allowed': False}, ensure_ascii=False))
         return 2
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+    return 2 if result.get('recovery_required') else 0
 
 
 if __name__ == '__main__':
