@@ -24,6 +24,8 @@ from uuid import uuid4
 from quant_robot.paper.annual_allocation import AllocationConfig, run_allocation_account
 from quant_robot.paper.daily_recovery import RECOVERY_40
 from quant_robot.research.full_position_factors import CATALOG, combined_state, feature_frame
+from quant_robot.ops.frozen_cash_actions import cash_action_snapshot
+from quant_robot.ops.frozen_input_clocks import BASES, session_clocks, validate_schedule, validate_input_clocks
 
 
 MANIFEST_TYPE = 'frozen_candidate_forward_manifest_v1'
@@ -36,6 +38,8 @@ CODE_FILES = (
     'paper/annual_allocation.py', 'paper/daily_recovery.py',
     'paper/position_buffer.py', 'research/full_position_factors.py',
     'research/indicator_combinations.py', 'ops/frozen_candidate_forward.py',
+    'ops/frozen_cash_actions.py',
+    'ops/frozen_input_clocks.py',
 )
 
 
@@ -161,7 +165,7 @@ def _contracts(manifest_ref, qualification_ref):
     source = manifest.get('source_contract', {})
     delay = source.get('maximum_receive_delay_seconds')
     if (not source.get('source_id') or type(delay) is not int or not 0 < delay <= 86400
-            or source.get('timestamp_basis') != 'provider_generated_and_available_utc'):
+            or source.get('timestamp_basis') not in BASES):
         raise ValueError('Frozen source identity and bounded independent source clocks required')
     schedule = json.loads(_reference(manifest['calendar']))
     if not isinstance(schedule, list) or len(schedule) < 21:
@@ -169,14 +173,7 @@ def _contracts(manifest_ref, qualification_ref):
     dates = [r['date'] for r in schedule]
     if dates != sorted(set(dates)):
         raise ValueError('Unique ordered exchange sessions required')
-    previous_close = None
-    for session in schedule:
-        opening, closing = _instant(session['open_at']), _instant(session['close_at'])
-        if opening >= closing or previous_close is not None and opening <= previous_close:
-            raise ValueError('Ordered nonoverlapping session clocks required')
-        # Session labels are supplied by the reviewed exchange calendar, not UTC dates.
-        datetime.strptime(session['date'], '%Y-%m-%d')
-        previous_close = closing
+    validate_schedule(schedule, source['timestamp_basis'])
     start = dates.index(manifest['first_session'])
     if start < 21:
         raise ValueError('At least twenty-one complete warmup sessions required')
@@ -315,7 +312,8 @@ def activate(directory, manifest_path, qualification_path, *, mode='forward', no
     if _instant(qualification['issued_at']) > instant:
         raise ValueError('Qualification was issued in the future')
     first = next(row for row in schedule if row['date'] == manifest['first_session'])
-    if mode != 'replay' and instant >= _instant(first['open_at']):
+    basis = manifest['source_contract']['timestamp_basis']
+    if mode != 'replay' and instant >= session_clocks(first, basis)['cutoff']:
         raise ValueError('Activation must precede the first execution session')
     warmup = json.loads(_reference(manifest['warmup']))
     start = [row['date'] for row in schedule].index(first['date'])
@@ -323,20 +321,20 @@ def activate(directory, manifest_path, qualification_path, *, mode='forward', no
         raise ValueError('Exact consecutive warmup prefix required')
     for row in warmup['bars']:
         _validate_bar(row, asset=manifest['asset_id'], session=row['date'])
-    if _instant(schedule[start-1]['close_at']) > instant:
+    if session_clocks(schedule[start-1], basis)['observable'] > instant:
         raise ValueError('Warmup session has not closed')
-    if not (_instant(schedule[start-1]['close_at']) <= _instant(warmup['generated_at'])
-            <= _instant(warmup['available_at']) <= _instant(warmup['acquired_at']) <= instant):
-        raise ValueError('Warmup source clocks are inconsistent with activation')
-    if warmup.get('corporate_actions_complete') is not True or warmup.get('actions') != []:
-        raise ValueError('Warmup requires a complete empty action response for this adapter')
+    validate_input_clocks(warmup, schedule[start-1], basis, now=instant)
+    if warmup.get('corporate_actions_complete') is not True:
+        raise ValueError('Warmup requires a complete cash action response')
+    actions = cash_action_snapshot(warmup.get('actions'), asset=manifest['asset_id'],
+        sessions=[row['date'] for row in schedule], as_of_session=schedule[start-1]['date'], warmup=True)
     # The same engine validates warmup without fabricated orders or terminal exits.
     run_allocation_account(warmup['bars'], sessions=[r['date'] for r in schedule[:start]],
-        assets=[manifest['asset_id']], cycles=[], actions=[], config=config,
+        assets=[manifest['asset_id']], cycles=[], actions=actions, config=config,
         daily_recovery=RECOVERY_40, allow_open_cycle=True)
     # Validation must finish before activation; a slow validation may cross open.
     instant, stamp = _clock(now)
-    if mode != 'replay' and instant >= _instant(first['open_at']):
+    if mode != 'replay' and instant >= session_clocks(first, basis)['cutoff']:
         raise ValueError('Activation validation crossed the first execution open')
     payload = dict(manifest=manifest_ref, qualification=qualification_ref, mode=mode,
                    evidence_class=evidence_class, qualification_source='external_independent_review',
@@ -355,12 +353,16 @@ def _prefix(events, manifest, schedule):
     bars = list(warmup['bars'])
     observations = [e for e in events if e['kind'] == 'observation']
     start = [r['date'] for r in schedule].index(manifest['first_session'])
+    actions = cash_action_snapshot(warmup['actions'], asset=manifest['asset_id'],
+        sessions=[row['date'] for row in schedule], as_of_session=schedule[start-1]['date'], warmup=True)
     for offset, event in enumerate(observations):
         packet = event['payload']['packet']
         if packet['session_date'] != schedule[start+offset]['date']:
             raise ValueError('Skipped or reordered observed session')
         bars.append(packet['bar'])
-    return bars, observations, start
+        actions = cash_action_snapshot(packet['corporate_actions'], asset=manifest['asset_id'],
+            sessions=[row['date'] for row in schedule], as_of_session=packet['session_date'], previous=actions)
+    return bars, observations, start, actions
 
 
 def decide(directory, *, now=None):
@@ -368,7 +370,7 @@ def decide(directory, *, now=None):
     with _locked(directory):
         events = _journal(directory)
         activation, manifest, _, schedule, _ = _active(events, now=now)
-        bars, observations, start = _prefix(events, manifest, schedule)
+        bars, observations, start, actions = _prefix(events, manifest, schedule)
         index = start + len(observations)
         if index >= len(schedule):
             raise ValueError('Frozen calendar exhausted; extension requires review')
@@ -378,25 +380,32 @@ def decide(directory, *, now=None):
         if existing:
             return _confirm_durable_event(directory, existing[0])
         instant, stamp = _clock(now)
-        if activation['mode'] != 'replay' and instant >= _instant(session['open_at']):
+        basis = manifest['source_contract']['timestamp_basis']
+        input_available_at = (observations[-1]['payload']['packet']['available_at']
+            if observations else json.loads(_reference(manifest['warmup']))['available_at'])
+        if instant < max(_instant(events[-1]['received_at']), _instant(input_available_at)):
+            raise ValueError('Signal clock regressed: precedes known input or journal receipt')
+        if activation['mode'] != 'replay' and instant >= session_clocks(session, basis)['cutoff']:
             raise ValueError('Missed pre-open decision; historical entry cannot count as forward')
-        if instant < _instant(schedule[index-1]['close_at']):
+        if instant < session_clocks(schedule[index-1], basis)['observable']:
             raise ValueError('Prior input session has not closed')
         strategy = manifest['strategy']
         if len(observations) % strategy['cadence'] == 0:
-            frame = feature_frame(bars, [])
+            frame = feature_frame(bars, actions)
             value = combined_state(frame, strategy['components'])[-1]
             known, desired = bool(math.isfinite(value)), bool(value == 1)
         else:
             known, desired = decisions[-1]['payload']['known'], decisions[-1]['payload']['desired']
         generated_stamp = stamp
         instant, stamp = _clock(now)
-        if activation['mode'] != 'replay' and instant >= _instant(session['open_at']):
+        if instant < _instant(generated_stamp):
+            raise ValueError('Signal calculation clock regressed')
+        if activation['mode'] != 'replay' and instant >= session_clocks(session, basis)['cutoff']:
             raise ValueError('Signal calculation crossed execution open')
         payload = dict(session_date=session['date'], input_last_session=bars[-1]['date'],
-                       input_sha256=digest(bars), strategy_sha256=digest(strategy),
-                       signal_input_available_at=(observations[-1]['payload']['packet']['available_at']
-                           if observations else json.loads(_reference(manifest['warmup']))['available_at']),
+                       input_sha256=digest(dict(bars=bars, actions=actions)), strategy_sha256=digest(strategy),
+                       cash_action_input_sha256=digest(actions),
+                       signal_input_available_at=input_available_at,
                        signal_generated_at=generated_stamp, signal_available_at=stamp,
                        known=known, desired=desired)
         return _append(directory, events, 'decision', payload, stamp)
@@ -429,7 +438,7 @@ def observe(directory, packet, *, now=None):
             if prior[0]['payload']['packet'] == packet:
                 return _confirm_durable_event(directory, prior[0])
             raise ValueError('Conflicting replacement of immutable observation')
-        bars, observations, start = _prefix(events, manifest, schedule)
+        bars, observations, start, actions = _prefix(events, manifest, schedule)
         index = start + len(observations)
         if index >= len(schedule):
             raise ValueError('Frozen calendar exhausted')
@@ -441,28 +450,26 @@ def observe(directory, packet, *, now=None):
         if decision is None:
             raise ValueError('Prospectively registered decision required')
         instant, stamp = _clock(now)
-        generated, available, acquired = (_instant(packet[key])
-            for key in ('generated_at', 'available_at', 'acquired_at'))
-        closing, opening = _instant(session['close_at']), _instant(session['open_at'])
-        if not closing <= generated <= available <= acquired <= instant:
-            raise ValueError('Final-bar generation, availability and host receipt clocks are inconsistent')
+        clocks = validate_input_clocks(packet, session, manifest['source_contract']['timestamp_basis'], now=instant)
         if activation['mode'] != 'replay':
-            if _instant(decision['received_at']) >= opening:
+            if _instant(decision['received_at']) >= clocks['cutoff']:
                 raise ValueError('Decision was not registered before execution open')
-            if (instant-closing).total_seconds() > manifest['source_contract']['maximum_receive_delay_seconds']:
+            if (instant-clocks['observable']).total_seconds() > manifest['source_contract']['maximum_receive_delay_seconds']:
                 raise ValueError('Late historical bar cannot be counted as live forward')
         if packet.get('source_id') != manifest['source_contract']['source_id']:
             raise ValueError('Wrong frozen data source')
-        if packet.get('corporate_actions_complete') is not True or packet.get('corporate_actions') != []:
-            raise ValueError('Action-free reviewed adapter requires an explicit complete empty action response')
+        if packet.get('corporate_actions_complete') is not True:
+            raise ValueError('Explicit complete cash action response required')
+        updated_actions = cash_action_snapshot(packet.get('corporate_actions'), asset=manifest['asset_id'],
+            sessions=[row['date'] for row in schedule], as_of_session=session['date'], previous=actions)
         bar = packet['bar']
         _validate_bar(bar, asset=manifest['asset_id'], session=session['date'])
-        if decision['payload']['input_sha256'] != digest(bars):
+        if decision['payload']['input_sha256'] != digest(dict(bars=bars, actions=actions)):
             raise ValueError('Decision inputs no longer match the immutable prefix')
         bars.append(bar)
         account = run_allocation_account(bars, sessions=[r['date'] for r in schedule[:index+1]],
             assets=[manifest['asset_id']], cycles=_cycles([e for e in events if e['kind'] == 'decision'], session['date']),
-            actions=[], config=config, daily_recovery=RECOVERY_40, allow_open_cycle=True)
+            actions=updated_actions, config=config, daily_recovery=RECOVERY_40, allow_open_cycle=True)
         # Retain all unresolved holdings and the original peak: there is no terminal sale.
         prior_curve = observations[-1]['payload']['account']['equity_curve'] if observations else []
         if prior_curve and account['equity_curve'][:len(prior_curve)] != prior_curve:

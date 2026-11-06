@@ -3,6 +3,7 @@ from copy import deepcopy
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 import io
 import json
 import os
@@ -174,6 +175,103 @@ class FrozenForwardTests(unittest.TestCase):
                 forward.observe(self.journal, packet, now=self.days[80]+'T08:00:00Z')
             self.assertEqual(len(list(self.journal.glob('*.json'))), 2)
             self.assertEqual(forward.status(self.journal)['real_forward_days'], 0)
+
+    def cash_action(self, *, record=82, ex=83, pay=85, announced=80, amount='0.10'):
+        return dict(event_id='cash-distribution-1', asset_id='SYNTHETIC_ETF', kind='cash_dividend',
+                    announced_date=self.days[announced], record_date=self.days[record],
+                    ex_date=self.days[ex], pay_date=self.days[pay], cash_per_unit=amount,
+                    share_multiplier='1', cash_basis='net')
+
+    def test_announced_cash_survives_restart_accrues_and_pays_exactly_once(self):
+        action = self.cash_action()
+        for row in self.bars[83:]:
+            for field in ('open','high','low','close'):
+                row[field] = str(Decimal(row[field])-Decimal('0.10'))
+        self.activate()
+        previous_curve = []
+        for index in range(80,86):
+            forward.decide(self.journal, now=self.days[index]+'T01:00:00Z')
+            packet = self.packet(index)
+            packet['corporate_actions'] = [action]
+            observed = forward.observe(self.journal, packet, now=self.days[index]+'T08:00:00Z')
+            account = observed['payload']['account']
+            self.assertEqual(account['equity_curve'][:len(previous_curve)], previous_curve)
+            previous_curve = account['equity_curve']
+            quantity = account['fills'][0]['quantity']
+            expected = Decimal(quantity)*Decimal('0.10')
+            if index in (83,84):
+                self.assertEqual(Decimal(str(account['receivables'][action['event_id']])), expected)
+                self.assertEqual(account['metrics']['dividend_cash_received'], 0)
+            if index == 85:
+                self.assertEqual(account['receivables'], {})
+                self.assertEqual(Decimal(str(account['metrics']['dividend_cash_received'])), expected)
+                self.assertEqual(forward.observe(self.journal, packet, now=self.days[86]+'T08:00:00Z'), observed)
+        kinds = [row['kind'] for row in account['corporate_action_journal']]
+        self.assertEqual(kinds, ['record_entitlement','receivable_created','cash_paid_after_fills'])
+        self.assertEqual(forward.status(self.journal)['real_forward_days'], 0)
+
+    def test_warmup_distribution_adjusts_signal_without_crediting_new_holder(self):
+        action = self.cash_action(record=78,ex=79,pay=81,announced=77,amount='1')
+        for row in self.bars[79:]:
+            for field in ('open','high','low','close'):
+                row[field] = str(Decimal(row[field])-1)
+        path = self.root/'warmup.json'
+        warmup = json.loads(path.read_text())
+        warmup.update(bars=self.bars[:80], actions=[action])
+        self.manifest['warmup'] = save(path,warmup)
+        self.freeze()
+        self.activate()
+        decision = forward.decide(self.journal, now=self.days[80]+'T01:00:00Z')
+        self.assertTrue(decision['payload']['desired'])
+        self.assertNotEqual(decision['payload']['cash_action_input_sha256'], forward.digest([]))
+        for index in (80,81):
+            forward.decide(self.journal, now=self.days[index]+'T01:00:00Z')
+            packet = self.packet(index)
+            packet['corporate_actions'] = [action]
+            account = forward.observe(self.journal,packet,now=self.days[index]+'T08:00:00Z')['payload']['account']
+        self.assertTrue(account['positions'])
+        self.assertEqual(account['metrics']['dividend_cash_received'],0)
+
+    def test_missing_amended_or_late_action_never_rewrites_received_prefix(self):
+        action=self.cash_action()
+        self.activate()
+        forward.decide(self.journal,now=self.days[80]+'T01:00:00Z')
+        packet=self.packet(80)
+        packet['corporate_actions']=[action]
+        forward.observe(self.journal,packet,now=self.days[80]+'T08:00:00Z')
+        forward.decide(self.journal,now=self.days[81]+'T01:00:00Z')
+        before={p.name:p.read_bytes() for p in self.journal.glob('*.json')}
+        late=self.cash_action(record=80,ex=82,pay=85,announced=79)
+        late['event_id']='late-event'
+        bad=[([], 'omitted'),([dict(action,cash_per_unit='0.11')], 'amended'),
+             ([action,late], 'Late cash action')]
+        for actions,message in bad:
+            packet=self.packet(81)
+            packet['corporate_actions']=actions
+            with self.assertRaisesRegex(ValueError,message):
+                forward.observe(self.journal,packet,now=self.days[81]+'T08:00:00Z')
+            self.assertEqual({p.name:p.read_bytes() for p in self.journal.glob('*.json')},before)
+
+    def test_invalid_cash_action_identity_dates_units_and_conversion_block(self):
+        action=self.cash_action()
+        self.activate()
+        forward.decide(self.journal,now=self.days[80]+'T01:00:00Z')
+        invalid=[dict(action,share_multiplier='2'),dict(action,cash_basis='gross'),
+                 dict(action,announced_date=self.days[81]),dict(action,asset_id='WRONG'),
+                 dict(action,record_date=action['ex_date']),dict(action,pay_date='2027-01-01'),
+                 dict(action,cash_per_unit='0'),dict(action,cash_per_unit='NaN'),
+                 dict(action,cash_per_unit=True),dict(action,cash_per_unit='1e999999999'),
+                 dict(action,cash_per_unit='1e40'),
+                 dict(action,kind='share_conversion')]
+        for bad in invalid:
+            packet=self.packet(80)
+            packet['corporate_actions']=[bad]
+            with self.assertRaises(ValueError):
+                forward.observe(self.journal,packet,now=self.days[80]+'T08:00:00Z')
+        packet['corporate_actions']=[action,dict(action,event_id='renamed-same-distribution')]
+        with self.assertRaisesRegex(ValueError,'Duplicate economic'):
+            forward.observe(self.journal,packet,now=self.days[80]+'T08:00:00Z')
+        self.assertEqual(len(list(self.journal.glob('*.json'))),2)
 
     def test_warmup_missing_amount_or_action_completeness_blocks_activation(self):
         path = self.root/'warmup.json'
