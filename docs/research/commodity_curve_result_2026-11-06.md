@@ -62,3 +62,4 @@
 ![中档费用净值比较](F:/lhjqr/data/reports/campaign_72h_20261106/commodity_accounts_lifecycle_repair/primary_nav_comparison.png)
 
 独立复核逐项重算账户恒等式、费用、回撤、完整往返、年度分解和预设分块统计，未重新运行账户或选择参数。
+四个主格的原价订单抽查另核对了 112 笔成交及 2,174 行净值；费用、现金、库存和暂停恢复均无差异。该算术验证不改变策略未通过的结论。
