@@ -22,10 +22,12 @@ import json
 from pathlib import Path
 import re
 from typing import Callable, Mapping
+from types import MappingProxyType
 
 from quant_robot.ops import tushare_daily_receipt
 from quant_robot.data.cn_trading_calendar import validate_cn_trading_calendar_artifact
 from quant_robot.data.sources.tushare_calendar_contract import validate_calendar_records
+from quant_robot.ops import paper_evidence_session as sessions
 
 
 SPEC_TYPE = 'paper_source_bundle_spec_v1'
@@ -184,6 +186,89 @@ class SourceAdapter:
     component: str
     parse: Callable[[EvidenceContext, dict], Evidence]
     parameters: dict | None = None
+
+
+@dataclass(frozen=True)
+class DeferredSourceAdapter:
+    """Code-owned parser identity; not compatible with immediate SourceAdapter."""
+    component: str
+    parser_id: str
+
+
+SYNTHETIC_DEFERRED_ADAPTERS = MappingProxyType({
+    **{f'warmup_synthetic_{kind}_v1':DeferredSourceAdapter(kind,'warmup_fixture') for kind in COMPONENTS},
+    'synthetic_prospective_fund_daily_v2':DeferredSourceAdapter('price','prospective_v2'),
+})
+
+
+class _DeferredContext(EvidenceContext):
+    """All content goes through a bounded child; recheck belongs to final commit."""
+    def __init__(self,assembly,component,ledger=None):
+        super().__init__(assembly.stage.root,component=component)
+        self.child=assembly.stage.new_child('source');self.stage=assembly.stage;self.ledger=ledger
+
+    def path_for(self,ref):
+        _keys(ref,('path','sha256'))
+        return self.stage.path_for(ref['path'])
+
+    def read_bytes(self,ref):
+        raw=self.child.read_bytes(ref)
+        self.references={item['path']:item for item in self.child.references}
+        self.total_bytes=sum(item['bytes'] for item in self.references.values())
+        if self.ledger is not None:self.synthetic_seen |= self.ledger.record(self,ref,raw)
+        return raw
+
+    def prefix_view(self,descriptor):return self.child.prefix_view(descriptor)
+
+    def recheck(self):return self.child.recheck()
+
+
+class _DeferredAssembly:
+    """Private preparation engine. Public entrypoints release only opaque tickets."""
+    def __init__(self,stage):
+        if type(stage) is not sessions.VerificationSession or stage.policy is not sessions.SYNTHETIC_POLICY:
+            raise BundleError('exact_synthetic_session_required')
+        stage.require_open();self.stage=stage
+        self.catalog=stage.bind_implementation(sessions.SOURCE_CATALOG)
+        # Bind the full supported parser graph, even if a batch uses fixtures only.
+        self.v2_catalog=stage.bind_implementation(sessions.V2_CATALOG)
+        self.contexts=[];self._reuse={}
+
+    def context(self,kind,ledger=None):
+        if kind in self._reuse:
+            context=self._reuse.pop(kind);context.component=kind
+            if ledger is not None:raise BundleError('deferred_ledger_context_cannot_be_reassigned')
+            return context
+        context=_DeferredContext(self,kind,ledger);self.contexts.append(context);return context
+
+    def adapter(self,adapter,kind):
+        if (not any(adapter is value for value in SYNTHETIC_DEFERRED_ADAPTERS.values())
+                or adapter.component!=kind):raise BundleError('code_owned_deferred_adapter_required')
+        return dict(component=kind,parser_id=adapter.parser_id,lineage='synthetic_only',
+            implementation_binding=self.binding())
+
+    def parse(self,adapter,context,ref):
+        self.adapter(adapter,context.component)
+        if adapter.parser_id=='warmup_fixture':
+            from quant_robot.ops.paper_warmup_bundle import _fixture
+            return _fixture(context,ref)
+        from quant_robot.ops.paper_prospective_transport_v2 import _parse_for_deferred
+        return _parse_for_deferred(context,ref)
+
+    def binding(self):
+        # Loaded package version attributes avoid importlib.metadata file reads.
+        from quant_robot.research.full_position_factors import np, pd
+        import platform
+        return dict(protocol='synthetic_deferred_sources_v1',source=self.catalog,prospective=self.v2_catalog,
+            adapters={key:dict(component=value.component,parser_id=value.parser_id)
+                      for key,value in SYNTHETIC_DEFERRED_ADAPTERS.items()},
+            python=platform.python_version(),packages=dict(numpy=np.__version__,pandas=pd.__version__),
+            production_admission=False)
+
+    def propose(self,value):
+        self.stage.require_open()
+        if not self.contexts:self.stage.fail('no_deferred_originals')
+        return self.contexts[-1].child.propose(value)
 
 
 def _adapter_binding(adapter):
@@ -556,6 +641,23 @@ _VALIDATORS = dict(price=_price, calendar=_calendar, identity=_identity,
 
 
 def build_source_bundle(spec, *, evidence_root, decision_at, adapters: Mapping[str, SourceAdapter] | None = None):
+    return _build_source_bundle(spec,evidence_root=evidence_root,decision_at=decision_at,adapters=adapters)
+
+
+def prepare_source_bundle(spec, *, session, decision_at):
+    """Explicit synthetic path: only commit().result(ticket) exposes the bundle."""
+    try:
+        assembly=_DeferredAssembly(session)
+        result=_build_source_bundle(json.loads(_canonical(spec)),evidence_root=session.root,
+            decision_at=decision_at,adapters=SYNTHETIC_DEFERRED_ADAPTERS,_deferred=assembly)
+        if result['input_contract_complete'] is not True:
+            raise BundleError('deferred_bundle_incomplete:'+','.join(row['code'] for row in result['blockers']))
+        return assembly.propose(result)
+    except BaseException:
+        session.abort();raise
+
+
+def _build_source_bundle(spec, *, evidence_root, decision_at, adapters=None, _deferred=None):
     """Assemble evidence for the *next* decision; never certifies an earlier order.
 
     A custom registry is executable application code requiring independent review.
@@ -590,12 +692,13 @@ def build_source_bundle(spec, *, evidence_root, decision_at, adapters: Mapping[s
             entry = spec['evidence'][kind]
             _keys(entry, ('adapter_id', 'receipt'))
             adapter = registry.get(entry['adapter_id'])
-            if adapter is None or not isinstance(adapter, SourceAdapter) or adapter.component != kind:
+            if adapter is None or (not isinstance(adapter, SourceAdapter) and _deferred is None) or adapter.component != kind:
                 raise BundleError('unsupported_component_adapter')
-            binding = _adapter_binding(adapter)
-            context = EvidenceContext(evidence_root, component=kind)
+            binding = _adapter_binding(adapter) if _deferred is None else _deferred.adapter(adapter,kind)
+            context = EvidenceContext(evidence_root, component=kind) if _deferred is None else _deferred.context(kind)
             context.read_json(entry['receipt'])
-            evidence = adapter.parse(context, entry['receipt'])
+            evidence = (adapter.parse(context, entry['receipt']) if _deferred is None
+                        else _deferred.parse(adapter,context,entry['receipt']))
             if not isinstance(evidence, Evidence) or len(context.references) < 2:
                 raise BundleError('parsed_original_evidence_required')
             if evidence.evidence_class not in ('synthetic_only', 'recorded_observation'):
@@ -666,6 +769,8 @@ def build_source_bundle(spec, *, evidence_root, decision_at, adapters: Mapping[s
             blockers.append(dict(component='cross_evidence', code='inconsistent_bound_inputs'))
     output.update(blockers=blockers, evidence=validations,
                   specification_sha256=sha256(_canonical(spec)).hexdigest(),
-                  assembler_sha256=sha256(Path(__file__).read_bytes()).hexdigest())
+                  assembler_sha256=(sha256(Path(__file__).read_bytes()).hexdigest() if _deferred is None
+                    else _deferred.catalog['code']['src/quant_robot/ops/paper_source_bundle.py']))
+    if _deferred is not None:output['deferred_implementation_binding']=_deferred.binding()
     output['sha256'] = sha256(_canonical(output)).hexdigest()
     return output
