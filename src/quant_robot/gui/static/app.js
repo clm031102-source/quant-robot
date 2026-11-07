@@ -5808,6 +5808,7 @@ function renderOrdinaryHome() {
   const primaryRows = primaryBoard.rows || [];
   const topPrimary = primaryRows[0] || null;
   const project = state.projectStatus || {};
+  renderUSModelOperations(project.us_model || {});
   if (project.authority === "current_project_state") {
     const counts = project.evidence_counts || {};
     metricsNode.innerHTML = [
@@ -5818,7 +5819,7 @@ function renderOrdinaryHome() {
     ].join("");
     actionNode.innerHTML = statusRows([
       ["项目状态", project.state_label || "当前状态待核实", "warn"],
-      ["模拟运行", "尚无合格候选，暂不开启", "warn"],
+      ["策略资格", "尚无完整验收的合格策略；美元条件模型另列如下", "warn"],
       ["记录日期", project.generated_at || "待更新", "muted"],
       ["ETF费用", projectFeeSummary(project), "warn"],
     ]);
@@ -5847,6 +5848,56 @@ function renderOrdinaryHome() {
     ["推广口径", "只有通过长周期、OOS、滚动、成本和风险审计的主线候选，才可能进入模拟盘观察。", "warn"],
     ["安全边界", "本软件当前只做研究和本地模拟盘，不连接券商、不读取账户、不真实下单。", "danger"],
   ]);
+}
+
+function renderUSModelOperations(model = {}) {
+  const target = byId("ordinary-us-model");
+  if (!target) return;
+  const title = '<h3>美元日常模型账本</h3>';
+  if (!model.available) {
+    target.innerHTML = title + statusRows([["运行准备", model.reason || "等待日常模型部署记录", "warn"]]);
+    return;
+  }
+  const accounts = model.accounts || {};
+  const schedule = model.schedule || {};
+  const usd = value => value === null || value === undefined ? "尚无记录" : `$${Number(value).toFixed(2)}`;
+  const states = {
+    waiting_first_session: "已初始化，等待首个未来交易日",
+    initialized_waiting_for_next_completed_session: "已初始化，等待首个未来交易日",
+    completed_model_observation: "已记录未来交易日的模型结果",
+    observation_window_completed_open_positions_retained: "20 日观察窗口已结束；保留最后持仓和余额，未强制平仓",
+    blocked_before_source_request: "本次运行在取数前中断，原记录已保留",
+    blocked_no_retry: "本次取数或记账中断，原记录已保留",
+    initialized_cash_waiting_normal_month_end: "现金等待月末固定决策",
+    conditional_model_observed: "已记录未来交易日的模型结果",
+    blocked_continuity_no_backfill: "运行中断，已保留此前记录",
+    source_waiting: "等待首次数据",
+  };
+  const rows = [
+    ["运行状态", states[model.status] || "已保存日常模型记录", "warn"],
+    ["模型观察", `${model.model_forward_days ?? "--"} / 20 个交易日；真实成交前向 ${model.real_forward_days ?? "--"} 日`, "warn"],
+    ["自动计划", schedule.installed ? "已有安装记录；此页面不代表任务此刻正在运行" : "尚无安装记录", "muted"],
+    ["下次计划时间", schedule.next_capture_at || "暂无后续计划", "muted"],
+    ["最近运行记录", schedule.last_attempt_at ? `${schedule.last_attempt_at} / ${schedule.last_attempt_status || "结果待核对"}` : "尚无自动运行记录", "muted"],
+    ["记录保存时间", model.saved_at || "未知", "muted"],
+  ];
+  if (schedule.next_capture_at && Date.parse(schedule.next_capture_at) < Date.now()) {
+    rows.push(["记录时效", "保存的计划时间已过，尚未看到对应的新运行记录。", "warn"]);
+  }
+  for (const [role, name] of [["primary", "常规费用"], ["stress", "加重费用"]]) {
+    const account = accounts[role];
+    if (!account) continue;
+    const navLabel = account.initialized && account.model_forward_days === 0 ? "初始化资金" : "模型账面净值";
+    rows.push(
+      [name, `${navLabel} ${usd(account.NAV_USD)}；累计模型收益 ${account.model_profit_USD === null ? "尚无观察日" : usd(account.model_profit_USD)}`, "warn"],
+      [`${name}资金`, `可用 ${usd(account.spendable_cash_USD)}；待交收 ${usd(account.locked_cash_USD)}；未到账分红 ${usd(account.receivable_USD)}`, "muted"],
+      [`${name}持仓`, account.quantities ? Object.entries(account.quantities).map(([symbol, units]) => `${symbol} ${units} 股`).join(" / ") : "尚未初始化", "muted"],
+      [`${name}运行统计`, `${account.model_fill_count ?? 0} 笔模型成交；观察期最大回撤 ${account.model_forward_days > 0 && account.max_drawdown != null ? (Number(account.max_drawdown) * 100).toFixed(2) + "%" : "尚无观察日"}`, "muted"],
+      [`${name}最近收数`, account.latest_receipt || "尚无数据接收记录", "muted"],
+    );
+  }
+  rows.push(["口径", "独立的 1,000 美元假设账户；收盘后模型记账，未证明开盘可成交。美股实际券商费用待确认。", "warn"]);
+  target.innerHTML = title + statusRows(rows);
 }
 
 function renderOrdinaryTradingCockpit() {
@@ -6732,7 +6783,7 @@ function renderProjectStatus() {
         ["最近一次保存的工作记录", campaign.checkpoint_available ? localTime(campaign.checkpoint_at) : "工作记录待核实", "muted"],
       ] : []),
       ["ETF费用", projectFeeSummary(project), "warn"],
-      ["模拟运行", "尚无通过验收的候选，暂不开启", "warn"],
+      ["策略资格", "完整验收尚未通过；美元日常条件模型在首页单独展示", "warn"],
       ["项目范围", project.safety || "研究与模拟", "muted"],
     ]);
     byId("project-action-table").innerHTML = tableRows(project.next_actions || [], ["priority", "title", "reason"]);
