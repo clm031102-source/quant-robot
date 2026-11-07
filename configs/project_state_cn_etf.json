@@ -2,12 +2,12 @@
   "schema_version": 1,
   "display_only": true,
   "market": "CN_ETF",
-  "updated_at": "2026-11-07",
+  "updated_at": "2026-11-06",
   "state": "research_in_progress",
-  "state_label": "第20项九费用均亏，独立核账通过；0合格策略",
+  "state_label": "第21项债券历史模型为正，尚无合格策略",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 20,
+    "return_studies": 21,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "20项接续研究尝试，0合格。固定月九费用账户减记后均亏，主格亏3.78991369 USDT。九格末态/回撤及三格逐笔钱包独立核对通过；原结果、执行失败与审计精度修订证据均保留。"
+      "evidence": "21项接续研究尝试，0合格。新511220债券条件历史模型九费用均为正，主格本金1万元净增1761.07元；只有1次长期持有往返，不能证明主动超额收益。完整核账及年度/执行披露复核通过，真实交易状态仍未知。"
     },
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
@@ -58,24 +58,24 @@
   "next_actions": [
     {
       "priority": 1,
-      "track_id": "delivery",
-      "title": "完成日常来源接入与容量核验",
+      "track_id": "research",
+      "title": "推进长期风险补偿验证与独立研究提案",
       "command": "",
-      "reason": "完整人工采集到账本已验收；新增真实项目门禁、独立Git与实际时钟通过88项验证，32组独立计量一致。工程正在集成，真实HTTP来源与生产准入仍未开放。"
+      "reason": "第21项固定已知历史诊断完成：2020年2月至2024年6月主格净增1761.07元、收盘最大回撤3.76%；九费用均正。分配现金1241元，只有一轮长期持有，无风险退出。保持0资格，继续明确可验证的下一项证据，旧研究不改判。"
     },
     {
       "priority": 2,
-      "track_id": "research",
-      "title": "验证独立债券风险补偿与现金可实施性",
+      "track_id": "delivery",
+      "title": "集成来源接入框架并核对真实来源能力",
       "command": "",
-      "reason": "第20项九费用均亏且核账通过，本版后续观测不触发。新511220长期风险补偿方法已准备，106条官方目录已取回，发现2023份额拆分；正核实2拆分、5定期报告和15分红原件，另行实现人工账户边界。未运行新收益试验，旧结果与资格标准保留。"
+      "reason": "实际前置门禁与凭据隔离已合入；新的五阶段人工来源到账本框架166项验证通过、独立复核和恢复备份完成，PR53六环境CI进行中。生产来源注册仍关闭，31与32项前置检查的合流还需验证。"
     },
     {
       "priority": 3,
       "track_id": "costs",
       "title": "补齐ETF交易状态与真实费用",
       "command": "",
-      "reason": "已找到ETF涨跌停专用来源定义；停牌完整覆盖与当前公告仍待核实。九费用情景保留，真实费用未确认。"
+      "reason": "正收益仍以条件成交和九费用假设为前提；两笔成交的停牌/涨跌停状态尚未认证，真实最低佣金未核实。日常身份、完整行动及状态覆盖继续核对，未开放真实前向。"
     }
   ],
   "max_single_position_fraction_NAV": 1,

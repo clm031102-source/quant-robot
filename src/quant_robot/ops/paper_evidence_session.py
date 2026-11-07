@@ -122,6 +122,7 @@ PM_CATALOG = 'actual_pm_closed_review_code_v1'
 _PM_FILES = (
     'src/quant_robot/ops/paper_actual_pm_gate.py',
     'src/quant_robot/research/account_comparison_scope.py',
+    'src/quant_robot/research/bond_risk_compensation_admission.py',
     'src/quant_robot/research/cash_carry_repair_study.py',
     'src/quant_robot/research/cash_carry_study.py',
     'src/quant_robot/research/commodity_proxy_admission.py',
