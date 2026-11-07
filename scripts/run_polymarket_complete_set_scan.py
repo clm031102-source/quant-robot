@@ -16,7 +16,9 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'src'))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bootstrap import ensure_workspace_imports
+ensure_workspace_imports()
 from quant_robot.research.polymarket_complete_set import market_assets, number, screen
 
 
