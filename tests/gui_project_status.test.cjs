@@ -80,7 +80,7 @@ test('home and status cards retain partial ETF fee meaning and checkpoint is not
   Object.assign(context, {statusRows: rows => JSON.stringify(rows), tableRows: () => '',
     metric: (...items) => JSON.stringify(items), groupHistoricalDashboard() {},
     renderOrdinaryTradingCockpit() {}, formatPercent: value => String(value)});
-  vm.runInContext(['projectFeeSummary', 'renderOrdinaryHome', 'renderProjectStatus'].map(actualFunction).join('\n'), context);
+  vm.runInContext(['projectFeeSummary', 'renderUSModelOperations', 'renderOrdinaryHome', 'renderProjectStatus'].map(actualFunction).join('\n'), context);
   context.state.projectStatus = {authority: 'current_project_state', actual_fees_verified: false,
     user_confirmed_costs: {ETF_minimum_commission_CNY_per_transaction: 5,
       source: 'user_reported_2026-11-07UTC', broker_and_rate_unconfirmed: true},
@@ -116,4 +116,30 @@ test('user confirmed Huabao rate and minimum remain ETF specific', () => {
     broker: '华宝证券', ETF_commission_rate: 0.0001,
   }});
   assert.equal(text, '华宝ETF佣金：万一，每笔最低5元（用户确认）；其他品种费用另计');
+});
+
+test('daily USD panel labels initialization and future model profits separately from real fills', () => {
+  const target = {innerHTML: ''};
+  const context = {byId: () => target, statusRows: rows => JSON.stringify(rows)};
+  vm.createContext(context);
+  vm.runInContext(actualFunction('renderUSModelOperations'), context);
+  const account = {initialized: true, model_forward_days: 0, NAV_USD: '1000.00',
+    model_profit_USD: null, spendable_cash_USD: '1000.00', locked_cash_USD: '0',
+    receivable_USD: '0', quantities: {SPY: 0, EFA: 0, IEF: 0, GLD: 0}};
+  const model = {available: true, model_forward_days: 0, real_forward_days: 0,
+    schedule: {installed: true}, accounts: {primary: account}};
+  context.renderUSModelOperations(model);
+  assert.match(target.innerHTML, /初始化资金 \$1000\.00/);
+  assert.match(target.innerHTML, /累计模型收益 尚无观察日/);
+  assert.match(target.innerHTML, /真实成交前向 0 日/);
+  assert.match(target.innerHTML, /不代表任务此刻正在运行/);
+  account.model_forward_days = model.model_forward_days = 1;
+  account.NAV_USD = '1010.25'; account.model_profit_USD = '10.25';
+  context.renderUSModelOperations(model);
+  assert.match(target.innerHTML, /模型账面净值 \$1010\.25/);
+  assert.match(target.innerHTML, /累计模型收益 \$10\.25/);
+  assert.match(target.innerHTML, /真实成交前向 0 日/);
+  context.renderUSModelOperations({available: false, reason: '记录缺失'});
+  assert.match(target.innerHTML, /记录缺失/);
+  assert.doesNotMatch(target.innerHTML, /1010\.25/);
 });
