@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "美元日常模型已部署，等待首个交易日",
+  "state_label": "五年配置比较完成，日常模型等待首个交易日",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 28,
+    "return_studies": 29,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "第28项行业动量被拒绝：主/压力费用预算后年化8.38%/5.56%，低于九行业等权毛年化10.12%，两项相对收益条件失败。第27项美元配置已部署条件模型，但整股受限、现金占比高；当前0个运行日，尚无稳定盈利证据。"
+      "evidence": "第29项五年整股比较完成：低单价篮子基础/较高费用现金加待到账卖款净赚315.81/49.74美元，最大回撤18.39%/22.36%。较高费用比原篮子少赚98.45美元，尚无稳健优势；0合格、0真实前向。原日常条件模型已部署，等待11月9日。"
     },
     {
       "blocker_id": "forward_observation_not_started",
@@ -44,6 +44,13 @@
       "title": "按计划积累未来20日条件模型记录",
       "command": "",
       "reason": "系统计划负责11月9日至12月7日收盘后更新；电脑开机且保持当前用户登录，聊天无需保持打开。月底按固定规则决策；不会补造早期交易。"
+    },
+    {
+      "priority": 2,
+      "track_id": "research",
+      "title": "针对手续费敏感性研究减少常规换手",
+      "command": "",
+      "reason": "五年账本显示新篮子52/64笔成交，成本63.28/197.76美元。先按已保存交易区分调仓和风险退出，再冻结单一新对照；本轮不改参数重跑。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -67,7 +74,7 @@
     "source": "user_reported_2026-11-07UTC",
     "broker_and_rate_unconfirmed": false
   },
-  "updated_at_utc": "2026-11-07T18:32:33.027Z",
+  "updated_at_utc": "2026-11-07T21:41:07.763Z",
   "closed_research_findings": [
     {
       "blocker_id": "sector_momentum_cost_adjusted_increment_failed",
@@ -142,6 +149,18 @@
       "operation_start": "2026-11-09",
       "operation_end": "2026-12-07",
       "source_record": "data/reports/us_allocation_model_20261109_20261207/current_status.json"
+    },
+    {
+      "id": "study29_low_unit_five_year_comparison_completed",
+      "at": "2026-11-07T21:41:07.763Z",
+      "report": "docs/research/us_low_unit_allocation_2026-11-07.md",
+      "account_runs": 5,
+      "source_GETs": 4,
+      "conditional_evaluation_passed": true,
+      "independent_days": 6275,
+      "qualified": false,
+      "real_forward": 0,
+      "existing_deployment_changed": false
     }
   ],
   "research_universe": {
