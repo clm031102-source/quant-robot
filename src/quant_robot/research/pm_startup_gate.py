@@ -65,10 +65,17 @@ def build_quant_pm_startup_gate(
     branch: str | None = None,
     current_branch: str | None = None,
     family_config: dict[str, Any] | None = None,
+    _reader=None,
 ) -> dict[str, Any]:
     root = Path(repo_root)
+    if _reader is not None:
+        from quant_robot.ops.paper_actual_pm_gate import _ActualPMGate
+        if type(_reader) is not _ActualPMGate:
+            raise ValueError('fixed_actual_pm_reader_required')
+        _reader.validate_call(root, gate_config, workstations_config, family_config,
+                              machine, task, branch, current_branch)
     primary_market = str(gate_config.get("primary_market", "CN_ETF")).upper()
-    reading = [_reading_row(root, row) for row in _list(gate_config.get("required_reading")) if isinstance(row, dict)]
+    reading = [_reading_row(root, row, _reader=_reader) for row in _list(gate_config.get("required_reading")) if isinstance(row, dict)]
     missing_reading = [row["path"] for row in reading if row.get("status") != "read"]
     selected_branch = branch or current_branch
     family_path = gate_config.get("research_family_config", "configs/research_family_scheduler_cn_etf.json")
@@ -205,6 +212,8 @@ def build_quant_pm_startup_gate(
         )
     )
     warnings.extend(str(warning) for warning in _list(family_schedule.get("warnings")))
+    if _reader is not None:
+        _reader.validate_mode(restricted_mode, _dict(restricted.get("scope")) if restricted else {})
     account_comparison = review_account_comparison(root, mode=restricted_mode,
         scope=_dict(restricted.get("scope")) if restricted else {},
         protocol=gate_config.get("account_comparison_protocol"))
@@ -381,7 +390,7 @@ def render_quant_pm_startup_gate_markdown(pack: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _reading_row(root: Path, row: dict[str, Any]) -> dict[str, Any]:
+def _reading_row(root: Path, row: dict[str, Any], *, _reader=None) -> dict[str, Any]:
     path_text = str(row.get("path", ""))
     path = root / path_text
     result = {
@@ -392,9 +401,9 @@ def _reading_row(root: Path, row: dict[str, Any]) -> dict[str, Any]:
         "lines": 0,
         "sha256": "",
     }
-    if not path.exists() or not path.is_file():
+    if _reader is None and (not path.exists() or not path.is_file()):
         return result
-    content = path.read_text(encoding="utf-8")
+    content = path.read_text(encoding="utf-8") if _reader is None else _reader.read_text(root, path_text)
     result.update(
         {
             "status": "read",
