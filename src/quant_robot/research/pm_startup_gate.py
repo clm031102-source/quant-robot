@@ -45,6 +45,11 @@ from quant_robot.research.crypto_charge_monthly_admission import scope as crypto
 from quant_robot.research.bond_risk_compensation_admission import scope as bond_risk_compensation_scope
 from quant_robot.research.spot_macd_transfer_admission import scope as spot_macd_transfer_scope
 from quant_robot.research.equity_gold_constant_mix_admission import scope as constant_mix_scope
+from quant_robot.ops.future_etf_source_observer import (
+    future_source_observation_scope,
+    MODE as FUTURE_SOURCE_MODE,
+    CLOSED_MODE as FUTURE_SOURCE_CLOSED_MODE,
+)
 
 
 STAGE = "quant_pm_startup_gate"
@@ -119,6 +124,7 @@ def build_quant_pm_startup_gate(
         bond_risk_compensation_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         spot_macd_transfer_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         constant_mix_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        future_source_observation_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
     ) if scope]
     restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)
@@ -130,6 +136,10 @@ def build_quant_pm_startup_gate(
         blockers.append("multiple_dedicated_diagnostics_authorized")
 
     blockers.extend(_context_blockers(workstations_config, machine, task, selected_branch, current_branch))
+    if restricted_mode in (FUTURE_SOURCE_MODE, FUTURE_SOURCE_CLOSED_MODE) and machine != "office_desktop":
+        blockers.append("future_source_requires_office_desktop")
+    if restricted_mode == FUTURE_SOURCE_CLOSED_MODE:
+        blockers.append("future_source_exact_dual_release_missing_or_invalid")
     if restricted_mode == "single_campaign_crypto_monthly_10_account_only" and machine != "office_desktop":
         blockers.append("crypto_monthly_diagnostic_requires_office_desktop")
     if restricted_mode == "single_campaign_crypto_charge_monthly_10_account_only" and machine != "office_desktop":
@@ -145,7 +155,9 @@ def build_quant_pm_startup_gate(
         blockers.append("research_family_primary_market_mismatch")
     if _dict(family_schedule.get("summary")).get("scheduler_status") != "ready" and not restricted_mode:
         blockers.append("research_family_scheduler_not_ready")
-    if restricted_mode == "source_repair_only":
+    if restricted_mode in (FUTURE_SOURCE_MODE, FUTURE_SOURCE_CLOSED_MODE):
+        warnings.append("future_source_observation_not_research_or_candidate_activation")
+    elif restricted_mode == "source_repair_only":
         warnings.append("research_family_scheduler_source_repair_mode")
     elif restricted_mode == "preregistration_only":
         warnings.append("research_family_scheduler_preregistration_mode")
@@ -269,6 +281,8 @@ def build_quant_pm_startup_gate(
         "account_comparison": account_comparison,
         "next_actions": _next_actions(blockers, restricted_mode=restricted_mode),
         "safety": {
+            "future_source_observation_allowed": not blockers and restricted_mode == FUTURE_SOURCE_MODE,
+            "future_source_observation_scope": _dict(restricted.get("scope")) if restricted_mode == FUTURE_SOURCE_MODE else {},
             "research_only": True,
             "paper_only_next_step": True,
             "commodity_proxy_36_account_allowed": not blockers and restricted_mode == "single_campaign_commodity_proxy_36_account_only",
@@ -289,7 +303,7 @@ def build_quant_pm_startup_gate(
                 not blockers
                 and (not restricted_mode or restricted_mode == "single_prescreen_only")
             ),
-            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only", "single_full_position_factor_search_only", "single_full_position_recovery_only", "single_dd40_reentry_only", "single_campaign_commodity_proxy_36_account_only", "single_campaign_commodity_lifecycle_repair_36_account_only", "single_campaign_crypto_monthly_10_account_only", "single_campaign_crypto_charge_monthly_10_account_only", "single_campaign_bond_risk_compensation_10_account_only", "single_campaign_spot_macd_transfer_27_account_only", "single_campaign_constant_mix_27_account_only"} else {},
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {FUTURE_SOURCE_MODE, FUTURE_SOURCE_CLOSED_MODE, "single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only", "single_full_position_factor_search_only", "single_full_position_recovery_only", "single_dd40_reentry_only", "single_campaign_commodity_proxy_36_account_only", "single_campaign_commodity_lifecycle_repair_36_account_only", "single_campaign_crypto_monthly_10_account_only", "single_campaign_crypto_charge_monthly_10_account_only", "single_campaign_bond_risk_compensation_10_account_only", "single_campaign_spot_macd_transfer_27_account_only", "single_campaign_constant_mix_27_account_only"} else {},
             "monthly_diagnostic_allowed": not blockers and restricted_mode == "single_monthly_diagnostic_only",
             "monthly_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_monthly_diagnostic_only" else {},
             "household_diagnostic_allowed": not blockers and restricted_mode == "single_household_diagnostic_only",
@@ -689,6 +703,9 @@ def _next_actions(
                 "reason": "Quant PM startup gate is blocked; fix direction, context, or required reading before running data or factor batches.",
             }
         ]
+    if restricted_mode in (FUTURE_SOURCE_MODE, FUTURE_SOURCE_CLOSED_MODE):
+        return [{"action": "observe_only_exact_released_future_sessions",
+                 "reason": "Only independently released finite future source collection; no warmup admission, candidate, signals, accounts or forward credit."}]
     if restricted_mode == "source_repair_only":
         return [
             {

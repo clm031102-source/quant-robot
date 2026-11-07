@@ -121,6 +121,9 @@ _G1_FILES = tuple(sorted(set(_V2_FILES) | {
 }))
 PM_CATALOG = 'actual_pm_closed_review_code_v1'
 _PM_FILES = (
+    'src/quant_robot/ops/future_etf_source_observer.py',
+    'src/quant_robot/ops/tushare_fund_daily_batch.py',
+    'src/quant_robot/ops/tushare_fund_daily_wire.py',
     'src/quant_robot/ops/paper_actual_pm_gate.py',
     'src/quant_robot/research/account_comparison_scope.py',
     'src/quant_robot/research/bond_risk_compensation_admission.py',

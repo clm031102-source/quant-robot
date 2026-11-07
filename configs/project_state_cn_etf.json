@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "恒权方法税务来源已补齐，准备冻结历史验证输入",
+  "state_label": "恒权研究未通过，推进未来来源观察器集成",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 22,
+    "return_studies": 23,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "22项接续研究尝试，0合格。第22项BTC现货MACD条件历史验证27账户完成并独立核账；主格1000USDT净增36.24、回撤28.64%，完整往返26次，五年度仅一年正收益，统计下界及成交量条件未通过。第21项511220长期持有条件历史为正，但不能证明主动超额收益，执行和当前产品条款仍待核实。"
+      "evidence": "23项接续研究范围已消费，0合格。第23项股金50:50季度调仓一次27账户完成并独立核账；主费用万元本金净增5527.70元、回撤25.80%，比同规则持有多324.70元，但后四年增量为−481.30元，净收益及增量的调整统计下界均未为正，固定17项中3项失败。旧失败保留。"
     },
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
@@ -58,24 +58,24 @@
   "next_actions": [
     {
       "priority": 1,
-      "track_id": "research",
-      "title": "冻结恒权方法完整历史输入",
+      "track_id": "delivery",
+      "title": "集成未来来源观察器",
       "command": "",
-      "reason": "24份价格原件、两只ETF各2454日已取得；165项输入已归集。十次分配事件的历史条件税务来源已具备，正在装配精确映射及最终清单；不认证个人实际到账，尚无新历史账户结果。"
+      "reason": "默认关闭、精确有限日期双审及防重复取件已实现；实际PM接线和独立计量已通过，待最终六环境检查与集成。未创建真实来源准入。"
     },
     {
       "priority": 2,
-      "track_id": "delivery",
-      "title": "完成最终历史入口集成与一次性验证",
+      "track_id": "research",
+      "title": "审查下一条独立收益机制",
       "command": "",
-      "reason": "PR60已合入，每环境5001项测试。后续历史入口与独立核账器已完成工程审查及241文件恢复验证；待最终输入绑定、六环境检查和金融登记后执行27账户。日常单资产入口还不能直接运行双ETF组合。"
+      "reason": "第23项完整结果已拒绝，不能改权重、风险、费用、日期或基准救回；下一研究先说明收入来源、万元可执行性和独立有限验证。"
     },
     {
       "priority": 3,
       "track_id": "costs",
       "title": "后续ETF研究采用每笔最低5元",
       "command": "",
-      "reason": "用户已确认该最低佣金；比例费率及收费归集口径尚未核实，0元档仅作敏感性对照，旧九费用结果保留。"
+      "reason": "用户已确认该最低佣金；比例费率及收费归集口径尚未核实，0元档仅作敏感性对照，旧结果保留。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -97,5 +97,5 @@
     "source": "user_reported_2026-11-07UTC",
     "broker_and_rate_unconfirmed": true
   },
-  "updated_at_utc": "2026-11-07T09:54:06.526Z"
+  "updated_at_utc": "2026-11-07T11:21:43.498Z"
 }
