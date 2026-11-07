@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "策略尚未合格，客户收费与结算条件仍待核实",
+  "state_label": "2025美元配置通过固定经济条件，正在准备日常模拟",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 24,
+    "return_studies": 27,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,13 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "24项接续研究范围已消费，0合格。第23项股金50:50季度调仓一次27账户完成并独立核账；主费用万元本金净增5527.70元、回撤25.80%，比同规则持有多324.70元，但后四年增量为−481.30元，净收益及增量的调整统计下界均未为正，固定17项中3项失败。旧失败保留。 第24项仅完成一次历史报价的条件单笔计算，未形成账户或合格候选。"
-    },
-    {
-      "blocker_id": "actual_costs_unverified",
-      "severity": "review",
-      "track_id": "costs",
-      "evidence": "用户已确认ETF每笔最低佣金5元；券商、比例佣金及收费归集口径尚未核实。既定九费用历史结果保留，0元档仅作敏感性对照。"
+      "evidence": "第27项独立核账通过：USD1000冷启动，2025年主/压力现金净利润70.62/57.33美元，最大回撤3.49%/3.51%，各7笔成交。SPY全年0股、GLD233日0股，实际为高现金、整股受限配置；固定经济条件通过，尚无真实时间模拟和稳定盈利证据。"
     },
     {
       "blocker_id": "forward_observation_not_started",
@@ -41,35 +35,15 @@
       "severity": "review",
       "track_id": "research",
       "evidence": "当前封存的2026 ETF分区未读；旧etf_csv的部分2026已被Round17消费。原有及本轮网页背景暴露记录保留，不能称全项目完全盲态；2026日历与规则元数据另行取证，不是价格解封。"
-    },
-    {
-      "blocker_id": "cash_repo_contract_and_quote_conditions_open",
-      "severity": "review",
-      "track_id": "research",
-      "evidence": "单笔人工账本已通过工程验证；第24项固定历史报价下9000元条件占款1天，税费前利息0.62元，分币总费用须不超过0.61元才有正净息，独立复核与恢复备份完成。官方回购收费条款属于会员向交易所缴费，不能认定个人免佣或全部费用。客户费用、可用/可取时钟及可执行报价仍未知。"
     }
   ],
   "next_actions": [
     {
       "priority": 1,
-      "track_id": "costs",
-      "title": "明确拟用券商的客户逆回购收费",
+      "track_id": "paper",
+      "title": "把通过的配置方法接到真实时间纸面运行",
       "command": "",
-      "reason": "券商名称已询问、尚待回复。需要核对客户费率、最低费、收费归集与时点；交易所会员费用不能替代客户全费。"
-    },
-    {
-      "priority": 2,
-      "track_id": "research",
-      "title": "补齐资金可用规则和可执行报价依据",
-      "command": "",
-      "reason": "已有单点历史报价只支持条件算术，不认证当时可成交、客户到账或净收益。新验证须另行事前固定范围，旧研究结果保留。"
-    },
-    {
-      "priority": 3,
-      "track_id": "research",
-      "title": "评估不依赖费用缺口的独立可执行提案",
-      "command": "",
-      "reason": "仅推进有具体新证据或可修复运营缺口的工作；保持0合格、0前向，不用回放填充真实观察。"
+      "reason": "跨日账本与重启已完成人工验收；下一步固定真实来源、时钟和运行合同，费用保持明示场景，等待已询问的实际美股收费。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -88,10 +62,12 @@
   },
   "user_confirmed_costs": {
     "ETF_minimum_commission_CNY_per_transaction": 5,
+    "ETF_commission_rate": 0.0001,
+    "broker": "华宝证券",
     "source": "user_reported_2026-11-07UTC",
-    "broker_and_rate_unconfirmed": true
+    "broker_and_rate_unconfirmed": false
   },
-  "updated_at_utc": "2026-11-07T14:04:15.097Z",
+  "updated_at_utc": "2026-11-07T17:34:05.774Z",
   "closed_research_findings": [
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
@@ -135,6 +111,29 @@
       "retail_total_fee_verified": false,
       "source_closed": true,
       "report": "docs/research/repo_cash_threshold_result_2026-11-07.md"
+    },
+    {
+      "id": "polymarket_complete_set_first_public_scan",
+      "at": "2026-11-07T15:54:55.763776+00:00",
+      "markets_sampled": 500,
+      "markets_with_books": 100,
+      "positive_quote_candidates": 0,
+      "min_best_ask_pair_cost": 1.001,
+      "report": "data/reports/polymarket_complete_set/20261107_160500/report.json",
+      "fills": 0,
+      "realized_profit": null
     }
-  ]
+  ],
+  "research_universe": {
+    "source": "user_explicit_2026-11-07",
+    "scope": [
+      "CN_ETF",
+      "CN_STOCK",
+      "US",
+      "HK",
+      "OPTIONS",
+      "PREDICTION_MARKETS"
+    ],
+    "selection_basis": "data availability, realistic net costs, executable evidence"
+  }
 }
