@@ -26,7 +26,7 @@ from typing import Callable, Mapping
 from types import MappingProxyType
 
 from quant_robot.ops import tushare_daily_receipt
-from quant_robot.data.cn_trading_calendar import validate_cn_trading_calendar_artifact
+from quant_robot.data.cn_trading_calendar import validate_cn_trading_calendar_bytes
 from quant_robot.data.sources.tushare_calendar_contract import validate_calendar_records
 from quant_robot.ops import paper_evidence_session as sessions
 
@@ -159,7 +159,10 @@ class EvidenceContext:
         return raw
 
     def read_json(self, ref):
-        value = json.loads(self.read_bytes(ref), object_pairs_hook=_unique_object,
+        return self._parse_json_bytes(self.read_bytes(ref))
+
+    def _parse_json_bytes(self, raw):
+        value = json.loads(raw, object_pairs_hook=_unique_object,
                            parse_constant=_invalid_constant)
         if isinstance(value, dict) and (
                 value.get('evidence_class') == 'synthetic_only'
@@ -429,8 +432,10 @@ def published_calendar_adapter(*, exchange, reviewed_metadata_sha256):
         calendar_ref = _metadata_ref(context, metadata['calendar_path'], metadata['calendar_sha256'])
         manifest_ref = _metadata_ref(context, metadata['calendar_manifest_path'], metadata['calendar_manifest_sha256'])
         calendar_raw = context.read_bytes(calendar_ref)
-        context.read_json(manifest_ref)
-        manifest = validate_cn_trading_calendar_artifact(context.path_for(calendar_ref), context.path_for(manifest_ref))
+        manifest_raw = context.read_bytes(manifest_ref)
+        # Preserve strict JSON and synthetic taint on the same metered buffer.
+        context._parse_json_bytes(manifest_raw)
+        manifest = validate_cn_trading_calendar_bytes(calendar_raw, manifest_raw)
         dates = [row['date'] for row in csv.DictReader(io.StringIO(calendar_raw.decode('utf-8-sig')))]
         if dates != sorted(set(dates)):
             raise BundleError('calendar_CSV_dates_not_unique_ordered')

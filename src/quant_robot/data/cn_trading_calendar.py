@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import io
+from hashlib import sha256
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
@@ -122,7 +124,19 @@ def validate_cn_trading_calendar_artifact(
         raise ValueError(f"CN trading calendar artifact does not exist: {calendar_file}")
     if not manifest_file.is_file():
         raise ValueError(f"CN trading calendar manifest does not exist: {manifest_file}")
-    manifest = json.loads(manifest_file.read_text(encoding="utf-8-sig"))
+    return validate_cn_trading_calendar_bytes(calendar_file.read_bytes(), manifest_file.read_bytes(),
+        expected_start_date=expected_start_date, expected_end_date=expected_end_date)
+
+
+def validate_cn_trading_calendar_bytes(
+    calendar_raw: bytes, manifest_raw: bytes, *,
+    expected_start_date: str | None = None, expected_end_date: str | None = None,
+) -> dict[str, Any]:
+    """Validate the exact buffers already consumed by a bounded evidence reader."""
+    if type(calendar_raw) is not bytes or type(manifest_raw) is not bytes:
+        raise ValueError("Exact calendar and manifest byte buffers required")
+    calendar_file, manifest_file = "calendar buffer", "manifest buffer"
+    manifest = json.loads(manifest_raw.decode("utf-8-sig"))
     if int(manifest.get("calendar_schema_version") or 0) != CALENDAR_SCHEMA_VERSION:
         raise ValueError(f"CN trading calendar schema mismatch: {manifest_file}")
     if manifest.get("status") != "cleared" or manifest.get("decision", {}).get("calendar_cleared") is not True:
@@ -134,10 +148,10 @@ def validate_cn_trading_calendar_artifact(
     if manifest.get("live_boundary_allowed") is not False:
         raise ValueError(f"CN trading calendar violates live boundary: {manifest_file}")
     artifact = manifest.get("artifact", {}) if isinstance(manifest.get("artifact"), dict) else {}
-    if artifact.get("sha256") != sha256_file(calendar_file):
+    if artifact.get("sha256") != sha256(calendar_raw).hexdigest():
         raise ValueError(f"CN trading calendar artifact fingerprint mismatch: {calendar_file}")
 
-    calendar = pd.read_csv(calendar_file)
+    calendar = pd.read_csv(io.BytesIO(calendar_raw))
     required_columns = ["market", "date", "is_open", "source"]
     if list(calendar.columns) != required_columns:
         raise ValueError(f"CN trading calendar columns mismatch: {calendar_file}")

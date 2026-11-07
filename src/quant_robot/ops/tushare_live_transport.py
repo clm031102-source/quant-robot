@@ -68,8 +68,13 @@ def implementation_binding(*,_reader=None):
         from quant_robot.ops import frozen_candidate_forward as forward
         from quant_robot.ops import paper_evidence_session as sessions
         if type(_reader) is not forward._SyntheticG1Action:
-            raise ScopeError('fixed_synthetic_root_reader_required')
-        code=_reader.stage.bind_implementation(sessions.G1_CATALOG)['code']
+            from quant_robot.ops.paper_recorded_capture_observe import _RecordedG1Action
+            if type(_reader) is not _RecordedG1Action:
+                raise ScopeError('fixed_synthetic_root_reader_required')
+            _reader.require_owner()
+            code=_reader.stage.bind_implementation(sessions.RECORDED_CATALOG)['code']
+        else:
+            code=_reader.stage.bind_implementation(sessions.G1_CATALOG)['code']
         return dict(code={name:code[name] for name in CODE_FILES},python=platform.python_version(),
                     requests=None,synthetic_fixed_transport=True)
     root = Path(__file__).resolve().parents[3]
@@ -547,7 +552,8 @@ def _capture_once(folder,scope,receipt,*,clock,monotonic,get_token,new_session,_
 
 def _meter_reference(reader,path,sha):
     from quant_robot.ops import paper_evidence_session as sessions
-    if type(reader) is not sessions._Child or reader._session.policy is not sessions.G1_SYNTHETIC_POLICY:
+    if type(reader) is not sessions._Child or not any(reader._session.policy is value for value in
+            (sessions.G1_SYNTHETIC_POLICY,sessions.G1_RECORDED_POLICY)):
         raise ScopeError('fixed_g1_content_reader_required')
     reader._session.require_open()
     root=reader._session.root;relative=Path(path).resolve(strict=True).relative_to(root).as_posix()
