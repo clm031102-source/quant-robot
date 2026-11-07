@@ -122,8 +122,9 @@ class BondActualPMGuardClosureTests(unittest.TestCase):
         scopes = {name: value for name, value in vars(pm).items()
                   if name.endswith('_scope') and inspect.isfunction(value)
                   and value.__module__.startswith('quant_robot.research.')}
-        self.assertEqual(len(scopes), 33)
+        self.assertEqual(len(scopes), 34)
         self.assertIn('bond_risk_compensation_scope', scopes)
+        self.assertIn('constant_mix_scope', scopes)
         for scope in scopes.values():
             source = Path(inspect.getsourcefile(scope)).resolve().relative_to(repo).as_posix()
             self.assertIn(source, sessions._PM_FILES)
