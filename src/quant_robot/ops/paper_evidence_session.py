@@ -58,6 +58,7 @@ SYNTHETIC_POLICY = _Policy('synthetic_original_prefix_prototype_v1')
 # Explicit G1-only engineering policy. Existing four-stage policy and all its
 # values are unchanged; the cumulative physical budget does not increase.
 G1_SYNTHETIC_POLICY = replace(SYNTHETIC_POLICY,policy_id='synthetic_g1_deferred_operation_v1',stages=5)
+G1_RECORDED_POLICY = replace(G1_SYNTHETIC_POLICY,policy_id='recorded_518880_connection_framework_v1')
 # Fixed code-owned reduced policies exist only to exercise hard-stop boundaries
 # without reading gigabytes. Constructors accept these exact objects, not IDs,
 # dataclass lookalikes, JSON, environment settings, or caller-supplied limits.
@@ -72,7 +73,7 @@ _OPEN_POLICY = replace(SYNTHETIC_POLICY, policy_id='synthetic_open_budget_probe_
 _UNION_POLICY = replace(SYNTHETIC_POLICY, policy_id='synthetic_union_byte_probe_v1',
     union_files=10,union_bytes=128)
 _POLICIES = MappingProxyType({p.policy_id:p for p in
-    (SYNTHETIC_POLICY,G1_SYNTHETIC_POLICY,_SMALL_POLICY,_IO_POLICY,_OPEN_POLICY,_UNION_POLICY)})
+    (SYNTHETIC_POLICY,G1_SYNTHETIC_POLICY,G1_RECORDED_POLICY,_SMALL_POLICY,_IO_POLICY,_OPEN_POLICY,_UNION_POLICY)})
 PREFIX_TYPE = 'journal_original_prefix_v2_prototype'
 EVENT_TYPE = 'frozen_candidate_forward_event_v1'
 _DESCRIPTOR_KEYS = {'dependency_type','policy_id','journal_relative_path',
@@ -167,8 +168,20 @@ _PM_DOCUMENTS = (
     'docs/research/research_family_scheduler_2026-06-17.md',
     'docs/research/quant_pm_startup_gate_2026-06-17.md',
 )
+RECORDED_CATALOG = 'recorded_518880_closed_framework_v1'
+_RECORDED_FILES = tuple(sorted(set(_G1_FILES) | set(_PM_FILES) | {
+    'src/quant_robot/ops/paper_recorded_518880_profile.py',
+    'src/quant_robot/ops/paper_recorded_sources.py',
+    'src/quant_robot/ops/paper_prospective_recorded_transport.py',
+    'src/quant_robot/ops/paper_recorded_capture_observe.py',
+    'src/quant_robot/data/cn_trading_calendar.py',
+    'src/quant_robot/data/sources/tushare_calendar_contract.py',
+    'src/quant_robot/storage/fingerprints.py',
+    'src/quant_robot/storage/atomic.py',
+}))
 _CATALOGS = MappingProxyType({SOURCE_CATALOG:_SOURCE_FILES, V2_CATALOG:_V2_FILES,
-                            G1_CATALOG:_G1_FILES, PM_CATALOG:_PM_FILES})
+                            G1_CATALOG:_G1_FILES, PM_CATALOG:_PM_FILES,
+                            RECORDED_CATALOG:_RECORDED_FILES})
 
 
 def _canonical(value):
@@ -307,11 +320,15 @@ class EvidenceOperation:
         self._state='failed'
 
     def measurements(self):
-        return dict(state=self._state,stages_started=len(self._stages),
+        result = dict(state=self._state,stages_started=len(self._stages),
             io_bytes_returned=self._bytes,open_attempts=self._opens,read_calls=self._reads,
             stages=[stage.measurements() for stage in self._stages],
             prototype_only=True,real_network_requests=0,credentials_read=0,
             existing_top_level_paths_measured=False)
+        if self._policy is G1_RECORDED_POLICY:
+            result.pop('real_network_requests');result.pop('credentials_read')
+            result['transport_counts_owned_by_root']=True
+        return result
 
     def _read(self,stage,path,limit,label,*,flush=False,expected_sha=None):
         """The sole file-content I/O gateway, including implementation reads."""

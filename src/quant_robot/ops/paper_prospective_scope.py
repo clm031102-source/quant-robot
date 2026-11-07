@@ -36,8 +36,13 @@ def implementation_binding(*,_reader=None):
     if _reader is not None:
         from quant_robot.ops import paper_evidence_session as sessions
         if type(_reader) is not forward._SyntheticG1Action:
-            raise ValueError('Fixed synthetic G1 scope reader required')
-        code=_reader.stage.bind_implementation(sessions.G1_CATALOG)['code']
+            from quant_robot.ops.paper_recorded_capture_observe import _RecordedG1Action
+            if type(_reader) is not _RecordedG1Action:
+                raise ValueError('Fixed synthetic G1 scope reader required')
+            _reader.require_owner()
+            code=_reader.stage.bind_implementation(sessions.RECORDED_CATALOG)['code']
+        else:
+            code=_reader.stage.bind_implementation(sessions.G1_CATALOG)['code']
         return dict(scope_code_sha256=code['src/quant_robot/ops/paper_prospective_scope.py'],
             transport=transport.implementation_binding(_reader=_reader),forward=_reader.runtime_binding(),
             prospective_capture_code={name:code[name] for name in
@@ -74,8 +79,12 @@ class _ClaimGuard:
 def _writer_blocked(folder, guard=None,*,_reader=None):
     lock = folder/'.writer.lock'
     if _reader is not None:
-        if (type(_reader) is not forward._SyntheticG1Action or _reader.directory!=folder
-                or _reader.phase!='source'):
+        if type(_reader) is not forward._SyntheticG1Action:
+            from quant_robot.ops.paper_recorded_capture_observe import _RecordedG1Action
+            if type(_reader) is not _RecordedG1Action:
+                raise ValueError('Fixed G1 scope guard reader required')
+            _reader.require_owner()
+        if (_reader.directory!=folder or _reader.phase!='source'):
             raise ValueError('Same synthetic G1 source owner required')
         _reader.stage.require_open()
         if _reader.readonly:return lock.exists()
