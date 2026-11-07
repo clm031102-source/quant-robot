@@ -22,8 +22,9 @@ def _confirmed_costs_projection(data: dict) -> dict:
         return {}
     minimum = costs.get('ETF_minimum_commission_CNY_per_transaction')
     source = costs.get('source')
+    pending = costs.get('broker_and_rate_unconfirmed')
     if (type(minimum) not in (int, float) or minimum != 5
-            or costs.get('broker_and_rate_unconfirmed') is not True
+            or type(pending) is not bool
             or not isinstance(source, str)
             or not source.startswith('user_reported_') or not source.endswith('UTC')):
         return {}
@@ -34,8 +35,15 @@ def _confirmed_costs_projection(data: dict) -> dict:
             return {}
     except ValueError:
         return {}
-    return dict(ETF_minimum_commission_CNY_per_transaction=minimum,
-                source=source, broker_and_rate_unconfirmed=True)
+    result = dict(ETF_minimum_commission_CNY_per_transaction=minimum,
+                  source=source, broker_and_rate_unconfirmed=pending)
+    if pending:
+        return result
+    rate = costs.get('ETF_commission_rate')
+    if (costs.get('broker') != '华宝证券'
+            or type(rate) not in (int, float) or rate != 0.0001):
+        return {}
+    return dict(result, broker='华宝证券', ETF_commission_rate=rate)
 
 
 def _risk_projection(data: dict) -> tuple[dict, float | None]:
