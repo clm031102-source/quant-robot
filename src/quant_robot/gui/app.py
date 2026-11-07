@@ -87,6 +87,18 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 self._send_text(report.read_text(encoding='utf-8'), status=200,
                                 content_type=kind + '; charset=utf-8')
                 return
+            if parsed.path.startswith('/reports/us-allocation-2025/'):
+                name = parsed.path.removeprefix('/reports/us-allocation-2025/')
+                allowed = {'index.html', 'daily_nav.csv', 'trades.csv', 'source.json'}
+                report = Path.cwd() / 'data/reports/campaign_72h_20261106/us_fixed_allocation_2025_report' / name
+                if name not in allowed or not report.is_file():
+                    self._send_text('2025美元配置结果尚未生成。', status=404,
+                                    content_type='text/plain; charset=utf-8')
+                    return
+                kind = 'text/html' if name.endswith('.html') else 'text/csv' if name.endswith('.csv') else 'application/json'
+                self._send_text(report.read_text(encoding='utf-8'), status=200,
+                                content_type=kind + '; charset=utf-8')
+                return
             if parsed.path.startswith('/reports/us-rotation/'):
                 name = parsed.path.removeprefix('/reports/us-rotation/')
                 allowed = {'index.html', 'daily_nav.csv', 'trades.csv', 'source.json'}

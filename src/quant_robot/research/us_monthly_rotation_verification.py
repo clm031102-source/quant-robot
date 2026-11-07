@@ -106,10 +106,10 @@ def verify_account(fixture, account):
         return _verify_account(fixture, account)
 
 
-def _verify_account(fixture, account):
+def _verify_account(fixture, account, *, expected_method=METHOD, signal_verifier=verify_signals):
     same(list(ASSETS),fixture['assets'],'assets')
-    same(METHOD,fixture['method_sha256'],'fixture_method')
-    same(METHOD,account['method_sha256'],'account_method')
+    same(expected_method,fixture['method_sha256'],'fixture_method')
+    same(expected_method,account['method_sha256'],'account_method')
     same(digest(fixture),account['fixture_sha256'],'fixture_hash')
     same(digest(fixture['provenance']),account['provenance_sha256'],'provenance_hash')
     same(fixture['evidence_kind'],account['evidence_kind'],'evidence_kind')
@@ -130,7 +130,7 @@ def _verify_account(fixture, account):
     dates=[d['date'] for d in fixture['days']];rows=fixture['days'];terminal=len(dates)-1
     require(dates==sorted(set(dates)) and dates[-1]==fixture['terminal_date'],'calendar')
     first=dates.index(fixture['first_decision_date'])
-    signals=verify_signals(fixture,account['signals'])
+    signals=signal_verifier(fixture,account['signals'])
     same(list(range(first+1,terminal+1)),[d['index'] for d in account['days']],'day_indices')
     dividends=fixture['dividends'];require(len({x['id'] for x in dividends})==len(dividends),'dividend_ids')
     for x in dividends:
