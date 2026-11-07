@@ -22,6 +22,9 @@ ADMISSION = "configs/cn_etf_spot_macd_transfer_admission_20261107.json"
 MANIFEST = "data/reports/campaign_72h_20261106/manager/external_transfer_design_20261107/historical_input_manifest.json"
 MANIFEST_SHA = None  # Actual package is not authorized or frozen by engineering.
 METHOD_SHA = "6ec96945600c35d7c4f8c31fcd3c4d090535517a9d41948faa6387827953b9f0"
+SOURCE_SCHEMA_ID = "exact_retained_20180208_daily_time_exception_v1"
+SOURCE_SCHEMA_SHA = "e2f435024008f48f0520a89e53a41853f28f0d6208c9634f4af3552f55543e36"
+SOURCE_SCHEMA_REVIEW_SHA = "6864582cd2dab55e14c4292c31273338d94fa997f0dd3d3d85e339422dae4a45"
 POLICY = dict(symbol="BTCUSDT", market="spot", initial_cash_USDT="1000", daily_first="2018-01-01",
     daily_last="2024-01-01", daily_rows=2192, execution_first="2019-01-02", execution_last="2024-01-02",
     execution_rows=1827, decision_UTC="00:02:00", execution_UTC="00:03:00", volume_available_UTC="00:04:00",
@@ -39,6 +42,7 @@ CORE_ROLES = {"method", "source_plan", "source_schema_review", "method_manager_r
 IMPLEMENTATION = (
     "src/quant_robot/research/spot_macd_transfer.py", "src/quant_robot/research/spot_macd_transfer_admission.py",
     "src/quant_robot/research/spot_macd_transfer_historical.py",
+    "src/quant_robot/research/spot_macd_transfer_time_exception.py",
     "src/quant_robot/research/spot_macd_transfer_verification.py",
     "src/quant_robot/research/monthly_diagnostic_registration.py", "src/quant_robot/research/pm_startup_gate.py",
     "src/quant_robot/research/account_comparison_scope.py", "src/quant_robot/research/family_scheduler.py",
@@ -46,7 +50,7 @@ IMPLEMENTATION = (
     "scripts/run_quant_pm_startup_gate.py", "scripts/start_task_context.py", "scripts/bootstrap.py",
     "tests/unit/test_spot_macd_transfer.py", "tests/unit/test_spot_macd_transfer_admission.py",
     "tests/unit/test_spot_macd_transfer_historical.py", "tests/unit/test_spot_macd_transfer_pm_gate.py",
-    "tests/unit/test_spot_macd_transfer_verification.py")
+    "tests/unit/test_spot_macd_transfer_verification.py", "tests/unit/test_spot_macd_transfer_time_exception.py")
 
 
 def digest(raw):
@@ -107,6 +111,34 @@ def runtime_environment():
         prescribed_contexts=contexts, dependencies={name:version(name) for name in ("numpy","pandas")})
 
 
+def validate_source_schema_policy(root, manifest, pins):
+    # Metadata only: never import the proof helper or decode a financial source.
+    if "source_schema_policy" not in manifest:return
+    policy=manifest["source_schema_policy"]
+    if (not isinstance(policy,dict) or set(policy)!={"policy_id","addendum_role","root_review_role","authority_roles"}
+            or policy["policy_id"]!=SOURCE_SCHEMA_ID or policy["addendum_role"] not in pins
+            or policy["root_review_role"] not in pins
+            or pins[policy["addendum_role"]]["sha256"]!=SOURCE_SCHEMA_SHA
+            or pins[policy["root_review_role"]]["sha256"]!=SOURCE_SCHEMA_REVIEW_SHA):
+        raise ValueError("Exact optional source schema and root review required")
+    contract=_json(read_bound(root,pins[policy["addendum_role"]],return_bytes=True))
+    read_bound(root,pins[policy["root_review_role"]])
+    roles=policy["authority_roles"]
+    names={"economic_contract","economic_method_text","original_source_plan","root_decision","old_failed_outcome",
+        "native","native_capture","native_failed_receipt","archive","checksum","archive_receipt","time_outcome",
+        "time_independent_review","token_scope","token_result","token_implementation"}
+    if (contract.get("policy_id")!=SOURCE_SCHEMA_ID or contract["economic_invariants"]["method_sha256"]!=METHOD_SHA
+            or not isinstance(roles,dict) or set(roles)!=names or set(contract["authority"])!=names
+            or any(role not in pins for role in roles.values()) or len(set(roles.values()))!=16
+            or roles["native"]!=manifest["daily_sources"][1]["role"]):
+        raise ValueError("Exact16 authority roles and existing native role required")
+    for key,role in roles.items():
+        ref=pins[role];expected=contract["authority"][key]
+        if ref["sha256"]!=expected["sha256"] or resolve_path(root,ref["path"]).stat().st_size!=expected["bytes"]:
+            raise ValueError("Source schema authority binding differs")
+        read_bound(root,ref)
+
+
 def _manifest_inputs(root, manifest, *, allow_artificial=False):
     rows=manifest.get("inputs",[])
     if (manifest.get("artifact_type")!="spot_macd_transfer_input_manifest_v1"
@@ -124,6 +156,7 @@ def _manifest_inputs(root, manifest, *, allow_artificial=False):
         read_bound(root,ref); pins[row["role"]]=ref
     if len({v["path"] for v in pins.values()})!=len(pins) or pins["method"]["sha256"]!=METHOD_SHA:
         raise ValueError("Duplicate input or wrong method")
+    validate_source_schema_policy(root,manifest,pins)
     # Layout is metadata only. The loader validates exact retained schema lazily.
     daily=manifest.get("daily_sources",[]); minute=manifest.get("minute_sources",[])
     ranges=[("2018-01-01","2018-01-01"),("2018-01-02","2018-12-31")]+[(f"{y}-01-01",f"{y}-12-31") for y in range(2019,2024)]+[("2024-01-01","2024-01-01")]
