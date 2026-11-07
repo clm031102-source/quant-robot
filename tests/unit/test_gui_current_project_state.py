@@ -79,6 +79,23 @@ class CurrentProjectStateTests(unittest.TestCase):
                 self.assertEqual(result['user_confirmed_costs'], {})
                 self.assertFalse(result['actual_fees_verified'])
 
+    def test_broker_and_rate_confirmation_does_not_authorize_other_product_costs(self):
+        costs = dict(ETF_minimum_commission_CNY_per_transaction=5,
+                     source='user_reported_2026-11-07UTC', broker_and_rate_unconfirmed=False,
+                     broker='华宝证券', ETF_commission_rate=0.0001)
+        self.state['user_confirmed_costs'] = dict(costs, repo_commission_rate=0.0001)
+        self.write()
+        result = self.get()
+        self.assertEqual(result['user_confirmed_costs'], costs)
+        self.assertFalse(result['actual_fees_verified'])
+        self.assertFalse(result['paper_observation_allowed'])
+        for bad in (dict(costs, ETF_commission_rate=True),
+                    dict(costs, ETF_commission_rate='0.0001'),
+                    dict(costs, broker='')):
+            self.state['user_confirmed_costs'] = bad
+            self.write()
+            self.assertEqual(self.get()['user_confirmed_costs'], {})
+
     def test_status_read_reflects_new_record_without_execution_permissions(self):
         self.assertEqual(self.get()['evidence_counts']['return_studies'], 12)
         self.state['counts']['return_studies'] = 23

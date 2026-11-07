@@ -800,9 +800,15 @@ async function refreshProjectStatus(button) {
 
 function projectFeeSummary(project) {
   const costs = project.user_confirmed_costs || {};
-  return costs.ETF_minimum_commission_CNY_per_transaction === 5
-    && costs.broker_and_rate_unconfirmed === true
-    && typeof costs.source === "string" && /^user_reported_\d{4}-\d{2}-\d{2}UTC$/.test(costs.source)
+  if (costs.ETF_minimum_commission_CNY_per_transaction !== 5
+      || typeof costs.source !== "string" || !/^user_reported_\d{4}-\d{2}-\d{2}UTC$/.test(costs.source)) {
+    return "ETF最低佣金及其他费用待核实";
+  }
+  if (costs.broker_and_rate_unconfirmed === false && costs.broker === "华宝证券"
+      && costs.ETF_commission_rate === 0.0001) {
+    return "华宝ETF佣金：万一，每笔最低5元（用户确认）；其他品种费用另计";
+  }
+  return costs.broker_and_rate_unconfirmed === true
     ? "ETF每笔最低5元已由用户确认；其他费用待核实"
     : "ETF最低佣金及其他费用待核实";
 }
