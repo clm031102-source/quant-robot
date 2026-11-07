@@ -4,7 +4,7 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "两种配置规则五年对比完成，日常模型等待首个交易日",
+  "state_label": "四模型日常运行接口完成，准备真实数据初始化",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
     "return_studies": 30,
@@ -41,16 +41,16 @@
     {
       "priority": 1,
       "track_id": "paper",
-      "title": "按计划积累未来20日条件模型记录",
+      "title": "部署两套规则的四模型日常观察",
       "command": "",
-      "reason": "系统计划负责11月9日至12月7日收盘后更新；电脑开机且保持当前用户登录，聊天无需保持打开。月底按固定规则决策；不会补造早期交易。"
+      "reason": "增量账本、来源适配、有限日常入口和看板已完成。下一步固定实际运行版本并一次初始化；启动配置真实登记后，预计11月12日模型买入，随后正常月末运行。与五年检验的启动差异单列，实际美股费用澄清仍待回复。"
     },
     {
       "priority": 2,
       "track_id": "paper",
-      "title": "准备显式低单价资产与两种规则的日常条件模型",
+      "title": "按计划积累未来20日条件模型记录",
       "command": "",
-      "reason": "已完成固定成本对照；先做增量状态与恢复的人工适配，实际未来来源另行冻结，保留既有已安装任务。实际美股收费澄清已发，不重复询问。"
+      "reason": "系统计划负责11月9日至12月7日收盘后更新；电脑开机且保持当前用户登录，聊天无需保持打开。月底按固定规则决策；不会补造早期交易。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -74,7 +74,7 @@
     "source": "user_reported_2026-11-07UTC",
     "broker_and_rate_unconfirmed": false
   },
-  "updated_at_utc": "2026-11-07T22:04:05.263Z",
+  "updated_at_utc": "2026-11-07T22:39:25.529Z",
   "closed_research_findings": [
     {
       "blocker_id": "sector_momentum_cost_adjusted_increment_failed",
@@ -171,6 +171,19 @@
       "new_source_GETs": 0,
       "conditional_evaluation_passed": true,
       "stress_practical_improvement": true,
+      "qualified": false,
+      "real_forward": 0,
+      "existing_deployment_changed": false
+    },
+    {
+      "id": "four_low_unit_models_engineering_completed",
+      "at": "2026-11-07T22:39:25.529Z",
+      "report": "docs/research/us_low_unit_daily_models_2026-11-07.md",
+      "artificial_journal_tests": 17,
+      "artificial_source_tests": 21,
+      "artificial_controller_tests": 9,
+      "new_source_GETs": 0,
+      "real_initialization": false,
       "qualified": false,
       "real_forward": 0,
       "existing_deployment_changed": false

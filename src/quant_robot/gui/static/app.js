@@ -5809,6 +5809,12 @@ function renderOrdinaryHome() {
   const topPrimary = primaryRows[0] || null;
   const project = state.projectStatus || {};
   renderUSModelOperations(project.us_model || {});
+  renderUSModelOperations(project.us_low_unit_model || {}, {
+    targetId: "ordinary-low-unit-model",
+    roles: [["monthly_primary", "每月调仓／常规费用"], ["monthly_stress", "每月调仓／较高费用"],
+      ["drift_primary", "持有期间不调仓／常规费用"], ["drift_stress", "持有期间不调仓／较高费用"]],
+    fourModels: true,
+  });
   if (project.authority === "current_project_state") {
     const counts = project.evidence_counts || {};
     metricsNode.innerHTML = [
@@ -5850,10 +5856,10 @@ function renderOrdinaryHome() {
   ]);
 }
 
-function renderUSModelOperations(model = {}) {
-  const target = byId("ordinary-us-model");
+function renderUSModelOperations(model = {}, options = {}) {
+  const target = byId(options.targetId || "ordinary-us-model");
   if (!target) return;
-  const title = '<h3>美元日常模型账本</h3>';
+  const title = options.fourModels ? '<h3>两套配置规则 · 四模型日常账本</h3>' : '<h3>美元日常模型账本</h3>';
   if (!model.available) {
     target.innerHTML = title + statusRows([["运行准备", model.reason || "等待日常模型部署记录", "warn"]]);
     return;
@@ -5863,6 +5869,7 @@ function renderUSModelOperations(model = {}) {
   const usd = value => value === null || value === undefined ? "尚无记录" : `$${Number(value).toFixed(2)}`;
   const states = {
     waiting_first_session: "已初始化，等待首个未来交易日",
+    initialized_unique_entry_waiting_for_completed_session: "初始配置已登记，等待首个完整交易日；预计 11 月 12 日模型买入",
     initialized_waiting_for_next_completed_session: "已初始化，等待首个未来交易日",
     completed_model_observation: "已记录未来交易日的模型结果",
     observation_window_completed_open_positions_retained: "20 日观察窗口已结束；保留最后持仓和余额，未强制平仓",
@@ -5889,18 +5896,20 @@ function renderUSModelOperations(model = {}) {
   if (schedule.next_capture_at && Date.parse(schedule.next_capture_at) < Date.now()) {
     rows.push(["记录时效", "保存的计划时间已过，尚未看到对应的新运行记录。", "warn"]);
   }
-  for (const [role, name] of [["primary", "常规费用"], ["stress", "加重费用"]]) {
+  for (const [role, name] of (options.roles || [["primary", "常规费用"], ["stress", "加重费用"]])) {
     const account = accounts[role];
     if (!account) continue;
     const navLabel = account.initialized && account.model_forward_days === 0 ? "初始化资金" : "模型账面净值";
     rows.push(
       [name, `${navLabel} ${usd(account.NAV_USD)}；累计模型收益 ${account.model_profit_USD === null ? "尚无观察日" : usd(account.model_profit_USD)}`, "warn"],
-      [`${name}资金`, `可用 ${usd(account.spendable_cash_USD)}；待交收 ${usd(account.locked_cash_USD)}；未到账分红 ${usd(account.receivable_USD)}`, "muted"],
+      [`${name}资金`, `可用 ${usd(account.spendable_cash_USD)}；待交收 ${usd(account.locked_cash_USD)}；应收款 ${usd(account.receivable_USD)}`, "muted"],
       [`${name}持仓`, account.quantities ? Object.entries(account.quantities).map(([symbol, units]) => `${symbol} ${units} 股`).join(" / ") : "尚未初始化", "muted"],
       [`${name}运行统计`, `${account.model_fill_count ?? 0} 笔模型成交；观察期最大回撤 ${account.model_forward_days > 0 && account.max_drawdown != null ? (Number(account.max_drawdown) * 100).toFixed(2) + "%" : "尚无观察日"}`, "muted"],
       [`${name}最近收数`, account.latest_receipt ? localClock(account.latest_receipt) : "尚无数据接收记录", "muted"],
     );
+    if (options.fourModels) rows.push([`${name}成本`, `累计模型执行成本 ${usd(account.execution_cost_USD)}`, "muted"]);
   }
+  if (options.fourModels) rows.push(["比较方式", "四个独立的 1,000 美元情景，共用 SPYM／EFA／IEF／GLDM 行情；收益不能相加。启动配置提前登记，之后按各自规则运行。", "muted"]);
   rows.push(["口径", "独立的 1,000 美元假设账户；收盘后模型记账，未证明开盘可成交。美股实际券商费用待确认。", "warn"]);
   target.innerHTML = title + statusRows(rows);
 }
