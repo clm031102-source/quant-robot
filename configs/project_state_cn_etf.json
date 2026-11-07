@@ -4,7 +4,7 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "恒权研究未通过，推进未来来源观察器集成",
+  "state_label": "策略尚未合格，推进现金管理契约与费用核实",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
     "return_studies": 23,
@@ -25,12 +25,6 @@
       "evidence": "23项接续研究范围已消费，0合格。第23项股金50:50季度调仓一次27账户完成并独立核账；主费用万元本金净增5527.70元、回撤25.80%，比同规则持有多324.70元，但后四年增量为−481.30元，净收益及增量的调整统计下界均未为正，固定17项中3项失败。旧失败保留。"
     },
     {
-      "blocker_id": "persistence_excess_return_and_costs_failed",
-      "severity": "block",
-      "track_id": "research",
-      "evidence": "新商品策略开发主格亏1850.50元；后段赚2454.32元，低于同规则持有的2622.81元；超额收益统计下界未为正。36账户均符合40%收盘回撤条件并结清。"
-    },
-    {
       "blocker_id": "actual_costs_unverified",
       "severity": "review",
       "track_id": "costs",
@@ -49,33 +43,33 @@
       "evidence": "当前封存的2026 ETF分区未读；旧etf_csv的部分2026已被Round17消费。原有及本轮网页背景暴露记录保留，不能称全项目完全盲态；2026日历与规则元数据另行取证，不是价格解封。"
     },
     {
-      "blocker_id": "funding_mark_minute_consistency_unresolved",
-      "severity": "block",
+      "blocker_id": "cash_repo_contract_and_quote_conditions_open",
+      "severity": "review",
       "track_id": "research",
-      "evidence": "93事件有3条与原分钟区间假设不一致，旧失败保留。新收费/估值分离模型已完成第20项条件诊断，九费用均亏；官方现行说明不认证历史精确到账，实际收费时点仍有15秒不确定性。"
+      "evidence": "现行规则已支持普通投资者参与逆回购及千元面额申报。客户费表、可用/可取时点和因果报价来源尚未闭合；先以明确前瞻假设实现人工账本，不冒称实际到账或金融准入。"
     }
   ],
   "next_actions": [
     {
       "priority": 1,
-      "track_id": "delivery",
-      "title": "集成未来来源观察器",
+      "track_id": "research",
+      "title": "实现最小现金合同人工账本",
       "command": "",
-      "reason": "默认关闭、精确有限日期双审及防重复取件已实现；实际PM接线和独立计量已通过，待最终六环境检查与集成。未创建真实来源准入。"
+      "reason": "单笔、无自动续作；核本金、利息、费用、预留及未结资金守恒。仅虚构事件，不读取行情，不增加收益研究、合格或真实前向计数。"
     },
     {
       "priority": 2,
       "track_id": "research",
-      "title": "审查下一条独立收益机制",
+      "title": "核清现金管理方案的费用与资金安排",
       "command": "",
-      "reason": "第23项完整结果已拒绝，不能改权重、风险、费用、日期或基准救回；下一研究先说明收入来源、万元可执行性和独立有限验证。"
+      "reason": "普通投资者资格和千元申报单位已有官方依据；客户费用、可用资金时点和报价证据仍需闭合。人工模型会把假设单独标出，不能把它当作真实收益。"
     },
     {
       "priority": 3,
       "track_id": "costs",
-      "title": "后续ETF研究采用每笔最低5元",
+      "title": "保留ETF最低5元，明确不同产品收费",
       "command": "",
-      "reason": "用户已确认该最低佣金；比例费率及收费归集口径尚未核实，0元档仅作敏感性对照，旧结果保留。"
+      "reason": "ETF每笔最低5元来自用户确认，比例及收费归集尚未核实；逆回购费用独立处理，不把该ETF最低佣金直接移植。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -97,5 +91,33 @@
     "source": "user_reported_2026-11-07UTC",
     "broker_and_rate_unconfirmed": true
   },
-  "updated_at_utc": "2026-11-07T11:21:43.498Z"
+  "updated_at_utc": "2026-11-07T12:35:32.089Z",
+  "closed_research_findings": [
+    {
+      "blocker_id": "persistence_excess_return_and_costs_failed",
+      "severity": "block",
+      "track_id": "research",
+      "evidence": "新商品策略开发主格亏1850.50元；后段赚2454.32元，低于同规则持有的2622.81元；超额收益统计下界未为正。36账户均符合40%收盘回撤条件并结清。",
+      "status": "closed_rejected_research_scope",
+      "not_current_repair_task": true
+    },
+    {
+      "blocker_id": "funding_mark_minute_consistency_unresolved",
+      "severity": "block",
+      "track_id": "research",
+      "evidence": "93事件有3条与原分钟区间假设不一致，旧失败保留。新收费/估值分离模型已完成第20项条件诊断，九费用均亏；官方现行说明不认证历史精确到账，实际收费时点仍有15秒不确定性。",
+      "status": "closed_rejected_research_scope",
+      "not_current_repair_task": true
+    }
+  ],
+  "delivery_milestones": [
+    {
+      "id": "future_source_observer_engineering_integrated",
+      "at": "2026-11-07T12:28:27.076Z",
+      "PR": 62,
+      "merge": "6a55d9a034709b602286cebfdc3be6a0217fc052",
+      "six_environment_CI": "success",
+      "actual_source_release_open": false
+    }
+  ]
 }
