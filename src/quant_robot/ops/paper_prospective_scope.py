@@ -32,7 +32,16 @@ POLICY = dict(sealed_research_partitions_opened=False,
 LIMITS = dict(max_response_bytes=65536, connect_seconds=5, read_seconds=5, total_seconds=20)
 
 
-def implementation_binding():
+def implementation_binding(*,_reader=None):
+    if _reader is not None:
+        from quant_robot.ops import paper_evidence_session as sessions
+        if type(_reader) is not forward._SyntheticG1Action:
+            raise ValueError('Fixed synthetic G1 scope reader required')
+        code=_reader.stage.bind_implementation(sessions.G1_CATALOG)['code']
+        return dict(scope_code_sha256=code['src/quant_robot/ops/paper_prospective_scope.py'],
+            transport=transport.implementation_binding(_reader=_reader),forward=_reader.runtime_binding(),
+            prospective_capture_code={name:code[name] for name in
+                ('src/quant_robot/ops/paper_prospective_transport.py','scripts/capture_tushare_prospective_source.py')})
     root=Path(__file__).resolve().parents[3]
     return dict(scope_code_sha256=sha256(Path(__file__).read_bytes()).hexdigest(),
                 transport=transport.implementation_binding(), forward=forward.runtime_binding(),
@@ -62,8 +71,15 @@ class _ClaimGuard:
     lock_bytes: bytes
 
 
-def _writer_blocked(folder, guard=None):
+def _writer_blocked(folder, guard=None,*,_reader=None):
     lock = folder/'.writer.lock'
+    if _reader is not None:
+        if (type(_reader) is not forward._SyntheticG1Action or _reader.directory!=folder
+                or _reader.phase!='source'):
+            raise ValueError('Same synthetic G1 source owner required')
+        _reader.stage.require_open()
+        if _reader.readonly:return lock.exists()
+        _reader.check_guard(at_commit=True);return False
     if guard is None:
         return lock.exists()
     if not isinstance(guard, _ClaimGuard) or guard.folder != folder:
@@ -73,22 +89,23 @@ def _writer_blocked(folder, guard=None):
     return False
 
 
-def _journal_state(root, journal, *, now, _guard=None):
+def _journal_state(root, journal, *, now, _guard=None,_reader=None):
     folder = _inside(root, journal)
-    if not folder.is_dir() or _writer_blocked(folder,_guard) or forward._pending_files(folder):
+    if not folder.is_dir() or _writer_blocked(folder,_guard,_reader=_reader) or forward._pending_files(folder):
         raise ValueError('Stable completed journal prefix required before source acquisition')
-    events = forward._journal(folder)
-    activation, manifest, qualification, schedule, _ = forward._active(events, now=now)
+    events = forward._journal(folder,_reader=_reader)
+    activation, manifest, qualification, schedule, _ = forward._active(events, now=now,_reader=_reader)
     if activation['mode'] not in ('forward', 'synthetic'):
         raise ValueError('Replay journals cannot acquire prospective prices')
     if (not forward._has_originals(manifest)
             or manifest['source_contract']['timestamp_basis'] != RECEIVED_BASIS):
         raise ValueError('Original-bound source profile required before acquisition')
-    connection.validate_contract(manifest, require_recorded=activation['mode']=='forward')
+    if _reader is None:connection.validate_contract(manifest, require_recorded=activation['mode']=='forward')
+    else:_reader.validate_source_contract(manifest)
     for reference in (activation['manifest'], activation['qualification'],
                       manifest['warmup'], manifest['calendar']):
         _inside(root, reference['path'])
-    _, observations, start, _ = forward._prefix(events, manifest, schedule)
+    _, observations, start, _ = forward._prefix(events, manifest, schedule,_reader=_reader)
     index = start + len(observations)
     if index+1 >= len(schedule):
         raise ValueError('Pending session and its next cutoff require frozen calendar coverage')
@@ -106,7 +123,8 @@ def _journal_state(root, journal, *, now, _guard=None):
         raise ValueError('Candidate qualification must precede activation')
     # Detect concurrent publication during this read-only preparation. A later
     # executor must repeat this check immediately before its durable claim.
-    if _writer_blocked(folder,_guard) or forward._pending_files(folder) or forward._journal(folder)!=events:
+    if (_writer_blocked(folder,_guard,_reader=_reader) or forward._pending_files(folder)
+            or forward._journal(folder,_reader=_reader)!=events):
         raise ValueError('Journal changed during prospective scope preparation')
     return folder, events, activation, manifest, schedule, index, decision, confirmed
 
@@ -115,7 +133,7 @@ def _instant(value):
     return forward._instant(value)
 
 
-def _confirm_prefix(root, scope, _guard=None):
+def _confirm_prefix(root, scope, _guard=None,*,_reader=None):
     """Last read-only check; a transport must still protect validation+claim.
 
     Re-reading is not a journal lock and does not make the next filesystem or
@@ -123,17 +141,17 @@ def _confirm_prefix(root, scope, _guard=None):
     between final authority validation and publishing its one-attempt claim.
     """
     folder=_inside(root,root/scope['journal'])
-    if _writer_blocked(folder,_guard) or forward._pending_files(folder):
+    if _writer_blocked(folder,_guard,_reader=_reader) or forward._pending_files(folder):
         raise ValueError('Stable completed journal prefix required before source acquisition')
-    events=forward._journal(folder)
+    events=forward._journal(folder,_reader=_reader)
     binding=scope['journal_binding']
     if (len(events)!=binding['prefix_length'] or not events
             or events[-1]['sha256']!=binding['prefix_sha256']
-            or _writer_blocked(folder,_guard) or forward._pending_files(folder)):
+            or _writer_blocked(folder,_guard,_reader=_reader) or forward._pending_files(folder)):
         raise ValueError('Journal changed after prospective scope reconstruction')
 
 
-def prepare_scope(journal, *, repo_root, context, now=None, _guard=None):
+def prepare_scope(journal, *, repo_root, context, now=None, _guard=None,_reader=None):
     """Derive the single allowed asset/day from durable state, never from a query.
 
     The result may be prepared before close, but validate_execution() will not
@@ -141,7 +159,7 @@ def prepare_scope(journal, *, repo_root, context, now=None, _guard=None):
     """
     _context(context)
     root = Path(repo_root).resolve(strict=True)
-    folder, events, activation, manifest, schedule, index, decision, confirmed = _journal_state(root,journal,now=now,_guard=_guard)
+    folder, events, activation, manifest, schedule, index, decision, confirmed = _journal_state(root,journal,now=now,_guard=_guard,_reader=_reader)
     instant, _ = forward._clock(now)
     if instant < _instant(events[-1]['received_at']):
         raise ValueError('Scope clock precedes the durable journal prefix')
@@ -171,12 +189,13 @@ def prepare_scope(journal, *, repo_root, context, now=None, _guard=None):
         session=session,next_session=next_session,
         valid_from=parser._stamp(clocks['observable']),valid_until=parser._stamp(end),
         request_budget=1,retry_budget=0,transport_limits=dict(LIMITS),
-        policy=dict(POLICY),context=dict(context),implementation_binding=implementation_binding())
-    _confirm_prefix(root,result,_guard)
+        policy=dict(POLICY),context=dict(context),implementation_binding=(implementation_binding() if _reader is None
+            else implementation_binding(_reader=_reader)))
+    _confirm_prefix(root,result,_guard,_reader=_reader)
     return result
 
 
-def validate_execution(scope, *, repo_root, now=None, synthetic=False, _guard=None):
+def validate_execution(scope, *, repo_root, now=None, synthetic=False, _guard=None,_reader=None):
     """Rebuild authority from the actual current journal before any credential read.
 
     No arbitrary date selector, qualification flag, holdout switch, or provider
@@ -189,7 +208,7 @@ def validate_execution(scope, *, repo_root, now=None, synthetic=False, _guard=No
         raise ValueError('Repository-relative journal reference required')
     if type(synthetic) is not bool:
         raise ValueError('Explicit synthetic execution boolean required')
-    expected=prepare_scope(root/scope['journal'],repo_root=root,context=scope.get('context'),now=now,_guard=_guard)
+    expected=prepare_scope(root/scope['journal'],repo_root=root,context=scope.get('context'),now=now,_guard=_guard,_reader=_reader)
     if forward.canonical(scope)!=forward.canonical(expected):
         raise ValueError('Prospective scope differs from current frozen journal authority')
     if synthetic != (expected['evidence_mode']=='synthetic_only'):
@@ -202,7 +221,7 @@ def validate_execution(scope, *, repo_root, now=None, synthetic=False, _guard=No
     result = dict(scope_sha256=forward.digest(scope),request_identity=forward.digest(identity),
                 request=identity['request'],evidence_mode=expected['evidence_mode'],
                 policy=dict(POLICY),credentials_read=False,network_requests_started=0)
-    _confirm_prefix(root,scope,_guard)
+    _confirm_prefix(root,scope,_guard,_reader=_reader)
     return result
 
 
