@@ -20,7 +20,7 @@ REGISTRATION, REVIEW, ROOT_REVIEW, COMPARISON = (DIRECTORY+"/"+name for name in
     ("registration.json", "independent_review.json", "root_admission_review.json", "comparison_review.json"))
 ADMISSION = "configs/cn_etf_spot_macd_transfer_admission_20261107.json"
 MANIFEST = "data/reports/campaign_72h_20261106/manager/external_transfer_design_20261107/historical_input_manifest.json"
-MANIFEST_SHA = None  # Actual package is not authorized or frozen by engineering.
+MANIFEST_SHA = "a2a9bbaa5ec24aea661d15f6e47d55b9fede291e5eb1be3eb6ee7a24f260e0b0"  # Input freeze only; separate admission remains required.
 METHOD_SHA = "6ec96945600c35d7c4f8c31fcd3c4d090535517a9d41948faa6387827953b9f0"
 SOURCE_SCHEMA_ID = "exact_retained_20180208_daily_time_exception_v1"
 SOURCE_SCHEMA_SHA = "e2f435024008f48f0520a89e53a41853f28f0d6208c9634f4af3552f55543e36"
