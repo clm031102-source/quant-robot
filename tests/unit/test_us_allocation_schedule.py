@@ -19,6 +19,19 @@ class FiniteUSScheduleTests(unittest.TestCase):
                       preparation_dir='F:/example data/schedule', user_sid='S-1-5-21-123-500')
         return build_task_files(**dict(inputs, **change))
 
+    def test_four_model_variant_is_separate_and_stays_inside_fixed_capture_window(self):
+        built=self.build(variant='low_unit_four');ns={'t':NS};root=ET.fromstring(built['xml'])
+        self.assertEqual(built['task_name'],'USDLowUnitFourModels_20261109_20261207')
+        self.assertIn('run_us_low_unit_daily_model_observer.py',built['launcher'])
+        self.assertNotIn('run_us_allocation_daily_model_observer.py',built['launcher'])
+        self.assertIn('if ($null -eq $process.ExitCode) { exit 125 }',built['launcher'])
+        for trigger,day in zip(root.findall('t:Triggers/t:TimeTrigger',ns),built['dates']):
+            hour='18' if day=='2026-11-27' else '21'
+            self.assertEqual(trigger.find('t:StartBoundary',ns).text,day+'T'+hour+':15:15Z')
+            self.assertEqual(trigger.find('t:EndBoundary',ns).text,day+'T'+hour+':20:00Z')
+        self.assertNotIn('USDAllocationConditionalModel',built['xml'])
+        with self.assertRaises(ValueError):self.build(variant='arbitrary')
+
     def test_exact_twenty_utc_sessions_and_early_close(self):
         built = self.build()
         self.assertTrue(built['xml'].startswith('<Task '))

@@ -31,12 +31,18 @@ def _literal(value):
     return "'" + str(value).replace("'", "''") + "'"
 
 
-def build_task_files(*, checkout, python, scope_path, scope_sha, preparation_dir, user_sid):
+def build_task_files(*, checkout, python, scope_path, scope_sha, preparation_dir, user_sid,
+                     variant='original'):
     """Return reviewable text. This function cannot install or start a task."""
     checkout, python, scope_path, preparation_dir = map(_windows_path, (checkout, python, scope_path, preparation_dir))
     if not re.fullmatch('[0-9a-f]{64}', scope_sha) or not re.fullmatch(r'S-1-(?:\d+-)*\d+', user_sid):
         raise ValueError('Exact scope hash and Windows SID required')
-    script = str(PureWindowsPath(checkout) / 'scripts/run_us_allocation_daily_model_observer.py')
+    if variant not in ('original','low_unit_four'):
+        raise ValueError('Known finite model variant required')
+    task_name = TASK_NAME if variant == 'original' else 'USDLowUnitFourModels_20261109_20261207'
+    script_name = ('run_us_allocation_daily_model_observer.py' if variant == 'original'
+                   else 'run_us_low_unit_daily_model_observer.py')
+    script = str(PureWindowsPath(checkout) / 'scripts' / script_name)
     launcher = str(PureWindowsPath(preparation_dir) / 'launch_model.ps1')
     logs = str(PureWindowsPath(preparation_dir).parent / 'task_attempt_logs')
     arguments = subprocess.list2cmdline(['-P', script, 'observe', '--scope', scope_path, '--scope-sha', scope_sha])
@@ -65,14 +71,15 @@ def build_task_files(*, checkout, python, scope_path, scope_sha, preparation_dir
         return node
     task = ET.Element('{'+NS+'}Task', version='1.4')
     registration = child(task, 'RegistrationInfo')
-    child(registration, 'URI', TASK_PATH + TASK_NAME)
+    child(registration, 'URI', TASK_PATH + task_name)
     child(registration, 'Description', '20 scheduled completed-day conditional model observations; no broker or orders; no missed-run catch-up.')
     triggers = child(task, 'Triggers')
     for day in operation_dates():
         clock = '18:15:00' if day == '2026-11-27' else '21:15:00'
         start = datetime.fromisoformat(day+'T'+clock).replace(tzinfo=timezone.utc)
         trigger = child(triggers, 'TimeTrigger')
-        child(trigger, 'StartBoundary', start.isoformat().replace('+00:00', 'Z'))
+        scheduled_start = start + timedelta(seconds=15 if variant == 'low_unit_four' else 0)
+        child(trigger, 'StartBoundary', scheduled_start.isoformat().replace('+00:00', 'Z'))
         child(trigger, 'EndBoundary', (start+timedelta(minutes=5)).isoformat().replace('+00:00', 'Z'))
         child(trigger, 'Enabled', 'true')
     principal = child(child(task, 'Principals'), 'Principal', id='CurrentUser')
@@ -90,7 +97,7 @@ def build_task_files(*, checkout, python, scope_path, scope_sha, preparation_dir
     child(action, 'Arguments', subprocess.list2cmdline(['-NoProfile','-NonInteractive','-WindowStyle','Hidden','-ExecutionPolicy','Bypass','-File',launcher]))
     child(action, 'WorkingDirectory', checkout)
     ET.indent(task, space='  ')
-    return dict(task_name=TASK_NAME, task_path=TASK_PATH, dates=operation_dates(),
+    return dict(task_name=task_name, task_path=TASK_PATH, dates=operation_dates(),
                 launcher=launch_text, xml=ET.tostring(task, encoding='unicode', xml_declaration=False),
                 scope_sha256=scope_sha, requires_user_session=True, missed_run_catch_up=False,
                 launch_path=launcher, registration_performed=False)
