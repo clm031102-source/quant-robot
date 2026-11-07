@@ -108,7 +108,8 @@ class _ActualPMGate:
     """Fixed private role, attached before the operation opens its first stage."""
     def __init__(self, operation):
         if (type(operation) is not sessions.EvidenceOperation
-                or operation._policy is not sessions.G1_SYNTHETIC_POLICY):
+                or not any(operation._policy is value for value in
+                    (sessions.G1_SYNTHETIC_POLICY,sessions.G1_RECORDED_POLICY))):
             raise ValueError('actual_pm_exact_g1_operation_required')
         self.operation = operation
         self.stage = None
@@ -227,7 +228,7 @@ class _ActualPMGate:
         self._fresh()
 
     def summary(self):
-        return dict(actual_pm_executed=self.passed, actual_pm_calls=self.calls,
+        result = dict(actual_pm_executed=self.passed, actual_pm_calls=self.calls,
             actual_pm_returned=self.gate is not None,
             actual_pm_status=self.gate.get('status') if self.gate is not None else None,
             pm_application_content_io_routed=True, pm_application_content_io_measured=False,
@@ -236,3 +237,7 @@ class _ActualPMGate:
             git_checks=json.loads(json.dumps(self.records)),
             actual_utc_monotonic_samples=json.loads(json.dumps(self.clock_checks)),
             actual_credentials=0, real_network_requests=0)
+        if self.operation._policy is sessions.G1_RECORDED_POLICY:
+            result.pop('actual_credentials');result.pop('real_network_requests')
+            result.update(pm_role_credentials=0,pm_role_network_requests=0)
+        return result

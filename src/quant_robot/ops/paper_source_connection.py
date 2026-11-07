@@ -187,6 +187,9 @@ class SyntheticSourceVerification:
 
 
 def _profile(profile_id, *, require_recorded=False):
+    if profile_id == 'recorded_xshg_518880_v1':
+        from quant_robot.ops import paper_recorded_518880_profile as recorded
+        return recorded.reviewed_profile_518880()
     profile = PROFILES.get(profile_id)
     if not isinstance(profile, SourceProfile):
         raise ValueError('verified_raw_source_adapter_missing: reviewed code profile required')
@@ -199,6 +202,9 @@ def _profile(profile_id, *, require_recorded=False):
 
 
 def runtime_binding(profile_id=PROFILE_ID):
+    if profile_id == 'recorded_xshg_518880_v1':
+        from quant_robot.ops import paper_recorded_518880_profile as recorded
+        return recorded.profile_binding()
     profile = _profile(profile_id)
     return dict(profile_id=profile_id, lineage=profile.lineage,
         connection_sha256=sha256(Path(__file__).read_bytes()).hexdigest(),
