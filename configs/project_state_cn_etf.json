@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "五年配置比较完成，日常模型等待首个交易日",
+  "state_label": "两种配置规则五年对比完成，日常模型等待首个交易日",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 29,
+    "return_studies": 30,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "第29项五年整股比较完成：低单价篮子基础/较高费用现金加待到账卖款净赚315.81/49.74美元，最大回撤18.39%/22.36%。较高费用比原篮子少赚98.45美元，尚无稳健优势；0合格、0真实前向。原日常条件模型已部署，等待11月9日。"
+      "evidence": "第29/30项五年比较完成：低单价月度配置基础/较高费用净赚315.81/49.74美元；持仓不再平衡净赚280.02/102.47美元。省费有收益与回撤取舍，实际美股收费待确认；0合格、0严格真实前向。既有条件模型等待11月9日。"
     },
     {
       "blocker_id": "forward_observation_not_started",
@@ -47,10 +47,10 @@
     },
     {
       "priority": 2,
-      "track_id": "research",
-      "title": "针对手续费敏感性研究减少常规换手",
+      "track_id": "paper",
+      "title": "准备显式低单价资产与两种规则的日常条件模型",
       "command": "",
-      "reason": "五年账本显示新篮子52/64笔成交，成本63.28/197.76美元。先按已保存交易区分调仓和风险退出，再冻结单一新对照；本轮不改参数重跑。"
+      "reason": "已完成固定成本对照；先做增量状态与恢复的人工适配，实际未来来源另行冻结，保留既有已安装任务。实际美股收费澄清已发，不重复询问。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -74,7 +74,7 @@
     "source": "user_reported_2026-11-07UTC",
     "broker_and_rate_unconfirmed": false
   },
-  "updated_at_utc": "2026-11-07T21:41:07.763Z",
+  "updated_at_utc": "2026-11-07T22:04:05.263Z",
   "closed_research_findings": [
     {
       "blocker_id": "sector_momentum_cost_adjusted_increment_failed",
@@ -158,6 +158,19 @@
       "source_GETs": 4,
       "conditional_evaluation_passed": true,
       "independent_days": 6275,
+      "qualified": false,
+      "real_forward": 0,
+      "existing_deployment_changed": false
+    },
+    {
+      "id": "study30_passive_drift_completed",
+      "at": "2026-11-07T22:04:05.263Z",
+      "report": "docs/research/us_passive_drift_2026-11-07.md",
+      "account_runs": 2,
+      "baseline_reruns": 0,
+      "new_source_GETs": 0,
+      "conditional_evaluation_passed": true,
+      "stress_practical_improvement": true,
       "qualified": false,
       "real_forward": 0,
       "existing_deployment_changed": false
