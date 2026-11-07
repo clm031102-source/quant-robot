@@ -368,6 +368,7 @@ function updateHashForBeginnerTarget(pageName, targetId) {
 }
 
 function bindActions() {
+  installProjectStatusRefresh();
   byId("run-startup-workflows").addEventListener("click", runStartupWorkflows);
   byId("run-research").addEventListener("click", runResearch);
   byId("run-signals").addEventListener("click", runSignals);
@@ -761,6 +762,49 @@ async function loadDailyOps() {
   state.dailyOps = await fetchJson("/api/daily/ops");
   renderDailyOps();
   renderDashboard();
+}
+
+function installProjectStatusRefresh() {
+  const head = byId("ordinary-home-board")?.querySelector(".panel-head");
+  if (!head || byId("refresh-project-status")) return;
+  const controls = document.createElement("div");
+  const button = document.createElement("button");
+  button.id = "refresh-project-status";
+  button.type = "button";
+  button.className = "secondary-button";
+  button.textContent = "刷新项目状态";
+  const feedback = document.createElement("span");
+  feedback.id = "project-status-refresh-feedback";
+  feedback.className = "muted";
+  feedback.setAttribute("role", "status");
+  feedback.setAttribute("aria-live", "polite");
+  button.addEventListener("click", () => refreshProjectStatus(button));
+  controls.append(button, feedback);
+  head.appendChild(controls);
+}
+
+async function refreshProjectStatus(button) {
+  if (button.disabled) return;
+  const feedback = byId("project-status-refresh-feedback");
+  button.disabled = true;
+  if (feedback) feedback.textContent = "正在刷新项目状态…";
+  try {
+    await loadProjectStatus();
+    if (feedback) feedback.textContent = "项目状态已刷新（只读）";
+  } catch (error) {
+    if (feedback) feedback.textContent = "刷新失败；仍显示上次记录，请重试。";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function projectFeeSummary(project) {
+  const costs = project.user_confirmed_costs || {};
+  return costs.ETF_minimum_commission_CNY_per_transaction === 5
+    && costs.broker_and_rate_unconfirmed === true
+    && typeof costs.source === "string" && /^user_reported_\d{4}-\d{2}-\d{2}UTC$/.test(costs.source)
+    ? "ETF每笔最低5元已由用户确认；其他费用待核实"
+    : "ETF最低佣金及其他费用待核实";
 }
 
 async function loadDailyTradeAdvisory(params = buildDailyTradeAdvisoryParams()) {
@@ -5770,6 +5814,7 @@ function renderOrdinaryHome() {
       ["项目状态", project.state_label || "当前状态待核实", "warn"],
       ["模拟运行", "尚无合格候选，暂不开启", "warn"],
       ["记录日期", project.generated_at || "待更新", "muted"],
+      ["ETF费用", projectFeeSummary(project), "warn"],
     ]);
     dailyActionNode.innerHTML = statusRows((project.next_actions || []).map(row => [row.title, row.reason, "warn"]));
     warningNode.innerHTML = statusRows((project.blockers || []).map(row => ["当前卡点", row.evidence, "warn"]));
@@ -6678,9 +6723,9 @@ function renderProjectStatus() {
       ]),
       ...(campaign.campaign_id ? [
         ["72小时交付检查", localTime(campaign.deadline), "muted"],
-        ["最新工作记录", campaign.checkpoint_available ? localTime(campaign.checkpoint_at) : "工作记录待核实", "muted"],
+        ["最近一次保存的工作记录", campaign.checkpoint_available ? localTime(campaign.checkpoint_at) : "工作记录待核实", "muted"],
       ] : []),
-      ["实际费用", project.actual_fees_verified ? "已核实" : "尚未核实，研究保留费用情景", "warn"],
+      ["ETF费用", projectFeeSummary(project), "warn"],
       ["模拟运行", "尚无通过验收的候选，暂不开启", "warn"],
       ["项目范围", project.safety || "研究与模拟", "muted"],
     ]);
