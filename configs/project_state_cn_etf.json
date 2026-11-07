@@ -7,7 +7,7 @@
   "state_label": "美元日常模型已部署，等待首个交易日",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 27,
+    "return_studies": 28,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "第27项独立核账通过：USD1000冷启动，2025年主/压力现金净利润70.62/57.33美元，最大回撤3.49%/3.51%，各7笔成交。实际为高现金、整股受限配置；已部署未来20日条件模型，当前0个运行日，尚无稳定盈利证据。"
+      "evidence": "第28项行业动量被拒绝：主/压力费用预算后年化8.38%/5.56%，低于九行业等权毛年化10.12%，两项相对收益条件失败。第27项美元配置已部署条件模型，但整股受限、现金占比高；当前0个运行日，尚无稳定盈利证据。"
     },
     {
       "blocker_id": "forward_observation_not_started",
@@ -69,6 +69,14 @@
   },
   "updated_at_utc": "2026-11-07T18:32:33.027Z",
   "closed_research_findings": [
+    {
+      "blocker_id": "sector_momentum_cost_adjusted_increment_failed",
+      "severity": "block",
+      "track_id": "research",
+      "evidence": "第28项：原九行业ETF、六个月形成、半年前三的唯一筛选已独立核对。毛年化10.25%对等权10.12%，费用预算后增量不足；关闭，不改参数、不追加股份引擎。4条收益指数，不是4个整股账户。",
+      "status": "closed_rejected_research_scope",
+      "not_current_repair_task": true
+    },
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
       "severity": "block",
