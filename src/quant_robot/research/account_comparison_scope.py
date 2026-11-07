@@ -18,6 +18,12 @@ def review_account_comparison(root, *, mode, scope, protocol):
         return dict(status='not_applicable',blockers=[])
     if protocol != {'version':1,'holding_and_cash_required':True}:
         return dict(status='blocked',blockers=['account_comparison_protocol_invalid'])
+    if mode == 'single_campaign_bond_risk_compensation_10_account_only':
+        from quant_robot.research.bond_risk_compensation_admission import review_comparison
+        try:
+            return review_comparison(root, scope)
+        except (OSError, ValueError, KeyError, TypeError):
+            return dict(status='blocked', blockers=['account_comparison_specification_missing_or_invalid'])
     if mode == 'single_campaign_crypto_charge_monthly_10_account_only':
         from quant_robot.research.crypto_charge_monthly_admission import review_comparison
         try:
