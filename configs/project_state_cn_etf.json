@@ -2,12 +2,12 @@
   "schema_version": 1,
   "display_only": true,
   "market": "CN_ETF",
-  "updated_at": "2026-11-06",
+  "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "第21项债券历史模型为正，尚无合格策略",
+  "state_label": "恒权方法税务来源已补齐，准备冻结历史验证输入",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 21,
+    "return_studies": 22,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "21项接续研究尝试，0合格。新511220债券条件历史模型九费用均为正，主格本金1万元净增1761.07元；只有1次长期持有往返，不能证明主动超额收益。完整核账及年度/执行披露复核通过，真实交易状态仍未知。"
+      "evidence": "22项接续研究尝试，0合格。第22项BTC现货MACD条件历史验证27账户完成并独立核账；主格1000USDT净增36.24、回撤28.64%，完整往返26次，五年度仅一年正收益，统计下界及成交量条件未通过。第21项511220长期持有条件历史为正，但不能证明主动超额收益，执行和当前产品条款仍待核实。"
     },
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
@@ -34,7 +34,7 @@
       "blocker_id": "actual_costs_unverified",
       "severity": "review",
       "track_id": "costs",
-      "evidence": "实际最低佣金等费用未核实，研究保留九种费用情景。"
+      "evidence": "用户已确认ETF每笔最低佣金5元；券商、比例佣金及收费归集口径尚未核实。既定九费用历史结果保留，0元档仅作敏感性对照。"
     },
     {
       "blocker_id": "forward_observation_not_started",
@@ -59,23 +59,23 @@
     {
       "priority": 1,
       "track_id": "research",
-      "title": "推进长期风险补偿验证与独立研究提案",
+      "title": "冻结恒权方法完整历史输入",
       "command": "",
-      "reason": "第21项固定已知历史诊断完成：2020年2月至2024年6月主格净增1761.07元、收盘最大回撤3.76%；九费用均正。分配现金1241元，只有一轮长期持有，无风险退出。保持0资格，继续明确可验证的下一项证据，旧研究不改判。"
+      "reason": "24份价格原件、两只ETF各2454日已取得；165项输入已归集。十次分配事件的历史条件税务来源已具备，正在装配精确映射及最终清单；不认证个人实际到账，尚无新历史账户结果。"
     },
     {
       "priority": 2,
       "track_id": "delivery",
-      "title": "集成来源接入框架并核对真实来源能力",
+      "title": "完成最终历史入口集成与一次性验证",
       "command": "",
-      "reason": "实际前置门禁与凭据隔离已合入；新的五阶段人工来源到账本框架166项验证通过、独立复核和恢复备份完成，PR53六环境CI进行中。生产来源注册仍关闭，31与32项前置检查的合流还需验证。"
+      "reason": "PR60已合入，每环境5001项测试。后续历史入口与独立核账器已完成工程审查及241文件恢复验证；待最终输入绑定、六环境检查和金融登记后执行27账户。日常单资产入口还不能直接运行双ETF组合。"
     },
     {
       "priority": 3,
       "track_id": "costs",
-      "title": "补齐ETF交易状态与真实费用",
+      "title": "后续ETF研究采用每笔最低5元",
       "command": "",
-      "reason": "正收益仍以条件成交和九费用假设为前提；两笔成交的停牌/涨跌停状态尚未认证，真实最低佣金未核实。日常身份、完整行动及状态覆盖继续核对，未开放真实前向。"
+      "reason": "用户已确认该最低佣金；比例费率及收费归集口径尚未核实，0元档仅作敏感性对照，旧九费用结果保留。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -91,5 +91,11 @@
     "deadline": "2026-11-09T16:21:39Z",
     "heartbeat_id": "72",
     "checkpoint": "data\\reports\\campaign_72h_20261106\\checkpoint.json"
-  }
+  },
+  "user_confirmed_costs": {
+    "ETF_minimum_commission_CNY_per_transaction": 5,
+    "source": "user_reported_2026-11-07UTC",
+    "broker_and_rate_unconfirmed": true
+  },
+  "updated_at_utc": "2026-11-07T09:54:06.526Z"
 }
