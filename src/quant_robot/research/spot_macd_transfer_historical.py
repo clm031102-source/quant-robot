@@ -91,7 +91,11 @@ def _native_rows(raw):
     return left["result"]
 
 
-def _daily(raw, first, last):
+def _daily(raw, first, last, *, source_time_exception=None):
+    if source_time_exception is not None:
+        from quant_robot.research.spot_macd_transfer_time_exception import ExactDailyTimeProof
+        if type(source_time_exception) is not ExactDailyTimeProof:raise ValueError("Verified exact source proof required")
+        source_time_exception.validate_source(raw,first,last)
     from quant_robot.research import spot_macd_transfer as model
     start,end=date.fromisoformat(first),date.fromisoformat(last)
     rows=_native_rows(raw)
@@ -100,7 +104,9 @@ def _daily(raw, first, last):
     with localcontext(model.context()):
         for i,r in enumerate(rows):
             day=start+timedelta(days=i)
-            if r[0]!=_ms(day) or r[6]!=_ms(day)+DAY_MS-1: raise ValueError("Daily UTC clock or order mismatch")
+            if r[0]!=_ms(day) or (r[6]!=_ms(day)+DAY_MS-1 and not (source_time_exception is not None
+                    and source_time_exception.accepts_close(day.isoformat(),r[0],r[6]))):
+                raise ValueError("Daily UTC clock or order mismatch")
             o,h,l,c=(model.number(r[k],positive=True) for k in (1,2,3,4))
             model.number(r[5])
             if l>min(o,c) or h<max(o,c) or h<l: raise ValueError("Daily OHLC invalid")
@@ -174,25 +180,33 @@ class LoadedHistory:
             raise ValueError("Decoded in-memory evidence changed")
 
 
-def load_claimed_inputs(claim):
+def load_claimed_inputs(claim, *, source_time_exception=None):
     if not isinstance(claim,admission._Claim) or not claim.active or claim.decoding_started:
         raise ValueError("Unused durable claim required to decode sources")
+    if source_time_exception is not None:
+        from quant_robot.research.spot_macd_transfer_time_exception import ExactDailyTimeProof
+        if type(source_time_exception) is not ExactDailyTimeProof:raise ValueError("Verified exact source proof required")
+        source_time_exception.validate_claim(claim)
     # All file hashes, source layout, and receipt clocks before numeric decode.
     claim.guard("before","load_metadata")
     layouts=claim.manifest["daily_sources"]+claim.manifest["minute_sources"]
     clocks=[_receipt_evidence(claim,d) for d in layouts]
     first_raw=claim.read(claim.manifest["daily_sources"][0]["role"])
     claim.begin_financial_decode()
-    daily=[]; minutes=[]; monthly=[]; refs=[]
+    daily=[]; minutes=[]; monthly=[]; refs=[]; exception_carriers=0
     for index,(desc,receipt) in enumerate(zip(claim.manifest["daily_sources"],clocks)):
         raw=first_raw if index==0 else claim.read(desc["role"])
-        daily.extend(_daily(raw,desc["first"],desc["last"]))
+        if source_time_exception is not None and admission.digest(raw)==source_time_exception.native_sha256:
+            daily.extend(_daily(raw,desc["first"],desc["last"],source_time_exception=source_time_exception))
+            exception_carriers+=1
+        else:daily.extend(_daily(raw,desc["first"],desc["last"]))
         refs.append(dict(kind="native_daily",source=claim.packet["inputs"][desc["role"]],**receipt))
     for desc,receipt in zip(claim.manifest["minute_sources"],clocks[len(claim.manifest["daily_sources"]):]):
         rows,coverage=_archive_targets(claim.read(desc["zip_role"]),claim.read(desc["checksum_role"]),desc["month"])
         minutes.extend(rows); monthly.append(coverage)
         refs.append(dict(kind="monthly_archive",source=claim.packet["inputs"][desc["zip_role"]],
                          checksum=claim.packet["inputs"][desc["checksum_role"]],**receipt))
+    if source_time_exception is not None and exception_carriers!=1:raise ValueError("Exception carrier must occur exactly once")
     if ([r["date"] for r in daily]!=[(FIRST+timedelta(days=i)).isoformat() for i in range(2192)]
             or [r["date"] for r in minutes]!=[(EXEC_FIRST+timedelta(days=i)).isoformat() for i in range(1827)]):
         raise ValueError("Exact2192daily/1827execution coverage required")
@@ -207,6 +221,7 @@ def load_claimed_inputs(claim):
             "Minutevolume_afterfill_notpretrade_capacity", "Native1000USDT_notCNYconversion"],
         source_numeric_projection=dict(daily=["open","high","low","close","volume"],minute=["open","volume"],
             outside_target_minute_numeric_values_decoded=False),qualified=False,real_forward_days_added=0)
+    if source_time_exception is not None:provenance["source_time_exception"]=source_time_exception.provenance()
     loaded=LoadedHistory(fixture,provenance,admission.digest(admission.canonical(dict(fixture=fixture,provenance=provenance))))
     loaded.verify(); claim.guard("after","load_complete")
     return loaded
@@ -236,7 +251,11 @@ def _persist(claim,path,value):
 
 def run_claimed_diagnostic(claim):
     from quant_robot.research import spot_macd_transfer as m
-    loaded=load_claimed_inputs(claim)
+    if "source_schema_policy" in claim.manifest:
+        from quant_robot.research.spot_macd_transfer_time_exception import prepare_claimed_exception
+        proof=prepare_claimed_exception(claim)
+        loaded=load_claimed_inputs(claim,source_time_exception=proof)
+    else:loaded=load_claimed_inputs(claim)
     folder=admission.DIRECTORY
     decoded=_persist(claim,folder+"/decoded_input.json",dict(fixture=loaded.fixture,provenance=loaded.provenance))
     prepared=_prepare(loaded)
