@@ -94,6 +94,17 @@ class V2Verification:
         except BaseException:self.stage.abort();raise
         return self
 
+    @classmethod
+    def from_stage(cls,stage):
+        """Only the fixed synthetic G1 root may finalize this borrowed stage."""
+        if (type(stage) is not sessions.VerificationSession or stage.policy is not sessions.G1_SYNTHETIC_POLICY):
+            _fail('v2_exact_g1_borrowed_stage_required')
+        stage.require_open();result=object.__new__(cls)
+        result.root=stage.root;result.operation=stage._operation;result._owned=False
+        result.stage=stage;result._counter=0;result._borrowed=True
+        result.binding=_binding(stage)
+        return result
+
     def __exit__(self,kind,value,traceback):
         if self.stage is not None:self.stage.__exit__(kind,value,traceback)
         if self._owned:self.operation.close()
@@ -104,6 +115,7 @@ class V2Verification:
         return self.stage.child(f'{label}_{self._counter}')
 
     def commit(self):
+        if getattr(self,'_borrowed',False):_fail('v2_borrowed_stage_owned_by_root')
         self.stage.require_open()
         try:
             if _binding(self.stage)!=self.binding:_fail('v2_implementation_changed_during_verification')

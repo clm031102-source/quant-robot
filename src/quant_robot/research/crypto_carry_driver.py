@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from quant_robot.research.crypto_carry_model import CarryModel, FeeScenario, MINUTE, TradingRule, dec, stamp
+from quant_robot.research.crypto_carry_model import CarryModel, FeeScenario, FundingChargeEvent, MINUTE, TradingRule, dec, stamp
 from quant_robot.research.crypto_carry_policy import (
     CompletedPrices, KnownPoint, OHLCMinute, VolumeMinute, WalletState, minute_risk_envelope,
 )
@@ -166,7 +166,9 @@ def audit_minute(*, rows, spot, mark, funding):
         event=funding.get(row.at)
         # No stale opening spot is paired with a midminute funding mark.
         if event is not None and row.event!='quote':
-            if event.synchronous_spot is not None:
+            # A charge-associated basis is never a market observation, even if
+            # its numeric value happens to equal the latest independent mark.
+            if not isinstance(event, FundingChargeEvent) and event.synchronous_spot is not None:
                 points.append(KnownPoint(row.at,index,event.synchronous_spot,event.mark))
         elif row.at==start:
             points.append(KnownPoint(row.at,index,spot.open,mark.open))

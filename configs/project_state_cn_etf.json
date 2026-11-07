@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-06",
   "state": "research_in_progress",
-  "state_label": "72小时推进中；已定位3条价格口径冲突，0合格策略",
+  "state_label": "第20项九费用均亏，独立核账通过；0合格策略",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 19,
+    "return_studies": 20,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "接续序列19项收益研究尝试（非全生命周期总数），0合格。第19项已进入金融数据解码，但分钟标记价与资金费事件价一致性校验失败，0账户、无盈亏结论；旧商品研究拒绝结果保留。"
+      "evidence": "20项接续研究尝试，0合格。固定月九费用账户减记后均亏，主格亏3.78991369 USDT。九格末态/回撤及三格逐笔钱包独立核对通过；原结果、执行失败与审计精度修订证据均保留。"
     },
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
@@ -52,7 +52,7 @@
       "blocker_id": "funding_mark_minute_consistency_unresolved",
       "severity": "block",
       "track_id": "research",
-      "evidence": "独立来源诊断核对93次资金费事件：90在分钟区间内、2高于、1低于，缺失0；3个冲突均在整分钟。官方收费关联定义尚不等于即时估值。正准备新的收费/估值分离条件模型，原第19项失败不重跑。"
+      "evidence": "93事件有3条与原分钟区间假设不一致，旧失败保留。新收费/估值分离模型已完成第20项条件诊断，九费用均亏；官方现行说明不认证历史精确到账，实际收费时点仍有15秒不确定性。"
     }
   ],
   "next_actions": [
@@ -61,14 +61,14 @@
       "track_id": "delivery",
       "title": "完成日常来源接入与容量核验",
       "command": "",
-      "reason": "原件绑定和候选准备已合主线；共享来源核验六环境通过。新G1人工路径完成14专项、89兼容及真实新进程恢复核对，待集成；真实来源完整性和合格策略仍缺。"
+      "reason": "PR49六环境通过并合入。完整人工采集到账本与私有交接拆分已验收；最终36项针对测试、项目及维护检查通过。正在集成，真实项目门禁、实际时钟和完整来源证据仍待接入。"
     },
     {
       "priority": 2,
       "track_id": "research",
-      "title": "固定收费与估值分离的条件模型",
+      "title": "结束亏损版本并筛选独立的新研究机制",
       "command": "",
-      "reason": "93事件诊断与独立复核完成，不新增收益研究。先冻结收费、估值、到账及风险时钟合同并用人工反例验证；不以改日期、费用或容差救回旧失败。"
+      "reason": "本次独立核账完成，主格净值996.21008631低于预定1000门槛，后续报价观测不触发。保留旧失败，不靠调费用、风险或月份救回；按既有登记核对新机制与必要数据。"
     },
     {
       "priority": 3,

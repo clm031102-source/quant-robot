@@ -21,7 +21,10 @@ from decimal import Decimal
 from pathlib import Path
 
 from quant_robot.research.crypto_carry_driver import audit_minute, json_ready
-from quant_robot.research.crypto_carry_model import CarryModel, FeeScenario, MINUTE, TradingRule, credit, debit, dec
+from quant_robot.research.crypto_carry_model import (
+    CHARGE_BASIS_FUNDING, LEGACY_FUNDING, CarryModel, FeeScenario, FundingChargeEvent,
+    MINUTE, TradingRule, credit, debit, dec,
+)
 from quant_robot.research.crypto_carry_policy import CompletedPrices, OHLCMinute, VolumeMinute
 from quant_robot.research.crypto_carry_scheduler import CompletedPrefix, SyntheticCarryScheduler, TransferConfirmation
 
@@ -149,12 +152,15 @@ provenance; OHLC received_at below is explicitly an offline availability assumpt
     return _decode_month_core(raw)
 
 
-def _decode_month_core(raw: RawMonthlyBundle, *, source_provenance=None) -> LoadedMonth:
+def _decode_month_core(raw: RawMonthlyBundle, *, source_provenance=None,
+                       funding_mode=LEGACY_FUNDING) -> LoadedMonth:
     """Shared numerical parser; historical callers must own a verified claim.
 
 This internal primitive does not grant access to files or confer admission.
 Public synthetic and historical entry points enforce their distinct boundaries.
     """
+    if funding_mode not in {LEGACY_FUNDING, CHARGE_BASIS_FUNDING}:
+        raise ValueError('explicit_supported_funding_mode_required')
     days=(raw.end-raw.start).days
     count=days*1440
     indexed={}
@@ -213,9 +219,12 @@ Public synthetic and historical entry points enforce their distinct boundaries.
         at=EPOCH+timedelta(milliseconds=clock)
         mark=dec(event['markPrice'])
         candle=indexed['mark'][int((at-raw.start).total_seconds()//60)].candle
-        if not candle.low<=mark<=candle.high:
-            raise ValueError('event_mark_outside_minute_ohlc')
-        funding.append(FundingEvent(at,rate,mark))
+        if funding_mode == LEGACY_FUNDING:
+            if not candle.low<=mark<=candle.high:
+                raise ValueError('event_mark_outside_minute_ohlc')
+            funding.append(FundingEvent(at,rate,mark))
+        else:
+            funding.append(FundingChargeEvent(at,rate,mark))
     provenance={'evidence_class':raw.evidence_class,'schema_emulates':'2025-01_original_formats',
         'fixture_created_at':raw.fixture_created_at.isoformat() if raw.fixture_created_at else None,'actual_market_acquired_at':None,
         'historical_first_publication_at':None,'actual_market_values_decoded':False,
@@ -228,6 +237,11 @@ Public synthetic and historical entry points enforce their distinct boundaries.
             'transfer_confirmation':'model_assumed_transfer_confirmation_after_five_complete_minutes'}}
     if source_provenance is not None:
         provenance.update(source_provenance)
+    if funding_mode == CHARGE_BASIS_FUNDING:
+        provenance.update(funding_mode=funding_mode,
+            charge_basis_role='funding_cash_only_not_market_valuation_or_execution',
+            cash_formula_and_event_availability='conditional_model_assumptions_not_exchange_certification',
+            valuation_role='last_known_independent_market_opening_at_event_not_instantaneous_certification')
     coverage={'status':'complete','minutes_per_market':count,'days':days,'funding_events':len(funding),
         'off_minute_funding_events':sum(bool(t%60000) for t in actual_times),
         'time_units':{'spot':'microseconds','um':'milliseconds','mark':'milliseconds','funding':'milliseconds'},
@@ -327,18 +341,30 @@ def _component_snapshot(model, data, terminal=None):
     return result
 
 
-def _run_account_core(data: LoadedMonth, *, scenario=PRIMARY, output_dir: str | Path):
+def _run_account_core(data: LoadedMonth, *, scenario=PRIMARY, output_dir: str | Path,
+                      funding_mode=LEGACY_FUNDING):
     """Shared account arithmetic. Public callers own source/admission validation."""
     if scenario not in SCENARIOS:
         raise ValueError('one_of_nine_frozen_scenarios_required')
+    if (funding_mode not in {LEGACY_FUNDING, CHARGE_BASIS_FUNDING}
+            or data.provenance.get('funding_mode',LEGACY_FUNDING)!=funding_mode
+            or any(not isinstance(event, FundingChargeEvent if funding_mode==CHARGE_BASIS_FUNDING
+                                  else FundingEvent) for event in data.funding)):
+        raise ValueError('loaded_funding_role_and_explicit_account_mode_must_match')
     output=Path(output_dir); output.mkdir(parents=True,exist_ok=False)
     model=CarryModel(start=data.start,spot_rule=TradingRule('.00001','.00001','5'),
         futures_rule=TradingRule('.001','.001','100'),fees=SCENARIOS[scenario],
-        spot_cash='500',futures_cash='500',audit_event_states=True)
-    scheduler=SyntheticCarryScheduler(model)
+        spot_cash='500',futures_cash='500',audit_event_states=True,funding_mode=funding_mode)
+    market_sources=None if funding_mode==LEGACY_FUNDING else {
+        market:f"{data.provenance['archives'][market]['sha256']}:{data.provenance['archives'][market]['member']}"
+        for market in ('spot','mark')}
+    scheduler=SyntheticCarryScheduler(model,market_sources=market_sources)
     funding={event.at:event for event in data.funding}
     for event in data.funding:
-        scheduler.queue_funding(event.at,rate=event.rate,mark=event.mark,synchronous_spot=None)
+        if funding_mode==LEGACY_FUNDING:
+            scheduler.queue_funding(event.at,rate=event.rate,mark=event.mark,synchronous_spot=None)
+        else:
+            scheduler.queue_funding_charge(event.at,rate=event.rate,charge_basis=event.charge_basis)
     days=(data.end-data.start).days; minutes=days*1440
     for day in range(1,days+1): scheduler.queue_day_end(data.start+day*DAY)
     terminal_at=data.end-DAY+timedelta(hours=22)
@@ -456,6 +482,10 @@ def _run_account_core(data: LoadedMonth, *, scenario=PRIMARY, output_dir: str | 
         'no_actual_liquidation_inferred_from_envelope':True,
         'remaining':(['financial_admission_not_granted'] if data.provenance['evidence_class']=='synthetic_raw_fixture' else [])+
                     ['historical_rules_and_execution_not_certified','long_term_validation_and_real_forward_not_completed']}
+    if funding_mode==CHARGE_BASIS_FUNDING:
+        summary.update(funding_mode=funding_mode,
+            risk_valuation='conditional_last_known_market_proxy_not_instantaneous_exchange_state',
+            full_strategy_all_path_risk_or_return_bound_proven=False)
     summary['artifacts']={path.name:{'sha256':sha(path.read_bytes()),'bytes':path.stat().st_size}
                           for path in sorted(output.glob('*.jsonl.gz'))}
     (output/'summary.json').write_text(_json(summary)+'\n',encoding='utf-8')

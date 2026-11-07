@@ -7,7 +7,8 @@ identity, timing, coverage and economic field relationships. Hashes cannot prove
 that a self-authored receipt came from an exchange. Default metadata adapters are
 explicit fixtures; a production capture verifier registers its own SourceAdapter.
 Neither complete input contracts nor recorded observations qualify a strategy or
-open the forward gate. This module performs no network calls or filesystem writes.
+open the forward gate. Public assemblers perform no network calls or filesystem
+writes; the private synthetic G1 handoff delegates publication to its fixed owner.
 """
 from __future__ import annotations
 
@@ -270,6 +271,29 @@ class _DeferredAssembly:
         self.stage.require_open()
         if not self.contexts:self.stage.fail('no_deferred_originals')
         return self.contexts[-1].child.propose(value)
+
+    def _handoff_g1(self,owner,source,proof,*,identity,acquired_at,now):
+        """Rebuild privately, then call only the fixed G1 consumer in this stage."""
+        from quant_robot.ops import frozen_candidate_forward as forward
+        from quant_robot.ops import paper_source_connection as connection
+        try:
+            forward._check_source_handoff(owner,self,identity)
+            if (type(source) is not connection._DeferredInput or source.assembly is not self
+                    or forward.digest(source.manifest)!=identity['manifest_value_sha256']
+                    or forward.digest(source.schedule)!=identity['calendar_value_sha256']):
+                raise ValueError('Exact original-bound G1 source input required')
+            packet=connection._build_daily_input(source.manifest,proof,schedule=source.schedule,
+                acquired_at=acquired_at,now=forward._clock(now)[0],require_recorded=False,_deferred=source)
+            if 'ticket' in owner._source_handoff:
+                raise ValueError('G1 source handoff already prepared')
+            # Only hashes and an opaque ticket cross the ownership check. The
+            # packet stays a local value and is never extracted from the ticket.
+            owner._source_handoff.update(assembly=self,packet_sha256=forward.digest(packet),ticket=self.propose(packet))
+            return forward._consume_source_handoff(owner,self,identity,packet,now=now)
+        except BaseException:
+            self.stage.abort()
+            if type(owner) is forward._SyntheticG1Action:owner.operation.fail()
+            raise
 
 
 def _adapter_binding(adapter):

@@ -97,10 +97,12 @@ _SOURCE_FILES = (
     'src/quant_robot/research/indicator_combinations.py',
 )
 _V2_FILES = tuple(sorted(set(_SOURCE_FILES) | {
+    'src/quant_robot/ops/paper_synthetic_capture_observe.py',
     'src/quant_robot/ops/paper_prospective_transport_v2.py',
     'src/quant_robot/ops/paper_prospective_transport.py',
     'src/quant_robot/ops/paper_prospective_scope.py',
     'src/quant_robot/ops/frozen_candidate_forward.py',
+    'src/quant_robot/ops/paper_g1_handoff.py',
     'src/quant_robot/ops/tushare_live_transport.py',
     'src/quant_robot/ops/tushare_daily_receipt.py',
     'src/quant_robot/config/secrets.py',

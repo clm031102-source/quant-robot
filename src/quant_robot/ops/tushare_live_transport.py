@@ -63,7 +63,15 @@ def _now():
     return datetime.now(timezone.utc)
 
 
-def implementation_binding():
+def implementation_binding(*,_reader=None):
+    if _reader is not None:
+        from quant_robot.ops import frozen_candidate_forward as forward
+        from quant_robot.ops import paper_evidence_session as sessions
+        if type(_reader) is not forward._SyntheticG1Action:
+            raise ScopeError('fixed_synthetic_root_reader_required')
+        code=_reader.stage.bind_implementation(sessions.G1_CATALOG)['code']
+        return dict(code={name:code[name] for name in CODE_FILES},python=platform.python_version(),
+                    requests=None,synthetic_fixed_transport=True)
     root = Path(__file__).resolve().parents[3]
     try:
         requests_version = version('requests')
@@ -209,7 +217,7 @@ def _publish_json(path, value):
     return _publish(path,_canonical(value)+b'\n')
 
 
-def _bound(folder, ref, *, expected_name=None):
+def _bound(folder, ref, *, expected_name=None,_reader=None):
     if (not isinstance(ref,dict) or set(ref) not in ({'path','sha256'},{'path','sha256','bytes'})
             or not isinstance(ref.get('path'),str) or Path(ref['path']).name != ref['path']
             or ref['path'].startswith('.') or expected_name is not None and ref['path'] != expected_name):
@@ -217,7 +225,8 @@ def _bound(folder, ref, *, expected_name=None):
     path = folder/ref['path']
     if path.is_symlink() or not path.resolve().is_relative_to(folder.resolve()):
         raise ScopeError('receipt_reference_escapes_archive')
-    raw = _read(path)
+    raw = (_read(path) if _reader is None else _reader.read_bytes(_meter_reference(_reader,path,ref['sha256'])))
+    if len(raw)>MAX_DOCUMENT_BYTES:raise ScopeError('document_byte_budget_exceeded')
     if _sha(raw) != ref['sha256'] or 'bytes' in ref and ref['bytes'] != len(raw):
         raise ScopeError('receipt_file_hash_or_size_mismatch')
     return raw
@@ -461,12 +470,14 @@ def capture_scoped_source(scope_path, *, repo_root='.', execute=False, expected_
         return inspect_attempt(folder)
 
 
-def _capture_once(folder,scope,receipt,*,clock,monotonic,get_token,new_session):
+def _capture_once(folder,scope,receipt,*,clock,monotonic,get_token,new_session,_reader=None):
     token=None
     stage='credential'
     try:
         now=parser._utc(clock())
-        claimed_at=parser._utc(_decode(_bound(folder,receipt['claim_ref'],expected_name='claim.json'))['claimed_at'])
+        claim_raw=(_bound(folder,receipt['claim_ref'],expected_name='claim.json') if _reader is None else
+                   _bound(folder,receipt['claim_ref'],expected_name='claim.json',_reader=_reader))
+        claimed_at=parser._utc(_decode(claim_raw)['claimed_at'])
         if now<claimed_at:raise ScopeError('claim_clock_regressed_before_credential_read')
         if not parser._utc(scope['valid_from'])<=now<parser._utc(scope['valid_until']):
             raise ScopeError('scope_expired_before_credential_read')
@@ -531,8 +542,21 @@ def _capture_once(folder,scope,receipt,*,clock,monotonic,get_token,new_session):
         token=None
 
 
-def _confirm_references(folder,refs):
+def _meter_reference(reader,path,sha):
+    from quant_robot.ops import paper_evidence_session as sessions
+    if type(reader) is not sessions._Child or reader._session.policy is not sessions.G1_SYNTHETIC_POLICY:
+        raise ScopeError('fixed_g1_content_reader_required')
+    reader._session.require_open()
+    root=reader._session.root;relative=Path(path).resolve(strict=True).relative_to(root).as_posix()
+    return dict(path=relative,sha256=sha)
+
+
+def _confirm_references(folder,refs,*,_reader=None):
     for ref in refs:
+        if _reader is not None:
+            _bound(folder,ref,_reader=_reader)
+            _reader.confirm_durable(_meter_reference(_reader,folder/ref['path'],ref['sha256']))
+            continue
         expected=_bound(folder,ref)
         with (folder/ref['path']).open('r+b') as stream:
             if stream.read()!=expected:
@@ -541,11 +565,16 @@ def _confirm_references(folder,refs):
     _sync_directory(folder)
 
 
-def _confirm_files(folder,receipt):
+def _confirm_files(folder,receipt,*,_reader=None):
     refs=[receipt['scope_ref'],receipt['claim_ref'],receipt['gate_ref'],*receipt['evidence_refs'].values()]
     if receipt['raw_response'] is not None:refs.append(receipt['raw_response'])
-    refs.append(dict(path='receipt.json',sha256=_sha(_read(folder/'receipt.json'))))
-    _confirm_references(folder,refs)
+    if _reader is None:receipt_sha=_sha(_read(folder/'receipt.json'))
+    else:
+        _,ref=_reader.snapshot_original((folder/'receipt.json').resolve().relative_to(_reader._session.root).as_posix())
+        receipt_sha=ref['sha256']
+    refs.append(dict(path='receipt.json',sha256=receipt_sha))
+    if _reader is None:_confirm_references(folder,refs)
+    else:_confirm_references(folder,refs,_reader=_reader)
 
 
 def verify_scoped_source_receipt(receipt_path, *, expected_scope_sha256=None):

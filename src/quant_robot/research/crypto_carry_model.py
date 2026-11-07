@@ -18,6 +18,8 @@ ONE = Decimal("1")
 ATOM = Decimal("0.00000001")
 MINUTE = timedelta(minutes=1)
 PRIORITY = {"entry": 1, "rebalance": 1, "repair": 3, "risk_exit": 4, "terminal_exit": 5}
+LEGACY_FUNDING = "event_mark_legacy"
+CHARGE_BASIS_FUNDING = "charge_basis_last_known_market_v1"
 INCOMPLETE = (
     "historical_inputs_and_date_effective_rules_not_admitted",
     "automatic_80_percent_target_search_not_implemented",
@@ -149,14 +151,44 @@ class EventWalletState:
     mark_price: Decimal | None
 
 
+@dataclass(frozen=True)
+class FundingChargeEvent:
+    """Charge basis only; contains no market valuation or execution quote."""
+    at: datetime
+    rate: Decimal
+    charge_basis: Decimal
+
+    def __post_init__(self):
+        object.__setattr__(self, "at", stamp(self.at))
+        object.__setattr__(self, "rate", dec(self.rate))
+        object.__setattr__(self, "charge_basis", dec(self.charge_basis))
+        if self.charge_basis <= 0:
+            raise ValueError("Positive funding charge basis required")
+
+
+@dataclass(frozen=True)
+class MarketObservation:
+    market: str
+    source: str
+    kind: str
+    value: Decimal
+    observed_at: datetime
+    model_available_at: datetime
+
+
 class CarryModel:
     """Single-threaded exact-time synthetic event queue, never a broker adapter."""
 
     def __init__(self, *, start: datetime, spot_rule: TradingRule, futures_rule: TradingRule,
                  fees: FeeScenario | None = None, spot_cash="500", futures_cash="500",
-                 audit_event_states=False):
+                 audit_event_states=False, funding_mode=LEGACY_FUNDING):
         if type(audit_event_states) is not bool:
             raise ValueError("Explicit boolean audit switch required")
+        if funding_mode not in {LEGACY_FUNDING, CHARGE_BASIS_FUNDING}:
+            raise ValueError("Explicit supported funding mode required")
+        self.funding_mode = funding_mode
+        self._market_observations: dict[str, MarketObservation] = {}
+        self._market_sources: dict[tuple[str, datetime], dict[str, str]] = {}
         self.audit_event_states = audit_event_states
         self._event_state_trace: list[EventWalletState] = []
         self.now = stamp(start)
@@ -226,15 +258,59 @@ class CarryModel:
         self._sequence += 1
         heapq.heappush(self._events, (at, priority, self._sequence, kind, payload))
 
-    def queue_quote(self, at, *, spot, future=None, mark=None):
+    def _checked_market_sources(self, sources):
+        if self.funding_mode == LEGACY_FUNDING:
+            if sources is not None:
+                raise ValueError("Market-source clocks require the explicit charge-basis mode")
+            return None
+        if (not isinstance(sources, dict) or set(sources) != {"spot", "mark"}
+                or any(not isinstance(v, str) or not v.strip() for v in sources.values())):
+            raise ValueError("Independent spot and mark source identities required")
+        return dict(sources)
+
+    def _observe_market(self, kind, observed_at, available_at):
+        if self.funding_mode == CHARGE_BASIS_FUNDING:
+            sources = self._market_sources.pop((kind, available_at))
+            self._market_observations = {
+                market: MarketObservation(market, sources[market], kind, value, observed_at, available_at)
+                for market, value in (("spot", self.spot_price), ("mark", self.mark_price))}
+
+    def _charge_valuation(self, at):
+        """A carried boundary observation is a proxy, not a new synchronous fact."""
+        boundary = at.replace(second=0, microsecond=0)
+        result = {}
+        for market, value in (("spot", self.spot_price), ("mark", self.mark_price)):
+            row = self._market_observations.get(market)
+            if (row is None or row.kind != "quote" or row.observed_at != boundary
+                    or row.model_available_at > at or row.value != value):
+                raise ValueError("Funding requires the current minute's independent market opening")
+            age = at - row.observed_at
+            result[market] = dict(value=str(value), source=row.source,
+                market_observed_at=row.observed_at.isoformat(),
+                model_available_at=row.model_available_at.isoformat(), used_at=at.isoformat(),
+                age_model_ms=(age.days*86400+age.seconds)*1000+age.microseconds//1000,
+                carried_forward=at != row.observed_at,
+                instantaneous_at_event_certified=False)
+        return result
+
+    def queue_quote(self, at, *, spot, future=None, mark=None, market_sources=None):
+        at = stamp(at)
+        sources = self._checked_market_sources(market_sources)
+        if self.funding_mode == CHARGE_BASIS_FUNDING and (mark is None or future is None
+                or at.second or at.microsecond or ("quote", at) in self._market_sources):
+            raise ValueError("Explicit independent prices at a unique minute opening required")
         values = tuple(dec(v) for v in (spot, future if future is not None else spot,
                                         mark if mark is not None else spot))
         if min(values) <= 0:
             raise ValueError("Positive synthetic prices required")
         self._enqueue(at, 0, "quote", values)
         self._enqueue(at, 4, "risk", None)
+        if sources is not None:
+            self._market_sources[("quote", at)] = sources
 
     def queue_funding(self, at, *, rate, mark, synchronous_spot=None):
+        if self.funding_mode != LEGACY_FUNDING:
+            raise ValueError("Use queue_funding_charge in the explicit charge-basis mode")
         at = stamp(at)
         rate, mark = dec(rate), dec(mark)
         if mark <= 0:
@@ -247,14 +323,24 @@ class CarryModel:
         self._enqueue(at, 1, "funding", (rate, mark, synchronous_spot))
         self._funding_times.add(at)
 
+    def queue_funding_charge(self, at, *, rate, charge_basis):
+        if self.funding_mode != CHARGE_BASIS_FUNDING:
+            raise ValueError("Charge funding requires its explicit model mode")
+        event = FundingChargeEvent(at, rate, charge_basis)
+        if event.at in self._funding_times:
+            raise ValueError("Duplicate funding event time")
+        self._enqueue(event.at, 1, "funding_charge", event)
+        self._funding_times.add(event.at)
+
     def queue_completed_close(self, *, closed_at, available_at, spot, future, mark,
-                              price_received_at=None):
+                              price_received_at=None, market_sources=None):
         """Value a completed [t-1m,t) bar when available, before boundary events.
 
 Late facts may only value an unchanged wallet/quote history. Otherwise reject
 them instead of rewriting already processed openings, funding or inventory.
         """
         closed_at, available_at = stamp(closed_at), stamp(available_at)
+        sources = self._checked_market_sources(market_sources)
         price_received_at = stamp(price_received_at or available_at)
         if (closed_at.second or closed_at.microsecond or not closed_at <= price_received_at <= available_at):
             raise ValueError("Completed-close clocks must be causal minute boundaries")
@@ -263,10 +349,14 @@ them instead of rewriting already processed openings, funding or inventory.
             raise ValueError("Positive completed prices required")
         self._check_close_history(closed_at)
         if any(closed_at <= event[0] < available_at and event[3] in
-               {"quote", "funding", "transfer", "fill", "day_end"} for event in self._events):
+               {"quote", "funding", "funding_charge", "transfer", "fill", "day_end"} for event in self._events):
             raise ValueError("Late completed close crosses a queued market or wallet event")
+        if sources is not None and ("completed_close", available_at) in self._market_sources:
+            raise ValueError("Duplicate completed market source clock")
         self._enqueue(available_at, -2, "completed_close",
                       (closed_at, available_at, price_received_at, values))
+        if sources is not None:
+            self._market_sources[("completed_close", available_at)] = sources
 
     def _check_close_history(self, closed_at):
         if (self._last_market_or_wallet_event_at is not None
@@ -311,6 +401,8 @@ does not certify minute coverage or a strict daily driver.
                     self._check_close_history(next_payload[0])
                 if next_kind == "day_end" and next_payload is not None and self._last_completed_close != next_at:
                     raise ValueError("Strict day end requires its completed final minute")
+                if next_kind == "funding_charge":
+                    self._charge_valuation(next_at)
                 self.now, priority, _, kind, payload = heapq.heappop(self._events)
                 self._last_event_time, self._last_event_priority = self.now, priority
                 self._audit_state(kind, "before")
@@ -318,6 +410,7 @@ does not certify minute coverage or a strict daily driver.
                     closed_at, available_at, price_received_at, values = payload
                     self._check_close_history(closed_at)
                     self.spot_price, self.future_price, self.mark_price = values
+                    self._observe_market(kind, closed_at, available_at)
                     self._last_completed_close = closed_at
                     self._record("completed_close", closed_at=closed_at.isoformat(),
                                  available_at=available_at.isoformat(), price_received_at=price_received_at.isoformat(),
@@ -325,6 +418,7 @@ does not certify minute coverage or a strict daily driver.
                     self._risk(observation="completed_minute_close")
                 elif kind == "quote":
                     self.spot_price, self.future_price, self.mark_price = payload
+                    self._observe_market(kind, self.now, self.now)
                     self._last_market_or_wallet_event_at = self.now
                     self._risk(observation="execution_opening_before_events")
                 elif kind == "funding":
@@ -343,6 +437,21 @@ does not certify minute coverage or a strict daily driver.
                     self._record("funding", quantity_before=str(quantity_before), cash_delta=str(amount),
                                  spot_observation="explicit_synchronous" if event_spot is not None else "unobserved_last_known_valuation")
                     self._risk()
+                elif kind == "funding_charge":
+                    quantity_before = self.short_btc
+                    valuation = self._charge_valuation(self.now)
+                    self._risk(observation="conditional_market_proxy_before_funding_cash")
+                    self._audit_state(kind, "valuation_before_cash")
+                    amount = credit(quantity_before * payload.charge_basis * payload.rate)
+                    self.futures_cash += amount
+                    self.funding_cash += amount
+                    self._last_market_or_wallet_event_at = self.now
+                    self._record("funding", funding_mode=self.funding_mode,
+                        quantity_before=str(quantity_before), cash_delta=str(amount),
+                        charge_basis=str(payload.charge_basis), rate=str(payload.rate), valuation=valuation,
+                        spot_observation="last_known_market_proxy_not_new_synchronous_point",
+                        cash_formula_and_availability="conditional_model_assumptions")
+                    self._risk(observation="conditional_market_proxy_after_funding_cash")
                 elif kind == "transfer":
                     self._last_market_or_wallet_event_at = self.now
                     self._settle_transfer(payload)

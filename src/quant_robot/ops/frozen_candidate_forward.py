@@ -28,6 +28,11 @@ from quant_robot.ops.frozen_cash_actions import cash_action_snapshot
 from quant_robot.ops.frozen_input_clocks import BASES, session_clocks, validate_schedule, validate_input_clocks
 from quant_robot.ops import paper_source_connection as source_connection
 from quant_robot.ops import paper_evidence_session as evidence_sessions
+# Compatibility facade for the private source assembler and existing callers.
+from quant_robot.ops.paper_g1_handoff import (
+    _check_source_handoff, _consume_source_handoff,
+    _observe_synthetic_deferred_from_proof, _observe_owned_synthetic_from_proof,
+)
 
 
 MANIFEST_TYPE = 'frozen_candidate_forward_manifest_v1'
@@ -40,7 +45,7 @@ CODE_FILES = (
     'paper/annual_allocation.py', 'paper/daily_recovery.py',
     'paper/position_buffer.py', 'research/full_position_factors.py',
     'research/indicator_combinations.py', 'ops/frozen_candidate_forward.py',
-    'ops/frozen_cash_actions.py',
+    'ops/frozen_cash_actions.py', 'ops/paper_g1_handoff.py',
     'ops/frozen_input_clocks.py',
     'paper/daily_entry_policy.py',
     'ops/paper_source_connection.py', 'ops/paper_source_bundle.py',
@@ -65,7 +70,7 @@ class _SyntheticG1Action:
     Publication stages check immutable files, exact head and owned guard before
     commit; only metadata identity checking and lock removal follow commit.
     """
-    def __init__(self,root,directory,*,operation=None,readonly=False):
+    def __init__(self,root,directory,*,operation=None,readonly=False,_stage=None):
         self.root=Path(root).resolve(strict=True);self.directory=Path(directory).resolve(strict=False)
         if not self.directory.is_relative_to(self.root):raise ValueError('Journal outside synthetic evidence root')
         self.relative=self.directory.relative_to(self.root).as_posix()
@@ -76,6 +81,8 @@ class _SyntheticG1Action:
         self.owned_operation=operation is None;self.readonly=readonly;self.guard=None
         self.stage=None;self.phase=None;self.contract_reference=None;self.published_any=False
         self.boundary_records=[];self._runtime=None;self.initial_code=None;self.latest_events=[]
+        self._source_handoff=None
+        self._initial_stage=_stage
 
     def __enter__(self):
         try:
@@ -104,7 +111,14 @@ class _SyntheticG1Action:
         return False
 
     def _begin(self,phase):
-        self.stage=self.operation.stage();self.phase=phase
+        if self._initial_stage is not None:
+            stage=self._initial_stage;self._initial_stage=None
+            if (type(stage) is not evidence_sessions.VerificationSession
+                    or stage is not self.operation._active or stage._operation is not self.operation):
+                self.operation.fail();raise ValueError('Exact existing root stage required')
+            stage.require_open();self.stage=stage
+        else:self.stage=self.operation.stage()
+        self.phase=phase
         catalog=self.stage.bind_implementation(evidence_sessions.G1_CATALOG)
         if self.initial_code is not None and catalog!=self.initial_code:
             self.stage.fail('g1_code_changed_between_stages')
