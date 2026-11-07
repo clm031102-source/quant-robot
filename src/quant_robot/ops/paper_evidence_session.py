@@ -103,6 +103,7 @@ _V2_FILES = tuple(sorted(set(_SOURCE_FILES) | {
     'src/quant_robot/ops/paper_prospective_scope.py',
     'src/quant_robot/ops/frozen_candidate_forward.py',
     'src/quant_robot/ops/paper_g1_handoff.py',
+    'src/quant_robot/ops/paper_actual_pm_gate.py',
     'src/quant_robot/ops/tushare_live_transport.py',
     'src/quant_robot/ops/tushare_daily_receipt.py',
     'src/quant_robot/config/secrets.py',
@@ -117,7 +118,56 @@ _G1_FILES = tuple(sorted(set(_V2_FILES) | {
     'src/quant_robot/paper/position_buffer.py',
     'src/quant_robot/paper/daily_entry_policy.py',
 }))
-_CATALOGS = MappingProxyType({SOURCE_CATALOG:_SOURCE_FILES, V2_CATALOG:_V2_FILES,G1_CATALOG:_G1_FILES})
+PM_CATALOG = 'actual_pm_closed_review_code_v1'
+_PM_FILES = (
+    'src/quant_robot/ops/paper_actual_pm_gate.py',
+    'src/quant_robot/research/account_comparison_scope.py',
+    'src/quant_robot/research/cash_carry_repair_study.py',
+    'src/quant_robot/research/cash_carry_study.py',
+    'src/quant_robot/research/commodity_proxy_admission.py',
+    'src/quant_robot/research/commodity_proxy_repair_admission.py',
+    'src/quant_robot/research/credit_premium_cadence_study.py',
+    'src/quant_robot/research/crypto_charge_monthly_admission.py',
+    'src/quant_robot/research/crypto_monthly_admission.py',
+    'src/quant_robot/research/currency_gold_account_study.py',
+    'src/quant_robot/research/currency_gold_cadence_study.py',
+    'src/quant_robot/research/currency_gold_study.py',
+    'src/quant_robot/research/dd40_reentry_study.py',
+    'src/quant_robot/research/disclosed_flow_study.py',
+    'src/quant_robot/research/dividend_style_study.py',
+    'src/quant_robot/research/electricity_activity_study.py',
+    'src/quant_robot/research/enterprise_liquidity_cadence_study.py',
+    'src/quant_robot/research/equity_gold_study.py',
+    'src/quant_robot/research/family_scheduler.py',
+    'src/quant_robot/research/fiscal_study_pm_scope.py',
+    'src/quant_robot/research/full_position_recovery_study.py',
+    'src/quant_robot/research/full_position_study.py',
+    'src/quant_robot/research/geopolitical_account_study.py',
+    'src/quant_robot/research/geopolitical_cadence_study.py',
+    'src/quant_robot/research/household_diagnostic_pm_scope.py',
+    'src/quant_robot/research/indicator_combination_study.py',
+    'src/quant_robot/research/labor_risk_study.py',
+    'src/quant_robot/research/month_start_diagnostic_pm_scope.py',
+    'src/quant_robot/research/monthly_diagnostic_pm_scope.py',
+    'src/quant_robot/research/option_activity_study.py',
+    'src/quant_robot/research/pm_startup_gate.py',
+    'src/quant_robot/research/rrr_effective_study.py',
+    'src/quant_robot/research/slow_indicator_study.py',
+    'src/quant_robot/research/term_structure_study.py',
+    'src/quant_robot/research/us_variance_risk_study.py',
+)
+_PM_DOCUMENTS = (
+    'configs/quant_pm_startup_gate_cn_etf.json',
+    'AGENTS.md',
+    'configs/workstations.json',
+    'docs/workstation_protocol.md',
+    'README.md',
+    'configs/research_family_scheduler_cn_etf.json',
+    'docs/research/research_family_scheduler_2026-06-17.md',
+    'docs/research/quant_pm_startup_gate_2026-06-17.md',
+)
+_CATALOGS = MappingProxyType({SOURCE_CATALOG:_SOURCE_FILES, V2_CATALOG:_V2_FILES,
+                            G1_CATALOG:_G1_FILES, PM_CATALOG:_PM_FILES})
 
 
 def _canonical(value):
@@ -220,7 +270,20 @@ class EvidenceOperation:
         self.root=Path(root).resolve(strict=True)
         if not self.root.is_dir():raise EvidenceSessionError('evidence_root_required')
         self._state='open';self._active=None;self._stages=[]
-        self._bytes=0;self._opens=0;self._reads=0
+        self._bytes=0;self._opens=0;self._reads=0;self._actual_pm=None
+
+    def _enable_actual_pm(self):
+        if self._state!='open' or self._stages or self._actual_pm is not None:
+            raise EvidenceSessionError('actual_pm_requires_fresh_existing_operation')
+        from quant_robot.ops.paper_actual_pm_gate import _ActualPMGate
+        self._actual_pm=_ActualPMGate(self)
+
+    def _pm_role(self):
+        if self._actual_pm is not None:
+            from quant_robot.ops.paper_actual_pm_gate import _ActualPMGate
+            if type(self._actual_pm) is not _ActualPMGate or self._actual_pm.operation is not self:
+                raise EvidenceSessionError('fixed_actual_pm_role_required')
+        return self._actual_pm
 
     def stage(self):
         if self._state!='open':raise EvidenceSessionError('operation_not_open')
@@ -372,7 +435,7 @@ class VerificationSession:
         self._per_path={};self._originals={};self._unique_bytes=0;self._unique_files=0;self._metadata=0
         self._children={};self._payloads=[];self._output_bytes=0
         self._prefix=None;self._descriptors={};self._code=None;self._binding=None
-        self._catalog_code={};self._code_bytes=0
+        self._catalog_code={};self._code_bytes=0;self._pm_documents={}
         self._heads={};self._guards={};self._control_journal=None;self._control_expected=None;self._read_metadata={}
 
     @property
@@ -413,6 +476,38 @@ class VerificationSession:
             self._code_bytes+=len(raw);self._catalog_code[name]=item
         return dict(catalog_id=catalog_id,code={name:self._catalog_code[name]['sha256'] for name in names},
                     session=self.binding(),production_admission=False)
+
+    def _pm_document_path(self,name):
+        if not isinstance(name,str) or name not in _PM_DOCUMENTS:
+            raise EvidenceSessionError('actual_pm_dependency_outside_closed_graph')
+        path=_REPO
+        for part in Path(name).parts:
+            path/=part
+            if path.is_symlink() or getattr(path,'is_junction',lambda:False)():
+                raise EvidenceSessionError('actual_pm_document_link_forbidden')
+        if not path.resolve(strict=True).is_relative_to(_REPO):
+            raise EvidenceSessionError('actual_pm_document_outside_worktree')
+        return path
+
+    @_guarded
+    def read_pm_document(self,name):
+        if self._operation._pm_role() is None:
+            raise EvidenceSessionError('fixed_actual_pm_role_required')
+        path=self._pm_document_path(name)
+        if name not in self._pm_documents:
+            raw=self._operation._read(self,path,self.policy.per_file_bytes,'@pm/'+name)
+            if (self._unique_files>=self.policy.union_files
+                    or self._unique_bytes+len(raw)>self.policy.union_bytes):
+                raise EvidenceSessionError('actual_pm_document_union_budget_exceeded')
+            pin=dict(sha256=_sha(raw),bytes=len(raw))
+            self._metadata_charge(len(_canonical(dict(path=name,**pin))))
+            self._unique_files+=1;self._unique_bytes+=len(raw)
+            self._pm_documents[name]=dict(raw=raw,**pin)
+        return self._pm_documents[name]['raw']
+
+    def pm_document_pins(self):
+        self._require_open()
+        return {name:{k:item[k] for k in ('sha256','bytes')} for name,item in self._pm_documents.items()}
 
     @_guarded
     def read_writer_guard(self,journal,expected,*,require_at_commit=False):
@@ -499,7 +594,10 @@ class VerificationSession:
         raw=self._operation._read(self,source,2_000_000,'@implementation/paper_evidence_session.py')
         return dict(**policy_binding(self._policy),implementation_sha256=_sha(raw),implementation_bytes=len(raw))
 
-    def _start(self):self._binding=self._implementation()
+    def _start(self):
+        self._binding=self._implementation()
+        role=self._operation._pm_role()
+        if role is not None:role.stage_start(self)
 
     def _path(self,relative):
         parts=_relative(relative).parts;current=self._operation.root
@@ -674,11 +772,18 @@ class VerificationSession:
             raw=self._operation._read(self,_REPO/name,2_000_000,'@code/'+name)
             if len(raw)!=item['bytes'] or _sha(raw)!=item['sha256']:
                 raise EvidenceSessionError('implementation_changed_at_final_read')
+        for name,item in self._pm_documents.items():
+            raw=self._operation._read(self,self._pm_document_path(name),self.policy.per_file_bytes,'@pm/'+name)
+            if len(raw)!=item['bytes'] or _sha(raw)!=item['sha256']:
+                raise EvidenceSessionError('actual_pm_document_changed_at_final_read')
         for journal,names in self._heads.items():
             if self._journal_names(journal)!=names:raise EvidenceSessionError('active_journal_head_changed')
         for journal,expected in self._guards.items():self.read_writer_guard(journal,expected)
+        role=self._operation._pm_role()
+        if role is not None:role.before_commit(self)
         record=dict(status='synthetic_originals_verified_at_read_boundary',binding=self._binding,
             code={name:dict(item) for name,item in self._catalog_code.items()},
+            pm_documents=self.pm_document_pins(),
             active_journal_heads={journal:list(names) for journal,names in self._heads.items()},
             writer_guards_checked=list(self._guards),
             guard_metadata={journal:dict(self._read_metadata[journal+'/.writer.lock']) for journal in self._guards},

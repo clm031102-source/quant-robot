@@ -1,7 +1,8 @@
-"""Five-stage artificial capture/source/G1 proof; no production or real PM gate.
+"""Five-stage synthetic capture/source/G1 with a fixed artificial response.
 
-Only an immutable raw-response fixture is accepted. Token, session and gate are
-fixed local code; no network client, reader, callback or JSON policy is injected.
+The default gate is artificial; the explicitly named actual-PM entry uses real
+PM, Git and clocks. Token/session remain fixed local code. No network client,
+reader, callback or JSON policy is injected and no production source is enabled.
 The v1/v2 once directory is never cleared, renamed or retried by this module.
 """
 from dataclasses import dataclass
@@ -171,6 +172,17 @@ def prepare_synthetic_scope(directory,*,evidence_root,context,now):
 
 def capture_observe_synthetic(scope_path,*,evidence_root,expected_scope_sha256,template_ref,response,now,operation=None):
     """One full measured artificial root call; genuine PM/capture stay disabled."""
+    return _capture_observe(scope_path,evidence_root=evidence_root,expected_scope_sha256=expected_scope_sha256,
+        template_ref=template_ref,response=response,now=now,operation=operation,_actual_pm=False)
+
+
+def capture_observe_actual_pm_synthetic(scope_path,*,evidence_root,expected_scope_sha256,template_ref,response,operation=None):
+    """Actual PM/Git/clocks with a fixed artificial response; never live data."""
+    return _capture_observe(scope_path,evidence_root=evidence_root,expected_scope_sha256=expected_scope_sha256,
+        template_ref=template_ref,response=response,now=None,operation=operation,_actual_pm=True)
+
+
+def _capture_observe(scope_path,*,evidence_root,expected_scope_sha256,template_ref,response,now,operation,_actual_pm):
     root=Path(evidence_root).resolve(strict=True)
     if type(response) is not SyntheticResponse:raise ValueError('Exact fixed artificial response required')
     if operation is not None and (type(operation) is not sessions.EvidenceOperation or operation.root!=root
@@ -179,6 +191,7 @@ def capture_observe_synthetic(scope_path,*,evidence_root,expected_scope_sha256,t
     owned=operation is None;operation=operation or sessions.EvidenceOperation(root,policy=sessions.G1_SYNTHETIC_POLICY)
     counters=dict(mock_gate_calls=0,mock_token_calls=0,mocked_requests_started=0)
     try:
+        if _actual_pm:operation._enable_actual_pm()
         stage=operation.stage();stage.bind_implementation(sessions.G1_CATALOG)
         bootstrap=stage.new_child('capture_bootstrap')
         scope,scope_input=_read_scope(stage,bootstrap,scope_path,expected_scope_sha256)
@@ -190,7 +203,8 @@ def capture_observe_synthetic(scope_path,*,evidence_root,expected_scope_sha256,t
                 # P1: real source/code/head/guard reads precede any reservation.
                 validated=scopes.validate_execution(scope,repo_root=root,now=now,synthetic=True,_reader=owner)
                 template=_template(owner,template_ref,scope,now)
-                gate=_fixed_gate(owner,scope,now,counters);archive._gate_ready(gate,scope,forward._clock(now)[0])
+                gate=(operation._pm_role().run(stage,scope) if _actual_pm else _fixed_gate(owner,scope,now,counters))
+                archive._gate_ready(gate,scope,forward._clock(now)[0])
                 preparing=v2.V2Verification.from_stage(stage)
                 descriptor,snapshots,current_refs=v2._snapshot(preparing,scope)
                 capture_binding=preparing.binding
@@ -253,6 +267,7 @@ def capture_observe_synthetic(scope_path,*,evidence_root,expected_scope_sha256,t
                 result=forward._observe_owned_synthetic_from_proof(owner,proof,acquired_at=forward._clock(now)[1],now=now)
                 result.update(complete_synthetic_capture_observe_io_measured=True,real_pm_gate_measured=False,
                     complete_capture_io_measured=False,receipt_ref=receipt_ref,request_identity=v1.request_identity(scope),**counters)
+        if _actual_pm:result.update(operation._pm_role().summary())
         if owned:operation.close()
         result['measurements']=operation.measurements()
         return result
