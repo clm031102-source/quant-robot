@@ -117,6 +117,20 @@ class BondRiskCompensationPMTests(unittest.TestCase):
 
 
 class BondActualPMGuardClosureTests(unittest.TestCase):
+    def test_future_source_ops_hook_returns_before_any_file_access_on_other_branches(self):
+        hook = pm.future_source_observation_scope
+        self.assertTrue(hook.__module__.startswith('quant_robot.ops.'))
+        self.assertIn('src/quant_robot/ops/future_etf_source_observer.py', sessions._PM_FILES)
+        with (patch.object(Path, 'exists', side_effect=AssertionError('path probe')),
+              patch.object(Path, 'read_bytes', side_effect=AssertionError('content read')),
+              patch.object(Path, 'read_text', side_effect=AssertionError('text read')),
+              patch.object(Path, 'open', side_effect=AssertionError('file open'))):
+            for branch in ('codex/factor-review-paper-actual-pm-recorded-20261107',
+                           'codex/factor-review-72h-campaign-20261106'):
+                self.assertIsNone(hook('data_pipeline', {}, {}, root=Path('.'), branch=branch))
+            self.assertIsNone(hook('factor_review', {}, {}, root=Path('.'),
+                                  branch='codex/data-pipeline-future-etf-observation-20261107'))
+
     def test_all_imported_financial_scopes_return_before_any_file_access_on_actual_PM_branch(self):
         repo = Path(__file__).resolve().parents[2]
         scopes = {name: value for name, value in vars(pm).items()
