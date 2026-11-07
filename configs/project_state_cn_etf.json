@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "跨市场策略推进中：正在实跑前的实现与验证",
+  "state_label": "已完成真实回测：新组合规则亏损，两个简单对照历史盈利",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 24,
+    "return_studies": 25,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "24项接续研究范围已消费，0合格。第23项股金50:50季度调仓一次27账户完成并独立核账；主费用万元本金净增5527.70元、回撤25.80%，比同规则持有多324.70元，但后四年增量为−481.30元，净收益及增量的调整统计下界均未为正，固定17项中3项失败。旧失败保留。 第24项仅完成一次历史报价的条件单笔计算，未形成账户或合格候选。"
+      "evidence": "第25项28账户完成并独立核账。主费用：新组合趋势亏405.70元、回撤15.83%；每月股金各半赚2872.70元、回撤28.34%；各资产独立趋势赚2059.90元、回撤14.16%。这些是2015—2023年条件历史回测，未形成真实前向盈利证明；新组合规则淘汰，旧结论保留。"
     },
     {
       "blocker_id": "forward_observation_not_started",
@@ -41,9 +41,9 @@
     {
       "priority": 1,
       "track_id": "research",
-      "title": "完成股金月频策略并跑出扣费结果",
+      "title": "交付净值曲线和逐笔账本，选择有依据的下一项验证",
       "command": "",
-      "reason": "固定三种方法、九个费用情景及现金对照，交付资金曲线、净利润、回撤和逐笔记录。"
+      "reason": "停止亏损组合规则；盈利对照仍只是已见历史结果，下一项研究必须针对尚未解决的收益来源或执行问题。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -67,7 +67,7 @@
     "source": "user_reported_2026-11-07UTC",
     "broker_and_rate_unconfirmed": false
   },
-  "updated_at_utc": "2026-11-07T15:58:37.319Z",
+  "updated_at_utc": "2026-11-07T16:12:56.833Z",
   "closed_research_findings": [
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
