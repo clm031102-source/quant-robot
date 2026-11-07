@@ -1,0 +1,81 @@
+{
+  "schema": "us_passive_drift_method_v1",
+  "status": "prospective_preparation_not_numeric_authorization",
+  "strategy_id": "us_low_unit_passive_drift_v1",
+  "holding_policy": "no_regular_rebalance_while_any_inventory",
+  "entry_allocation_policy": "fixed_quarters",
+  "question": "Does removing ordinary invested-month rebalancing reduce costs enough to improve the economics of the already selected low-unit allocation, while preserving every existing risk exit and entry constraint?",
+  "inherited_method_sha256": "b39076049da9f7d3712cd8cb679d4a5df7b3574aabf827caff2fa3296a955415",
+  "inherited_core_base_commit": "0c75a74a537c584440909a262bbd74eb7bbfeae6",
+  "inherited_core_sha256": "2365bc0dbcd39bdcd51fd77a7b32bce0310e666bca5c6fcda3024fa856053f47",
+  "assets": ["SPYM", "EFA", "IEF", "GLDM"],
+  "currency": "USD",
+  "initial_cash": "1000",
+  "reserve": "10",
+  "initial_asset_weights": ["0.25", "0.25", "0.25", "0.25"],
+  "new_accounts": [
+    {"scenario_role": "primary", "role": "new_primary", "minimum_commission": "1.00", "slippage_bps": 10, "CIL_delay_calendar_days": 45},
+    {"scenario_role": "stress", "role": "new_stress", "minimum_commission": "2.50", "slippage_bps": 30, "CIL_delay_calendar_days": 90}
+  ],
+  "commission_per_share": "0.005",
+  "sell_levy_bps": "5",
+  "window": {
+    "warmup_start": "2020-12-01",
+    "initial_decision_close": "2020-12-31",
+    "first_possible_buy_open": "2021-01-07",
+    "terminal_open": "2025-12-31",
+    "source": "Only the exact Study29 saved new decoded fixture, to be bound by the root controller; no source reacquisition or field conversion."
+  },
+  "single_policy_delta": {
+    "first": "Retain the original paused, pending-risk-exit and terminal decision guards.",
+    "while_invested": "If any asset quantity is positive at an otherwise eligible completed month end, append skipped_passive_drift_while_invested with empty targets and orders. Do not create a rebalance plan.",
+    "when_flat": "Otherwise delegate to the original month-end decision. This preserves initial flat attempts and ordinary month-end rebuilding after full risk liquidation and the original five complete flat days. Failed or zero-quantity initial entry may retry only at a subsequent normal month end, never daily.",
+    "partial_basket": "Any positive leg suppresses ordinary top-ups of missing legs. Received dividends and CIL proceeds remain cash while invested.",
+    "no_extra_exception": "The added predicate is inventory only; no new fee threshold, drift band, holding-period limit or price signal. Corporate-action transitions use the inherited ledger state.",
+    "entry_timing": "Original D-close targets, D+1-open sells, D+3-close frozen independent buy budgets, D+4-open buys; no future-open resizing.",
+    "mandatory_exits": "Original risk and terminal liquidation remain mandatory, subject to the unchanged quantity, capacity, execution and fee constraints."
+  },
+  "unchanged": [
+    "Whole shares; no borrowing; marked market exposure cannot exceed NAV.",
+    "Daily 2 percent loss, 40 percent drawdown, continuous peak, original risk event semantics and five complete flat-day recovery.",
+    "Frozen previous-20-completed-day conservative nominal capacity and all original budget, price and rounding rules.",
+    "T+3 modeled sale proceeds and dividend ex+45-day availability with 30 percent modeled withholding.",
+    "GLDM reverse split, event-open adverse CIL valuation and 45/90-day unavailable receivable; no duplicate fee.",
+    "Terminal open liquidation; separate settled cash, locked proceeds, dividend receivable and CIL receivable. No added post-terminal source."
+  ],
+  "saved_comparators": {
+    "study": 29,
+    "result_sha256": "82bd3f862ed7084c184417e157b0458dbc5971d2715c74702799a36116b70626",
+    "roles": ["new_primary", "new_stress", "cash"],
+    "policy": "Read saved summaries/ledgers only; no monthly or cash account rerun."
+  },
+  "acceptance": {
+    "each_cost_scenario": [
+      "cash_and_locked_sale_proceeds_net_profit > 0",
+      "observed_maxDD < 0.40",
+      "terminal_inventory_closed is true",
+      "No borrowing or illegal units; independent recorded-ledger verification passes."
+    ],
+    "mandatory_disclosure_not_a_winner_selection_rule": [
+      "Primary and stress cash-plus-locked net profit changes relative to the same-cost saved monthly account.",
+      "Primary and stress total execution-cost, fill-count and observed drawdown changes.",
+      "Book CAGR, annual contribution, average market/cash exposure, zero legs, risk exit/re-entry and terminal settlement components.",
+      "No gain is inferred by merely adding back old costs; holdings and risk paths may change."
+    ],
+    "no_search_or_rescue": "One fixed comparison. Losing to monthly does not authorize changing a frequency, threshold, asset, fee or window."
+  },
+  "interpretation": {
+    "selection": "Chosen after seeing Study29 fees and returns; the 2021-2025 history is seen, not an independent holdout.",
+    "mechanism": "A transaction-cost and weight-drift tradeoff for an investment allocation, not a new alpha claim. Drift can amplify winner concentration and risk as well as save fees.",
+    "qualification": "Passing supports only this conditional diagnostic. It does not change Study29, qualify a live strategy or change an existing deployment.",
+    "cash_definition": "Cash profit includes contracted but unsettled sale proceeds and excludes unpaid dividends/CIL and remaining inventory; it is not same-day withdrawable cash.",
+    "fees": "US broker fees, taxes and cash clocks remain explicit model scenarios, not verified user account terms."
+  },
+  "execution_boundary": {
+    "current_permission": "Artificial implementation and tests only.",
+    "real_fixture_reads": 0,
+    "new_source_requests": 0,
+    "financial_runs": 0,
+    "root_must_bind_before_numeric_run": ["This method", "New implementation and exact inherited dependencies", "Saved Study29 new fixture", "Saved comparator result", "Environment", "Independent policy-aware verifier", "One-use release and numeric marker"]
+  }
+}

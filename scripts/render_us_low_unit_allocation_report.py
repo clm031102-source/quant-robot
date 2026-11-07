@@ -25,7 +25,9 @@ def pct(value):
     return f"{Decimal(str(value))*100:.2f}%"
 
 
-def chart(accounts):
+def chart(accounts, labels=None, colors=None):
+    labels = LABELS if labels is None else labels
+    colors = COLORS if colors is None else colors
     values = {role: [float(d["NAV"]) for d in account["days"]] for role, account in accounts.items()}
     lo = min(min(v) for v in values.values())
     hi = max(max(v) for v in values.values())
@@ -41,7 +43,7 @@ def chart(accounts):
         body.append(f'<line x1="70" y1="{yy:.2f}" x2="1020" y2="{yy:.2f}" stroke="#e5e9ed"/><text x="60" y="{yy+4:.2f}" text-anchor="end" fill="#6b7280" font-size="12">{value:,.0f}</text>')
     for role, vector in values.items():
         points = " ".join(f"{x(i,len(vector)):.2f},{y(v):.2f}" for i, v in enumerate(vector))
-        body.append(f'<polyline id="line-{role}" points="{points}" fill="none" stroke="{COLORS[role]}" stroke-width="{2.4 if role.startswith("new") else 1.6}"><title>{LABELS[role]}</title></polyline>')
+        body.append(f'<polyline id="line-{role}" points="{points}" fill="none" stroke="{colors[role]}" stroke-width="{2.4 if role.startswith("new") else 1.6}"><title>{labels[role]}</title></polyline>')
     dates = [d["date"] for d in next(iter(accounts.values()))["days"]]
     for year in range(2021, 2026):
         indices = [i for i, d in enumerate(dates) if d.startswith(str(year))]
