@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "purpose": "public_book_opportunity_screen_only",
+  "authorization": "User 2026-11-07 explicitly expands research to all assets including Polymarket; paper only",
+  "discovery_pages": 5,
+  "page_size": 100,
+  "max_selected_markets": 100,
+  "selection": "open ordinary binary markets from bounded discovery sample, liquidity descending then id",
+  "net_pair_quantities": ["5", "25", "100"],
+  "max_book_age_ms": 10000,
+  "max_book_skew_ms": 2000,
+  "additional_cost_reserve_bps": "20",
+  "fixed_additional_cost_reserve_collateral_units": "1",
+  "reserve_is_assumption_not_verified_tariff": true,
+  "fee_interpretations": ["cash_charge", "shares_withheld_on_buy"],
+  "fee_selection": "larger_cost",
+  "order_placement": false,
+  "account_reads": false,
+  "fills_and_realized_profit": "not_simulated",
+  "sources": [
+    "https://docs.polymarket.com/market-data/discover-markets",
+    "https://docs.polymarket.com/market-data/prices-order-books",
+    "https://docs.polymarket.com/market-data/market-details",
+    "https://docs.polymarket.com/trading/fees",
+    "https://docs.polymarket.com/concepts/positions-tokens"
+  ]
+}

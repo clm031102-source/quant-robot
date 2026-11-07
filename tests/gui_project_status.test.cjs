@@ -105,3 +105,15 @@ test('missing or malformed fee projection cannot become confirmed all-product fe
       'ETF最低佣金及其他费用待核实');
   }
 });
+
+test('user confirmed Huabao rate and minimum remain ETF specific', () => {
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(actualFunction('projectFeeSummary'), context);
+  const text = context.projectFeeSummary({user_confirmed_costs: {
+    ETF_minimum_commission_CNY_per_transaction: 5,
+    source: 'user_reported_2026-11-07UTC', broker_and_rate_unconfirmed: false,
+    broker: '华宝证券', ETF_commission_rate: 0.0001,
+  }});
+  assert.equal(text, '华宝ETF佣金：万一，每笔最低5元（用户确认）；其他品种费用另计');
+});
