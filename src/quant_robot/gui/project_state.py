@@ -9,6 +9,8 @@ from datetime import date
 import json
 from pathlib import Path
 
+from quant_robot.gui.us_model_status import current_us_model_status
+
 STATE_PATH = Path('configs/project_state_cn_etf.json')
 SAFETY = '研究与模拟阶段；不连接券商、不读取实盘账户、不下单。'
 COUNT_KEYS = {'return_studies', 'source_screens', 'qualified_strategies',
@@ -138,6 +140,7 @@ def current_project_status(root: str | Path = '.', *, today: date | None = None)
     base = dict(stage='gui_project_status', authority='current_project_state',
                 source_path=str(STATE_PATH), checked_at=observed.isoformat(),
                 display_only=True, selected_candidate={}, safety=SAFETY,
+                us_model=current_us_model_status(root),
                 boundary=boundary, paper_observation_allowed=False,
                 live_boundary_allowed=False, data_gaps={}, provider_remediation={},
                 residual_focus={}, tushare={'required_now': False,
