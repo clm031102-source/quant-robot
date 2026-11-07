@@ -4,10 +4,10 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "策略尚未合格，推进现金管理契约与费用核实",
+  "state_label": "策略尚未合格，客户收费与结算条件仍待核实",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
-    "return_studies": 23,
+    "return_studies": 24,
     "source_screens": 4,
     "qualified_strategies": 0,
     "forward_observation_days": 0,
@@ -22,7 +22,7 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "23项接续研究范围已消费，0合格。第23项股金50:50季度调仓一次27账户完成并独立核账；主费用万元本金净增5527.70元、回撤25.80%，比同规则持有多324.70元，但后四年增量为−481.30元，净收益及增量的调整统计下界均未为正，固定17项中3项失败。旧失败保留。"
+      "evidence": "24项接续研究范围已消费，0合格。第23项股金50:50季度调仓一次27账户完成并独立核账；主费用万元本金净增5527.70元、回撤25.80%，比同规则持有多324.70元，但后四年增量为−481.30元，净收益及增量的调整统计下界均未为正，固定17项中3项失败。旧失败保留。 第24项仅完成一次历史报价的条件单笔计算，未形成账户或合格候选。"
     },
     {
       "blocker_id": "actual_costs_unverified",
@@ -46,30 +46,30 @@
       "blocker_id": "cash_repo_contract_and_quote_conditions_open",
       "severity": "review",
       "track_id": "research",
-      "evidence": "现行规则已支持普通投资者参与逆回购及千元面额申报。客户费表、可用/可取时点和因果报价来源尚未闭合；先以明确前瞻假设实现人工账本，不冒称实际到账或金融准入。"
+      "evidence": "单笔人工账本已通过工程验证；第24项固定历史报价下9000元条件占款1天，税费前利息0.62元，分币总费用须不超过0.61元才有正净息，独立复核与恢复备份完成。官方回购收费条款属于会员向交易所缴费，不能认定个人免佣或全部费用。客户费用、可用/可取时钟及可执行报价仍未知。"
     }
   ],
   "next_actions": [
     {
       "priority": 1,
-      "track_id": "research",
-      "title": "实现最小现金合同人工账本",
+      "track_id": "costs",
+      "title": "明确拟用券商的客户逆回购收费",
       "command": "",
-      "reason": "单笔、无自动续作；核本金、利息、费用、预留及未结资金守恒。仅虚构事件，不读取行情，不增加收益研究、合格或真实前向计数。"
+      "reason": "券商名称已询问、尚待回复。需要核对客户费率、最低费、收费归集与时点；交易所会员费用不能替代客户全费。"
     },
     {
       "priority": 2,
       "track_id": "research",
-      "title": "核清现金管理方案的费用与资金安排",
+      "title": "补齐资金可用规则和可执行报价依据",
       "command": "",
-      "reason": "普通投资者资格和千元申报单位已有官方依据；客户费用、可用资金时点和报价证据仍需闭合。人工模型会把假设单独标出，不能把它当作真实收益。"
+      "reason": "已有单点历史报价只支持条件算术，不认证当时可成交、客户到账或净收益。新验证须另行事前固定范围，旧研究结果保留。"
     },
     {
       "priority": 3,
-      "track_id": "costs",
-      "title": "保留ETF最低5元，明确不同产品收费",
+      "track_id": "research",
+      "title": "评估不依赖费用缺口的独立可执行提案",
       "command": "",
-      "reason": "ETF每笔最低5元来自用户确认，比例及收费归集尚未核实；逆回购费用独立处理，不把该ETF最低佣金直接移植。"
+      "reason": "仅推进有具体新证据或可修复运营缺口的工作；保持0合格、0前向，不用回放填充真实观察。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -91,7 +91,7 @@
     "source": "user_reported_2026-11-07UTC",
     "broker_and_rate_unconfirmed": true
   },
-  "updated_at_utc": "2026-11-07T12:35:32.089Z",
+  "updated_at_utc": "2026-11-07T14:04:15.097Z",
   "closed_research_findings": [
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
@@ -118,6 +118,23 @@
       "merge": "6a55d9a034709b602286cebfdc3be6a0217fc052",
       "six_environment_CI": "success",
       "actual_source_release_open": false
+    },
+    {
+      "id": "repo_fixed_threshold_study24_closed",
+      "at": "2026-11-07T13:29:06.098Z",
+      "report": "docs/research/repo_cash_threshold_result_2026-11-07.md",
+      "research_scope_consumed": 24,
+      "conditional_only": true,
+      "account_runs": 0,
+      "qualified": false,
+      "real_forward": 0
+    },
+    {
+      "id": "repo_exchange_member_fee_clause_verified",
+      "at": "2026-11-07T14:00:28.615275+00:00",
+      "retail_total_fee_verified": false,
+      "source_closed": true,
+      "report": "docs/research/repo_cash_threshold_result_2026-11-07.md"
     }
   ]
 }
