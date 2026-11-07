@@ -337,18 +337,18 @@ class ActualPMTests(TestCase):
             self.assertFalse(case['folder'].exists())
             self.assertEqual(op.measurements()['state'], 'failed')
 
-    def test_32_scopes_exit_without_financial_leaf_and_default_PM_matches(self):
+    def test_33_scopes_exit_without_financial_leaf_and_default_PM_matches(self):
         case = self.ready()
         op = self.operation(case)
         op._enable_actual_pm()
         stage = op.stage()
         from quant_robot.research import commodity_proxy_admission, commodity_proxy_repair_admission
         from quant_robot.research import crypto_monthly_admission, crypto_charge_monthly_admission
-        from quant_robot.research import bond_risk_compensation_admission
+        from quant_robot.research import bond_risk_compensation_admission, spot_macd_transfer_admission
         with ExitStack() as stack:
             for module in (commodity_proxy_admission, commodity_proxy_repair_admission,
                            crypto_monthly_admission, crypto_charge_monthly_admission,
-                           bond_risk_compensation_admission):
+                           bond_risk_compensation_admission, spot_macd_transfer_admission):
                 stack.enter_context(patch.object(module, 'admitted_packet', side_effect=AssertionError('financial leaf')))
             measured = op._pm_role().run(stage, case['scope'])
             configs = [json.loads((actual._REPO / name).read_text(encoding='utf-8')) for name in
