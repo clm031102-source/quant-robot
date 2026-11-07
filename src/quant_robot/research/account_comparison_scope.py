@@ -18,6 +18,12 @@ def review_account_comparison(root, *, mode, scope, protocol):
         return dict(status='not_applicable',blockers=[])
     if protocol != {'version':1,'holding_and_cash_required':True}:
         return dict(status='blocked',blockers=['account_comparison_protocol_invalid'])
+    if mode == 'single_campaign_constant_mix_27_account_only':
+        from quant_robot.research.equity_gold_constant_mix_admission import review_comparison
+        try:
+            return review_comparison(root, scope)
+        except (OSError, ValueError, KeyError, TypeError):
+            return dict(status='blocked', blockers=['account_comparison_specification_missing_or_invalid'])
     if mode == 'single_campaign_spot_macd_transfer_27_account_only':
         from quant_robot.research.spot_macd_transfer_admission import review_comparison
         try:

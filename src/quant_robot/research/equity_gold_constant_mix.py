@@ -5,6 +5,7 @@ import copy
 import hashlib
 import json
 import os
+from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import (Decimal, Context, localcontext, ROUND_HALF_UP, ROUND_CEILING,
                      ROUND_FLOOR, InvalidOperation, DivisionByZero, Overflow)
@@ -20,6 +21,52 @@ for _signal in CONTEXT.traps:
     CONTEXT.traps[_signal] = _signal in (InvalidOperation, DivisionByZero, Overflow)
 CONTEXT.clear_flags()
 COSTS = tuple((minimum, slip) for minimum in (0, 5, 10) for slip in (0, 10, 30))
+
+
+@dataclass(frozen=True)
+class _ExecutionContext:
+    assets: tuple[str, str] = ASSETS
+    source_nature: str = SOURCE
+    historical: bool = False
+    test_values: bool = False
+    registration_sha256: str = ""
+    normalized_input_sha256: str = ""
+    provenance_sha256: str = ""
+
+    def __post_init__(self):
+        if (type(self.assets) is not tuple or len(set(self.assets)) != 2
+                or any(type(a) is not str for a in self.assets)):
+            raise ValueError("immutable_ordered_two_assets_required")
+        if self.assets == ASSETS:
+            if self.source_nature != SOURCE or self.historical or self.test_values:
+                raise ValueError("synthetic_context_identity_mismatch")
+        elif self.assets == ("CN_ETF_XSHG_510300", "CN_ETF_XSHG_518880"):
+            expected = ("test_artificial_values_true_calendar" if self.test_values else
+                        "known_history_provider_wire_with_retrospective_announced_actions")
+            if not self.historical or self.source_nature != expected:
+                raise ValueError("explicit_historical_context_required")
+            for value in (self.registration_sha256, self.normalized_input_sha256, self.provenance_sha256):
+                if len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
+                    raise ValueError("historical_context_fingerprint_required")
+        else:
+            raise ValueError("fixed_asset_context_required")
+
+    @property
+    def returns_computed(self):
+        return self.historical and not self.test_values
+
+    @property
+    def verdict(self):
+        return ("conditional_historical_diagnostic_only" if self.returns_computed else
+                "not_evaluated_artificial_engineering_only")
+
+    def artifact(self, kind):
+        prefix = ("test_artificial_historical" if self.test_values else
+                  "conditional_historical" if self.historical else "artificial")
+        return prefix + "_constant_mix_" + kind + "_v1"
+
+
+_SYNTHETIC_CONTEXT = _ExecutionContext()
 
 
 def _number(x):
@@ -81,19 +128,29 @@ def _reserve(equity):
     return 4 * max(Decimal(10), Decimal(".0005") * max(equity, ZERO)).quantize(CENT, rounding=ROUND_CEILING)
 
 
-def _prepare(fixture):
-    if (fixture.get("artifact_type") != "artificial_constant_mix_fixture_v1"
-            or fixture.get("source_nature") != SOURCE
-            or fixture.get("assets") != list(ASSETS)
-            or fixture.get("constructed_from_market_data") is not False):
-        raise ValueError("artificial_identity_required")
+def _prepare(fixture, *, context=_SYNTHETIC_CONTEXT):
+    if type(context) is not _ExecutionContext:
+        raise ValueError("exact_execution_context_required")
+    assets = context.assets
+    if not context.historical:
+        if (fixture.get("artifact_type") != "artificial_constant_mix_fixture_v1"
+                or fixture.get("source_nature") != SOURCE
+                or fixture.get("assets") != list(ASSETS)
+                or fixture.get("constructed_from_market_data") is not False):
+            raise ValueError("artificial_identity_required")
+    elif (fixture.get("artifact_type") != "admitted_constant_mix_fixture_v1"
+            or fixture.get("source_nature") != context.source_nature
+            or fixture.get("assets") != list(assets)
+            or fixture.get("constructed_from_market_data") is not (not context.test_values)
+            or digest(fixture) != context.normalized_input_sha256):
+        raise ValueError("historical_prepared_identity_required")
     dates = fixture["dates"]
     if (not isinstance(dates, list) or len(dates) < 23 or len(dates) > 4000
             or dates != sorted(set(dates))):
         raise ValueError("unique_ordered_artificial_calendar_required")
     for value in dates:
         parsed = date.fromisoformat(value)
-        if parsed.isoformat() != value or not 2000 <= parsed.year <= 2011:
+        if parsed.isoformat() != value or not ((2013 <= parsed.year <= 2024) if context.historical else (2000 <= parsed.year <= 2011)):
             raise ValueError("artificial_2000_to_2011_calendar_only")
     terminal = _integer(fixture["terminal_index"])
     events = fixture["event_indices"]
@@ -106,16 +163,23 @@ def _prepare(fixture):
     if any(b - a < 2 for a, b in zip(events, events[1:])):
         raise ValueError("overlapping_two_phase_events")
     bars = {}
-    if set(fixture["bars"]) != set(ASSETS):
+    if set(fixture["bars"]) != set(assets):
         raise ValueError("artificial_asset_set_required")
-    for asset in ASSETS:
+    for asset in assets:
         rows = fixture["bars"][asset]
         if len(rows) != terminal + 1:
             raise ValueError("complete_price_calendar_exactly_through_terminal_required")
         bars[asset] = []
-        for row in rows:
-            new = {k: _number(row[k]) for k in ("open", "close", "volume")}
-            if min(new["open"], new["close"]) <= 0 or new["volume"] < 0:
+        for row_index, row in enumerate(rows):
+            if context.historical and row_index == terminal:
+                if row.get("close") is not None or row.get("terminal_close_not_observed") is not True:
+                    raise ValueError("terminal_open_only_price_required")
+                new = {k: _number(row[k]) for k in ("open", "volume")}
+                # Structural placeholder only: no later row and terminal marks use open.
+                new["close"] = ZERO
+            else:
+                new = {k: _number(row[k]) for k in ("open", "close", "volume")}
+            if new["open"] <= 0 or (not (context.historical and row_index == terminal) and new["close"] <= 0) or new["volume"] < 0:
                 raise ValueError("positive_price_nonnegative_volume_required")
             for k in ("suspended", "buy_blocked", "sell_blocked"):
                 if k not in row or (row[k] is not None and type(row[k]) is not bool):
@@ -125,7 +189,7 @@ def _prepare(fixture):
     actions, seen = [], set()
     for action in fixture.get("actions", []):
         a = copy.deepcopy(action)
-        if a["event_id"] in seen or a["asset"] not in ASSETS:
+        if a["event_id"] in seen or a["asset"] not in assets:
             raise ValueError("unique_action_asset_required")
         seen.add(a["event_id"])
         for k in ("known_index", "record_index", "ex_index", "pay_index"):
@@ -151,12 +215,13 @@ def validate_synthetic_fixture(fixture):
 
 
 class _Account:
-    def __init__(self, prepared, policy, minimum, slip):
+    def __init__(self, prepared, policy, minimum, slip, *, context=_SYNTHETIC_CONTEXT):
+        self.context, self.assets = context, context.assets
         if policy not in ("constant_mix", "drift", "cash") or (minimum, slip) not in COSTS:
             raise ValueError("fixed_policy_and_nine_cost_identity_required")
         self.p, self.policy, self.minimum, self.slip = prepared, policy, minimum, slip
         self.cash, self.unavailable = Decimal(10000), ZERO
-        self.q = dict.fromkeys(ASSETS, 0)
+        self.q = dict.fromkeys(self.assets, 0)
         self.rights, self.receivables = {}, {}
         self.peak = self.previous = Decimal(10000)
         self.max_dd = ZERO
@@ -164,7 +229,7 @@ class _Account:
         self.pending = None
         self.fills, self.intents, self.rejections, self.risks, self.action_log = [], [], [], [], []
         self.events, self.days, self.cap_failures, self.unknowns = [], [], [], []
-        self.lots = {a: [] for a in ASSETS}
+        self.lots = {a: [] for a in self.assets}
         self.completed_lots, self.completed_cycles = 0, 0
         self.cycle_active = False
         self.initial_snapshot, self.annual = None, {}
@@ -172,10 +237,10 @@ class _Account:
         self.i = prepared["first"]
 
     def marks(self, index, field):
-        return {a: self.p["bars"][a][index][field] for a in ASSETS}
+        return {a: self.p["bars"][a][index][field] for a in self.assets}
 
     def nav(self, marks):
-        return self.cash + sum((x["amount"] for x in self.receivables.values()), ZERO) + sum((self.q[a] * marks[a] for a in ASSETS), ZERO)
+        return self.cash + sum((x["amount"] for x in self.receivables.values()), ZERO) + sum((self.q[a] * marks[a] for a in self.assets), ZERO)
 
     def capacity(self, asset, index):
         return _floor_lot(sum((x["volume"] for x in self.p["bars"][asset][index-20:index]), ZERO) / 20 * Decimal(".01"))
@@ -221,7 +286,7 @@ class _Account:
                             frozen_budget=budget, actual_cost=cost, spendable_cash=self.cash-self.unavailable)
                 return False
             marks = self.marks(self.i, "open")
-            exposure_after = sum((self.q[a] * marks[a] for a in ASSETS), ZERO) + quantity * marks[asset]
+            exposure_after = sum((self.q[a] * marks[a] for a in self.assets), ZERO) + quantity * marks[asset]
             nav_after = self.nav(marks) - cost + quantity * marks[asset]
             if exposure_after > nav_after:
                 self.reject(asset, side, quantity, "marked_exposure_limit", phase)
@@ -291,11 +356,11 @@ class _Account:
         marks = self.marks(index-1, "close")
         equity = self.previous  # Frozen prior close, before today's ex-date receivable.
         reserve = _reserve(equity)
-        targets = {a: _floor_lot(max(equity-reserve, ZERO) / 2 / marks[a]) for a in ASSETS}
+        targets = {a: _floor_lot(max(equity-reserve, ZERO) / 2 / marks[a]) for a in self.assets}
         event.update(targets=targets, reserve=reserve, previous_NAV=equity,
                      pre_event_quantities=dict(self.q), status="sell_phase")
         self.pending = event
-        for asset in ASSETS:
+        for asset in self.assets:
             quantity = min(max(self.q[asset]-targets[asset], 0), self.capacity(asset, index))
             event["sell_fills"] += int(self.fill(asset, "sell", quantity, "quarter_sell"))
 
@@ -306,7 +371,7 @@ class _Account:
             return
         index = self.i
         need, prices, costs = {}, {}, {}
-        for asset in ASSETS:
+        for asset in self.assets:
             need[asset] = min(max(event["targets"][asset]-self.q[asset], 0), self.capacity(asset, index+1))
             prices[asset] = _price(self.p["bars"][asset][index]["close"], "buy", self.slip)
             costs[asset] = (need[asset]*prices[asset]+_fee(need[asset]*prices[asset], self.minimum)) if need[asset] else ZERO
@@ -315,7 +380,7 @@ class _Account:
         event.update(buy_planning_index=index, buy_planning_cash=self.cash,
                      buy_planning_spendable=self.cash-self.unavailable, buy_available_after_reserve=available)
         orders = []
-        for asset in ASSETS:
+        for asset in self.assets:
             budget = (available*costs[asset]/total).quantize(CENT, rounding=ROUND_FLOOR) if total else ZERO
             quantity = min(need[asset], _floor_lot(budget/prices[asset]))
             while quantity and quantity*prices[asset]+_fee(quantity*prices[asset], self.minimum) > budget:
@@ -392,7 +457,7 @@ class _Account:
                 if old_pending and old_pending["index"]+1 == index:
                     old_pending["status"] = "cancelled_by_terminal_or_carried_risk"
                     self.pending = None
-                for asset in ASSETS:
+                for asset in self.assets:
                     quantity = min(self.q[asset], self.capacity(asset, index))
                     self.fill(asset, "sell", quantity, "terminal" if terminal else "risk_exit")
                 if index in self.p["events"]:
@@ -418,7 +483,7 @@ class _Account:
             marks = self.marks(index, "open" if terminal else "close")
             equity = self.nav(marks)
             fills = self.fills[start_fill:]
-            components = dict(carried_exposure=sum((q_start[a]*(marks[a]-previous_marks[a]) for a in ASSETS), ZERO),
+            components = dict(carried_exposure=sum((q_start[a]*(marks[a]-previous_marks[a]) for a in self.assets), ZERO),
                               trade_timing=sum(((f["quantity"] if f["side"] == "buy" else -f["quantity"])*(marks[f["asset"]]-f["raw_open"]) for f in fills), ZERO),
                               dividend_entitlement=recognised,
                               commission=-sum((f["fee"] for f in fills), ZERO),
@@ -445,8 +510,8 @@ class _Account:
         total = {key: sum((day["attribution"][key] for day in self.days), ZERO) for key in self.days[0]["attribution"]}
         if sum(total.values(), ZERO) != self.previous-10000 or sum(self.annual.values(), ZERO) != self.previous-10000:
             raise AssertionError("whole_account_attribution_identity")
-        return dict(artifact_type="artificial_constant_mix_account_v1", source_nature=SOURCE,
-                    qualified=False, historical_returns_computed=False, real_forward=0,
+        return dict(artifact_type=self.context.artifact("account"), source_nature=self.context.source_nature,
+                    qualified=False, historical_returns_computed=self.context.returns_computed, real_forward=0,
                     policy=self.policy, cost_id=f"min{self.minimum}_slip{self.slip}",
                     minimum_commission=self.minimum, slippage_bps=self.slip, commission_bps=5,
                     minimum0_counterfactual=self.minimum == 0, method_sha256=METHOD_SHA,
@@ -469,13 +534,18 @@ class _Account:
                                  initial_two_assets_filled=bool(self.initial_snapshot and all(self.initial_snapshot["quantities"].values())),
                                  total_commission=self.total_fees, total_slippage=self.total_slip,
                                  attribution_reconciled=True, capacity_pass=not self.cap_failures,
-                                 financial_verdict="not_evaluated_artificial_engineering_only"))
+                                 financial_verdict=self.context.verdict))
 
 
-def _run_prepared(prepared, policy, minimum, slip):
+def _run_prepared(prepared, policy, minimum, slip, *, context=_SYNTHETIC_CONTEXT):
     with localcontext(CONTEXT) as ctx:
         initial = _context_record(ctx)
-        result = _Account(prepared, policy, minimum, slip).run()
+        result = _Account(prepared, policy, minimum, slip, context=context).run()
+        if context.historical:
+            result.update(registration_sha256=context.registration_sha256,
+                          normalized_input_sha256=context.normalized_input_sha256,
+                          provenance_sha256=context.provenance_sha256,
+                          evidence_class=context.source_nature, test_injected_values=context.test_values)
         result["runtime"] = dict(module_file=str(Path(__file__).resolve()), context_initial=initial,
                                  module_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                                  context_final=_context_record(ctx))
@@ -488,7 +558,7 @@ def run_account(fixture, policy="constant_mix", minimum=5, slip=10):
         return _run_prepared(prepared, policy, minimum, slip)
 
 
-def paired_annual_bootstrap(annual_by_cost):
+def paired_annual_bootstrap(annual_by_cost, *, context=_SYNTHETIC_CONTEXT):
     """Ten annual vectors, shared paired circular two-year blocks, no path rerun."""
     import numpy as np
     keys, values = [], []
@@ -506,7 +576,7 @@ def paired_annual_bootstrap(annual_by_cost):
             with localcontext(CONTEXT):
                 values.append([float(Decimal(pair["constant_mix"][y]) - (Decimal(pair["drift"][y]) if endpoint == "increment" else 0)) for y in years])
     if len(years) != 10:
-        return dict(status="not_computed_requires_ten_annual_buckets", annual_buckets=len(years), source_nature=SOURCE, qualified=False)
+        return dict(status="not_computed_requires_ten_annual_buckets", annual_buckets=len(years), source_nature=context.source_nature, qualified=False)
     data = np.asarray(values, dtype="float64").T
     if data.shape != (10, 18) or not np.isfinite(data).all():
         raise ValueError("finite_10_by_18_annual_vectors_required")
@@ -517,18 +587,18 @@ def paired_annual_bootstrap(annual_by_cost):
         indices = ((starts[:, None] + np.arange(2)) % 10).reshape(-1)
         means[replicate] = data[indices].mean(axis=0)
     lower = np.quantile(means, .05/18, axis=0, method="linear")
-    return dict(status="computed_artificial_fixed_trace_sensitivity", source_nature=SOURCE,
+    return dict(status=("computed_conditional_historical_trace_sensitivity" if context.returns_computed else "computed_artificial_fixed_trace_sensitivity"), source_nature=context.source_nature,
                 qualified=False, N=10, years=years, replications=5000, seed=20261107,
                 block=2, starts_per_replication=5, shared_indices_for_all18=True,
-                units="CNY_per_artificial_year", statistic="arithmetic_mean_annual_PnL",
+                units=("CNY_per_observed_year" if context.returns_computed else "CNY_per_artificial_year"), statistic="arithmetic_mean_annual_PnL",
                 endpoint_keys=keys, lower=dict(zip(keys, lower.tolist())),
                 observed_means=dict(zip(keys, data.mean(axis=0).tolist())),
                 replicate_means_sha256=hashlib.sha256(means.astype("<f8").tobytes()).hexdigest(),
                 quantile=.05/18, quantile_method="linear", numpy_version=np.__version__,
-                historical_returns_computed=False)
+                historical_returns_computed=context.returns_computed)
 
 
-def _matrix_checks(summaries, annual, events, statistics):
+def _matrix_checks(summaries, annual, events, statistics, *, context=_SYNTHETIC_CONTEXT):
     """Evaluate only the fixed artificial trace, never issue qualification."""
     with localcontext(CONTEXT):
         risky = [s for key, s in summaries.items() if not key.endswith("/cash")]
@@ -557,9 +627,9 @@ def _matrix_checks(summaries, annual, events, statistics):
             checks["ten_annual_buckets"] = False
         checks["primary_net_adjusted_lower_positive"] = statistics.get("lower", {}).get("min5_slip10/net", float("-inf")) > 0
         checks["primary_increment_adjusted_lower_positive"] = statistics.get("lower", {}).get("min5_slip10/increment", float("-inf")) > 0
-        return dict(checks=checks, all_artificial_checks_pass=all(checks.values()),
-                    source_nature=SOURCE, qualified=False, real_forward=0,
-                    financial_verdict="not_evaluated_artificial_engineering_only",
+        return dict(checks=checks, **{("all_conditional_checks_pass" if context.returns_computed else "all_artificial_checks_pass"): all(checks.values())},
+                    source_nature=context.source_nature, qualified=False, real_forward=0,
+                    financial_verdict=context.verdict,
                     interpretation="Whole-policy trace checks, including cash reinvestment and risk exposure; not evidence of market profitability.")
 
 

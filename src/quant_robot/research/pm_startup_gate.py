@@ -44,6 +44,7 @@ from quant_robot.research.crypto_monthly_admission import scope as crypto_monthl
 from quant_robot.research.crypto_charge_monthly_admission import scope as crypto_charge_monthly_scope
 from quant_robot.research.bond_risk_compensation_admission import scope as bond_risk_compensation_scope
 from quant_robot.research.spot_macd_transfer_admission import scope as spot_macd_transfer_scope
+from quant_robot.research.equity_gold_constant_mix_admission import scope as constant_mix_scope
 
 
 STAGE = "quant_pm_startup_gate"
@@ -117,6 +118,7 @@ def build_quant_pm_startup_gate(
         crypto_charge_monthly_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         bond_risk_compensation_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         spot_macd_transfer_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        constant_mix_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
     ) if scope]
     restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)
@@ -136,6 +138,8 @@ def build_quant_pm_startup_gate(
         blockers.append("bond_risk_compensation_requires_office_desktop")
     if restricted_mode == "single_campaign_spot_macd_transfer_27_account_only" and machine != "office_desktop":
         blockers.append("spot_macd_transfer_requires_office_desktop")
+    if restricted_mode == "single_campaign_constant_mix_27_account_only" and machine != "office_desktop":
+        blockers.append("constant_mix_requires_office_desktop")
     blockers.extend(f"required_reading_missing:{path}" for path in missing_reading)
     if str(resolved_family_config.get("primary_market", "")).upper() != primary_market:
         blockers.append("research_family_primary_market_mismatch")
@@ -161,6 +165,8 @@ def build_quant_pm_startup_gate(
         warnings.append("campaign_conditional_bond_risk_compensation_not_alpha_or_promotion")
     elif restricted_mode == "single_campaign_spot_macd_transfer_27_account_only":
         warnings.append("campaign_conditional_spot_transfer_not_alpha_or_promotion")
+    elif restricted_mode == "single_campaign_constant_mix_27_account_only":
+        warnings.append("campaign_seen_history_constant_mix_not_alpha_or_promotion")
     elif restricted_mode == "single_monthly_diagnostic_only":
         warnings.append("research_family_scheduler_single_monthly_diagnostic_mode")
     elif restricted_mode == "single_household_diagnostic_only":
@@ -277,11 +283,13 @@ def build_quant_pm_startup_gate(
             "bond_risk_compensation_scope": _dict(restricted.get("scope")) if restricted_mode == "single_campaign_bond_risk_compensation_10_account_only" else {},
             "spot_macd_transfer_allowed": not blockers and restricted_mode == "single_campaign_spot_macd_transfer_27_account_only",
             "spot_macd_transfer_scope": _dict(restricted.get("scope")) if restricted_mode == "single_campaign_spot_macd_transfer_27_account_only" else {},
+            "constant_mix_allowed": not blockers and restricted_mode == "single_campaign_constant_mix_27_account_only",
+            "constant_mix_scope": _dict(restricted.get("scope")) if restricted_mode == "single_campaign_constant_mix_27_account_only" else {},
             "factor_batch_allowed": bool(
                 not blockers
                 and (not restricted_mode or restricted_mode == "single_prescreen_only")
             ),
-            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only", "single_full_position_factor_search_only", "single_full_position_recovery_only", "single_dd40_reentry_only", "single_campaign_commodity_proxy_36_account_only", "single_campaign_commodity_lifecycle_repair_36_account_only", "single_campaign_crypto_monthly_10_account_only", "single_campaign_crypto_charge_monthly_10_account_only", "single_campaign_bond_risk_compensation_10_account_only", "single_campaign_spot_macd_transfer_27_account_only"} else {},
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only", "single_enterprise_cadence_only", "single_credit_premium_cadence_only", "single_currency_gold_cadence_only", "single_currency_gold_diagnostic_only", "single_currency_gold_account_only", "single_indicator_combination_account_only", "single_slow_indicator_account_only", "single_geopolitical_cadence_only", "single_geopolitical_account_only", "single_full_position_factor_search_only", "single_full_position_recovery_only", "single_dd40_reentry_only", "single_campaign_commodity_proxy_36_account_only", "single_campaign_commodity_lifecycle_repair_36_account_only", "single_campaign_crypto_monthly_10_account_only", "single_campaign_crypto_charge_monthly_10_account_only", "single_campaign_bond_risk_compensation_10_account_only", "single_campaign_spot_macd_transfer_27_account_only", "single_campaign_constant_mix_27_account_only"} else {},
             "monthly_diagnostic_allowed": not blockers and restricted_mode == "single_monthly_diagnostic_only",
             "monthly_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_monthly_diagnostic_only" else {},
             "household_diagnostic_allowed": not blockers and restricted_mode == "single_household_diagnostic_only",

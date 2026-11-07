@@ -156,6 +156,7 @@ _PM_FILES = (
     'src/quant_robot/research/rrr_effective_study.py',
     'src/quant_robot/research/slow_indicator_study.py',
     'src/quant_robot/research/spot_macd_transfer_admission.py',
+    'src/quant_robot/research/equity_gold_constant_mix_admission.py',
     'src/quant_robot/research/term_structure_study.py',
     'src/quant_robot/research/us_variance_risk_study.py',
 )
