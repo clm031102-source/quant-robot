@@ -143,3 +143,27 @@ test('daily USD panel labels initialization and future model profits separately 
   assert.match(target.innerHTML, /记录缺失/);
   assert.doesNotMatch(target.innerHTML, /1010\.25/);
 });
+
+test('four-model panel keeps independent policy and cost rows without adding their profits', () => {
+  const target = {innerHTML: ''};
+  const context = {byId: id => id === 'ordinary-low-unit-model' ? target : null,
+    statusRows: rows => JSON.stringify(rows)};
+  vm.createContext(context);
+  vm.runInContext(actualFunction('renderUSModelOperations'), context);
+  const roles = [['monthly_primary','每月调仓／常规费用'],['monthly_stress','每月调仓／较高费用'],
+    ['drift_primary','持有期间不调仓／常规费用'],['drift_stress','持有期间不调仓／较高费用']];
+  const accounts = Object.fromEntries(roles.map(([role], i) => [role, {
+    initialized: true, model_forward_days: 1, NAV_USD: String(1001 + i), model_profit_USD: String(1 + i),
+    spendable_cash_USD: '20', locked_cash_USD: '0', receivable_USD: '0', execution_cost_USD: '4.25',
+    quantities: {SPYM: 1,EFA: 1,IEF: 1,GLDM: 1}, model_fill_count: 4, max_drawdown: '0.01',
+  }]));
+  context.renderUSModelOperations({available: true, model_forward_days: 1, real_forward_days: 0,
+    status: 'completed_model_observation', schedule: {}, accounts},
+    {targetId: 'ordinary-low-unit-model',fourModels: true,roles});
+  for (const [, label] of roles) assert.ok(target.innerHTML.includes(label));
+  assert.match(target.innerHTML, /两套配置规则/);
+  assert.match(target.innerHTML, /收益不能相加/);
+  assert.match(target.innerHTML, /累计模型执行成本 \$4\.25/);
+  assert.match(target.innerHTML, /真实成交前向 0 日/);
+  assert.doesNotMatch(target.innerHTML, /累计模型收益 \$10\.00/);
+});

@@ -61,9 +61,9 @@ def _save(path, value):
     return ref
 
 
-def expected_url(symbol, start, end):
+def expected_url(symbol, start, end, *, assets=C.ASSETS):
     """The exact known Yahoo route; dates are canonical UTC query boundaries."""
-    _require(symbol in C.ASSETS, 'symbol')
+    _require(symbol in C._asset_scope(assets), 'symbol')
     for item in (start, end):
         _require(type(item) is str and date.fromisoformat(item).isoformat() == item, 'canonical_query_date')
     _require(start < end, 'query_interval')
@@ -73,7 +73,7 @@ def expected_url(symbol, start, end):
             '&interval=1d&events=div%2Csplits%2CcapitalGains&includeAdjustedClose=true')
 
 
-def _validate_url(url):
+def _validate_url(url, *, assets=C.ASSETS):
     parts = urlsplit(url)
     _require(parts.scheme == 'https' and parts.netloc == 'query2.finance.yahoo.com'
              and not parts.fragment, 'exact_public_host')
@@ -88,7 +88,7 @@ def _validate_url(url):
         instant = datetime.fromtimestamp(int(token), timezone.utc)
         _require(instant.time().isoformat() == '00:00:00', 'UTC_query_boundary')
         values.append(instant.date().isoformat())
-    _require(url == expected_url(symbol, *values), 'exact_chart_URL')
+    _require(url == expected_url(symbol, *values, assets=assets), 'exact_chart_URL')
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -96,7 +96,7 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def fetch_one(url, prefix, *, socket_timeout=20, max_body_bytes=CAP, deadline_at=None):
+def fetch_one(url, prefix, *, socket_timeout=20, max_body_bytes=CAP, deadline_at=None, assets=C.ASSETS):
     """Return (immutable bytes, raw ref or None, receipt, receipt ref).
 
     HTTP_attempts_started counts entered opener.open calls, not reservations or
@@ -105,7 +105,7 @@ def fetch_one(url, prefix, *, socket_timeout=20, max_body_bytes=CAP, deadline_at
     At most cap+1 bytes are read/retained (one oversize detection byte); EOF and
     length checks are required for raw_complete. Error bodies remain opaque.
     """
-    _validate_url(url)
+    _validate_url(url, assets=assets)
     _require(type(socket_timeout) in (int, float) and 0 < socket_timeout <= 20
              and type(max_body_bytes) is int and 0 < max_body_bytes <= CAP, 'bounded_transport_budget')
     deadline = C._instant(deadline_at) if deadline_at is not None else None
@@ -219,16 +219,17 @@ def fetch_one(url, prefix, *, socket_timeout=20, max_body_bytes=CAP, deadline_at
 
 
 def build_source_packet(scope, manifest, key, captured, batch_ref, *, prior_session_date=None,
-                        prior_committed_ref=None, prior_committed_at=None):
+                        prior_committed_ref=None, prior_committed_at=None, assets=C.ASSETS):
     """Bind saved sources.json and four receipts; describe only opaque identity.
 
     coverage_complete refers solely to this provider query snapshot. No auction,
     publication, exchange finality, executable status or issuer completeness is
     inferred. This function never imports the model or calls its numeric decoder.
     """
-    _require(type(captured) is dict and set(captured) == set(C.ASSETS), 'four_captured_sources')
+    assets = C._asset_scope(assets)
+    _require(type(captured) is dict and set(captured) == set(assets), 'four_captured_sources')
     saved = json.loads(_bound(batch_ref))
-    expected = {s:dict(raw=captured[s][1], receipt=captured[s][3]) for s in C.ASSETS}
+    expected = {s:dict(raw=captured[s][1], receipt=captured[s][3]) for s in assets}
     _require(saved == expected, 'batch_source_manifest_binding')
     schedule = manifest['schedule']; authorities = manifest['authorities']
     dates = [row['date'] for row in schedule['sessions']]
@@ -245,10 +246,10 @@ def build_source_packet(scope, manifest, key, captured, batch_ref, *, prior_sess
     provider_id, provider = authority('provider_daily_completed')
     action_id, actions = authority('corporate_action_coverage')
     packet = dict(schema='us_allocation_source_evidence_v1', purpose='warmup' if key == 'warmup' else 'daily_model',
-        symbols=list(C.ASSETS), session_date=target, calendar_ref=deepcopy(schedule['source_ref']),
+        symbols=list(assets), session_date=target, calendar_ref=deepcopy(schedule['source_ref']),
         source_ref=deepcopy(batch_ref), records={})
     received = []
-    for symbol in C.ASSETS:
+    for symbol in assets:
         raw, raw_ref, receipt, receipt_ref = captured[symbol]
         _require(type(raw) is bytes and _bound(raw_ref) == raw, 'immutable_raw_binding')
         _require(json.loads(_bound(receipt_ref)) == receipt and receipt.get('raw') == raw_ref,
@@ -270,7 +271,7 @@ def build_source_packet(scope, manifest, key, captured, batch_ref, *, prior_sess
         _require(reserved is not None and intent is not None and all(t is not None for t in clocks)
                  and reserved <= intent == clocks[0] and clocks == sorted(clocks)
                  and clocks[-1] <= _now(), 'capture_clock_order')
-        description = C.describe_yahoo_source(raw, raw_ref, symbol=symbol)
+        description = C.describe_yahoo_source(raw, raw_ref, symbol=symbol, assets=assets)
         _require(description['dates'] == wanted, 'exact_source_dates_no_intersection')
         _require(description['event_counts']['splits'] == 0 and description['event_counts']['capitalGains'] == 0,
                  'split_or_capital_gain_unsupported')
@@ -299,6 +300,6 @@ def build_source_packet(scope, manifest, key, captured, batch_ref, *, prior_sess
         packet.update(previous_observed_session_date=prior_session_date,
             previous_committed_decision_at=prior_committed_at,
             previous_committed_decision_ref=deepcopy(prior_committed_ref))
-    assessment = C.assess_source_metadata(packet, schedule, authorities=authorities)
+    assessment = C.assess_source_metadata(packet, schedule, authorities=authorities, assets=assets)
     _require(assessment['requirements_met'], 'source_metadata_requirements')
     return packet

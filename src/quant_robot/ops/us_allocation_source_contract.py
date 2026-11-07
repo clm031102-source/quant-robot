@@ -21,7 +21,15 @@ import re
 from zoneinfo import ZoneInfo
 
 ASSETS=('SPY','EFA','IEF','GLD')
+LOW_UNIT_ASSETS=('SPYM','EFA','IEF','GLDM')
 NY=ZoneInfo('America/New_York')
+
+
+def _asset_scope(assets):
+    """An explicit known basket; never infer a universe from provider content."""
+    if type(assets) is not tuple or assets not in (ASSETS,LOW_UNIT_ASSETS):
+        raise ValueError('registered_asset_scope')
+    return assets
 
 
 def _instant(value):
@@ -39,7 +47,7 @@ def _ref(value):
             and type(value['bytes']) is int and value['bytes']>0)
 
 
-def assess_source_metadata(packet, schedule, *, authorities):
+def assess_source_metadata(packet, schedule, *, authorities, assets=ASSETS):
     """Return fixed-code findings. Unknown/late/mislabelled sources cannot fill.
 
 schedule={source_ref,sessions:[{date,open_at,close_at}]}; records are exact four
@@ -47,6 +55,7 @@ symbols. Authority declarations are external to packet: id->{kind,definition_ref
 Warmup records use exact dates/session_complete arrays; open/close records use
 effective_at/provider_available_at/received_at. No monetary fields are inspected.
 """
+    assets=_asset_scope(assets)
     missing=[]
     def need(ok,code):
         if not ok:missing.append(code)
@@ -63,7 +72,7 @@ effective_at/provider_available_at/received_at. No monetary fields are inspected
     if not need(type(packet) is dict and type(schedule) is dict and type(authorities) is dict,'packet_schema'):return result()
     need(packet.get('schema')=='us_allocation_source_evidence_v1','packet_schema')
     need(purpose in ('warmup','open','close','daily_model'),'purpose')
-    need(packet.get('symbols')==list(ASSETS),'four_symbols')
+    need(packet.get('symbols')==list(assets),'four_symbols')
     need(_ref(packet.get('source_ref')),'source_ref')
     need(_ref(schedule.get('source_ref')) and packet.get('calendar_ref')==schedule.get('source_ref'),'calendar_ref')
     sessions=schedule.get('sessions');target=packet.get('session_date')
@@ -83,7 +92,7 @@ effective_at/provider_available_at/received_at. No monetary fields are inspected
     received=_instant(packet.get('received_at'))
     if not need(received is not None,'packet_receipt_clock'):return result()
     records=packet.get('records')
-    if not need(type(records) is dict and set(records)==set(ASSETS),'four_records'):return result()
+    if not need(type(records) is dict and set(records)==set(assets),'four_records'):return result()
     def authority(record,key,refkey,kind):
         identifier=record.get(key);definition=authorities.get(identifier) if type(identifier) is str else None
         return (type(definition) is dict and definition.get('kind')==kind
@@ -98,7 +107,7 @@ effective_at/provider_available_at/received_at. No monetary fields are inspected
         need(decision is not None and decision<opened and _ref(packet.get('previous_committed_decision_ref')),'committed_before_open')
         next_open=_instant(sessions[i+1]['open_at']) if i+1<len(sessions) else None
         need(next_open is not None and closed+timedelta(minutes=15)<=received<next_open,'completed_day_receipt_window')
-    for symbol in ASSETS:
+    for symbol in assets:
         row=records[symbol]
         if not need(type(row) is dict,'record_schema'):continue
         prefix=symbol+':'
@@ -203,8 +212,9 @@ def _unique_pairs(pairs):
     return result
 
 
-def _source_row(raw,source_ref,symbol):
-    if symbol not in ASSETS or not _ref(source_ref) or type(raw) is not bytes or len(raw)!=source_ref['bytes'] or hashlib.sha256(raw).hexdigest()!=source_ref['sha256']:
+def _source_row(raw,source_ref,symbol,*,assets=ASSETS):
+    assets=_asset_scope(assets)
+    if symbol not in assets or not _ref(source_ref) or type(raw) is not bytes or len(raw)!=source_ref['bytes'] or hashlib.sha256(raw).hexdigest()!=source_ref['sha256']:
         raise ValueError('source_bytes_hash')
     try:
         obj=json.loads(raw,parse_int=str,parse_float=str,object_pairs_hook=_unique_pairs,
@@ -229,9 +239,9 @@ def _source_dates(row):
     return observed
 
 
-def describe_yahoo_source(raw,source_ref,*,symbol):
+def describe_yahoo_source(raw,source_ref,*,symbol,assets=ASSETS):
     """Bound bytes to identity/date/schema only. No Decimal, price or amount values."""
-    row=_source_row(raw,source_ref,symbol);dates=_source_dates(row)
+    row=_source_row(raw,source_ref,symbol,assets=assets);dates=_source_dates(row)
     quote=row.get('indicators',{}).get('quote')
     if type(quote) is not list or len(quote)!=1 or type(quote[0]) is not dict:raise ValueError('source_quote_schema')
     if not set(quote[0])<={'open','high','low','close','volume'}:raise ValueError('source_quote_fields')
@@ -245,32 +255,41 @@ def describe_yahoo_source(raw,source_ref,*,symbol):
         finality='provider_snapshot_finality_unknown')
 
 
-def normalize_yahoo_sources(raw_by_symbol,packet,schedule,*,authorities,context,before_numeric_decode):
+def normalize_yahoo_sources(raw_by_symbol,packet,schedule,*,authorities,context,before_numeric_decode,assets=ASSETS,
+                            daily_fields=('open','close','volume'),dividend_assets=None):
     """Pure bound-byte decoder, called only by a separately admitted controller.
 
 No file/network/credential access. The callback must durably mark the approved
 numeric transition; constructing context or passing metadata does not authorize
 source use. All source parsing and selected-value checks use these same bytes.
 """
+    assets=_asset_scope(assets)
+    dividend_assets=assets if dividend_assets is None else dividend_assets
+    if type(dividend_assets) is not tuple or dividend_assets not in (assets,LOW_UNIT_ASSETS[:3]):
+        raise ValueError('registered_dividend_assets')
+    if not set(dividend_assets)<=set(assets):raise ValueError('dividend_asset_scope')
+    if type(daily_fields) is not tuple or daily_fields not in (
+            ('open','close','volume'),('open','high','low','close','volume')):
+        raise ValueError('registered_daily_fields')
     if type(context) is not _SourceDecodeContext or not callable(before_numeric_decode):raise ValueError('admitted_context_required')
     packet=deepcopy(packet)
     if context.packet_sha256!=_digest(packet) or context.purpose!=packet.get('purpose'):raise ValueError('packet_context_hash')
-    refs={s:packet.get('records',{}).get(s,{}).get('source_ref') for s in ASSETS}
+    refs={s:packet.get('records',{}).get(s,{}).get('source_ref') for s in assets}
     if context.source_refs_sha256!=_digest(refs):raise ValueError('refs_context_hash')
-    assessment=assess_source_metadata(packet,schedule,authorities=authorities)
+    assessment=assess_source_metadata(packet,schedule,authorities=authorities,assets=assets)
     if not assessment['requirements_met']:raise ValueError('source_metadata_not_admissible')
-    if type(raw_by_symbol) is not dict or set(raw_by_symbol)!=set(ASSETS):raise ValueError('four_immutable_sources')
+    if type(raw_by_symbol) is not dict or set(raw_by_symbol)!=set(assets):raise ValueError('four_immutable_sources')
     retained={}
-    for symbol in ASSETS:
+    for symbol in assets:
         raw=raw_by_symbol[symbol];ref=refs[symbol]
         if type(raw) is not bytes or len(raw)!=ref['bytes'] or hashlib.sha256(raw).hexdigest()!=ref['sha256']:
             raise ValueError('source_bytes_hash')
         retained[symbol]=raw
     dates=packet['warmup_dates'] if context.purpose=='warmup' else [packet['session_date']]
-    fields=('close','volume') if context.purpose=='warmup' else ('open','close','volume')
+    fields=('close','volume') if context.purpose=='warmup' else daily_fields
     quotes={};dividends=[]
-    for symbol in ASSETS:
-        row=_source_row(retained[symbol],refs[symbol],symbol);times=row['timestamp'];observed=_source_dates(row)
+    for symbol in assets:
+        row=_source_row(retained[symbol],refs[symbol],symbol,assets=assets);times=row['timestamp'];observed=_source_dates(row)
         if observed!=dates:raise ValueError('source_dates_exact_no_intersection')
         if context.purpose=='daily_model' and times[0]!=packet['records'][symbol]['provider_bucket_timestamp']:
             raise ValueError('source_bucket_original')
@@ -285,6 +304,7 @@ source use. All source parsing and selected-value checks use these same bytes.
         if type(events) is not dict or not set(events)<={'dividends','splits','capitalGains'}:raise ValueError('source_actions_schema')
         if any(type(value) is not dict for value in events.values()):raise ValueError('source_actions_unknown')
         if events.get('splits') or events.get('capitalGains'):raise ValueError('source_split_or_capital_gain')
+        if events.get('dividends') and symbol not in dividend_assets:raise ValueError('source_dividend_asset_unsupported')
         for key,event in events.get('dividends',{}).items():
             if type(event) is not dict or not {'date','amount'}<=set(event) or key!=event['date']:
                 raise ValueError('source_dividend_schema')
@@ -298,7 +318,7 @@ source use. All source parsing and selected-value checks use these same bytes.
                 dividends.append((symbol,key,ex,amount))
     marker=before_numeric_decode()
     days=[{'date':when,'prices':{symbol:{field:_number(quotes[symbol][field][i],positive=field!='volume') for field in fields}
-                                for symbol in ASSETS}} for i,when in enumerate(dates)]
+                                for symbol in assets}} for i,when in enumerate(dates)]
     actions=[{'id':symbol+':'+key,'symbol':symbol,'ex_date':ex,'amount_per_share':_number(amount,positive=False)}
              for symbol,key,ex,amount in dividends]
     return dict(schema='us_source_normalized_packet_v1',purpose=context.purpose,evidence_kind=context.evidence_kind,
