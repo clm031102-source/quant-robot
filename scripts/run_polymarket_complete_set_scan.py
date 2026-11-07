@@ -143,6 +143,7 @@ def render(report: dict) -> str:
     for _, market, quote in rows[:30]:
         state = ('正余量候选' if quote['positive_quote_candidate'] else
                  '深度不足' if not quote['depth_complete'] else
+                 '扣费后无正价差' if Decimal(quote['quote_surplus']) <= 0 else
                  '低于最小金额' if not quote['minimum_met'] else
                  '报价时间不满足' if not market['fresh'] or not market['synchronous'] else '无正余量')
         body += '<tr>' + ''.join(f'<td>{html.escape(str(value))}</td>' for value in (
@@ -152,6 +153,8 @@ def render(report: dict) -> str:
             '—' if quote['quote_surplus'] is None else f"{Decimal(quote['quote_surplus']):+.4f}", state)) + '</tr>'
     problem = html.escape(report.get('error', ''))
     unavailable = Counter(r.get('reason', '') for r in report.get('results', []) if r['status'] != 'quoted')
+    reserve_percent = Decimal(report['config']['additional_cost_reserve_bps']) / 100
+    fixed_reserve = html.escape(str(report['config']['fixed_additional_cost_reserve_collateral_units']))
     return f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Polymarket 公开盘口机会扫描</title><style>
 body{{font:16px/1.65 system-ui,sans-serif;background:#f4f6fa;color:#18243a;max-width:1250px;margin:32px auto;padding:0 24px}}
@@ -163,7 +166,7 @@ h1{{font-size:28px}}.cards{{display:flex;gap:16px;flex-wrap:wrap}}.card,section{
 <div class="card">实际读盘口<div class="n">{report.get('selected_markets',0)}</div></div>
 <div class="card">正余量候选<div class="n">{report.get('positive_quote_markets',0)}</div></div>
 <div class="card">成交 / 已实现利润<div class="n">0 / —</div></div></div>
-<section><h2>100 对份额的成本比较</h2><p>每对完整份额对应 1 单位抵押资产。先扣交易费估算，再预留成本的 0.2% 和固定 1 单位。下表为快照报价余量，不是成交利润；两边同时成交与兑换费用仍需验证。</p>
+<section><h2>100 对份额的成本比较</h2><p>每对完整份额对应 1 单位抵押资产。先扣交易费估算，再预留成本的 {reserve_percent}% 和固定 {fixed_reserve} 单位。下表为快照报价余量，不是成交利润；两边同时成交与兑换费用仍需验证。</p>
 <div style="overflow:auto"><table><thead><tr><th>市场</th><th>最优卖价合计</th><th>买入成本</th><th>额外预留</th><th>报价余量</th><th>状态</th></tr></thead><tbody>{body}</tbody></table></div>
 <p>{problem}</p><p class="note">无法完整计算：{html.escape(json.dumps(dict(unavailable),ensure_ascii=False))}</p></section>
 <p class="note">本工具只读取公开市场和盘口。有限采样不能代表全市场；没有正候选时如实显示 0。金额为平台抵押资产单位，未换算人民币，也未使用华宝佣金。</p>
