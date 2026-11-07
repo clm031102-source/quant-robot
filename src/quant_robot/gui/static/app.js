@@ -5873,13 +5873,18 @@ function renderUSModelOperations(model = {}) {
     blocked_continuity_no_backfill: "运行中断，已保留此前记录",
     source_waiting: "等待首次数据",
   };
+  const localClock = value => {
+    if (!value) return "暂无记录";
+    const instant = new Date(value);
+    return Number.isNaN(instant.valueOf()) ? "时间待核对" : instant.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }) + "（北京时间）";
+  };
   const rows = [
     ["运行状态", states[model.status] || "已保存日常模型记录", "warn"],
     ["模型观察", `${model.model_forward_days ?? "--"} / 20 个交易日；真实成交前向 ${model.real_forward_days ?? "--"} 日`, "warn"],
     ["自动计划", schedule.installed ? "已有安装记录；此页面不代表任务此刻正在运行" : "尚无安装记录", "muted"],
-    ["下次计划时间", schedule.next_capture_at || "暂无后续计划", "muted"],
-    ["最近运行记录", schedule.last_attempt_at ? `${schedule.last_attempt_at} / ${schedule.last_attempt_status || "结果待核对"}` : "尚无自动运行记录", "muted"],
-    ["记录保存时间", model.saved_at || "未知", "muted"],
+    ["下次计划时间", schedule.next_capture_at ? localClock(schedule.next_capture_at) : "暂无后续计划", "muted"],
+    ["最近运行记录", schedule.last_attempt_at ? `${localClock(schedule.last_attempt_at)} / ${states[schedule.last_attempt_status] || "结果待核对"}` : "尚无自动运行记录", "muted"],
+    ["记录保存时间", localClock(model.saved_at), "muted"],
   ];
   if (schedule.next_capture_at && Date.parse(schedule.next_capture_at) < Date.now()) {
     rows.push(["记录时效", "保存的计划时间已过，尚未看到对应的新运行记录。", "warn"]);
@@ -5893,7 +5898,7 @@ function renderUSModelOperations(model = {}) {
       [`${name}资金`, `可用 ${usd(account.spendable_cash_USD)}；待交收 ${usd(account.locked_cash_USD)}；未到账分红 ${usd(account.receivable_USD)}`, "muted"],
       [`${name}持仓`, account.quantities ? Object.entries(account.quantities).map(([symbol, units]) => `${symbol} ${units} 股`).join(" / ") : "尚未初始化", "muted"],
       [`${name}运行统计`, `${account.model_fill_count ?? 0} 笔模型成交；观察期最大回撤 ${account.model_forward_days > 0 && account.max_drawdown != null ? (Number(account.max_drawdown) * 100).toFixed(2) + "%" : "尚无观察日"}`, "muted"],
-      [`${name}最近收数`, account.latest_receipt || "尚无数据接收记录", "muted"],
+      [`${name}最近收数`, account.latest_receipt ? localClock(account.latest_receipt) : "尚无数据接收记录", "muted"],
     );
   }
   rows.push(["口径", "独立的 1,000 美元假设账户；收盘后模型记账，未证明开盘可成交。美股实际券商费用待确认。", "warn"]);
