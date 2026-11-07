@@ -15,6 +15,29 @@ COUNT_KEYS = {'return_studies', 'source_screens', 'qualified_strategies',
               'forward_observation_days', 'prepared_candidates'}
 
 
+def _confirmed_costs_projection(data: dict) -> dict:
+    """Expose the ETF-only user confirmation, not a verified all-in tariff."""
+    costs = data.get('user_confirmed_costs')
+    if not isinstance(costs, dict):
+        return {}
+    minimum = costs.get('ETF_minimum_commission_CNY_per_transaction')
+    source = costs.get('source')
+    if (type(minimum) not in (int, float) or minimum != 5
+            or costs.get('broker_and_rate_unconfirmed') is not True
+            or not isinstance(source, str)
+            or not source.startswith('user_reported_') or not source.endswith('UTC')):
+        return {}
+    try:
+        # This is a UTC source label, not the local status-update date.
+        source_date = source[len('user_reported_'):-len('UTC')]
+        if date.fromisoformat(source_date).isoformat() != source_date:
+            return {}
+    except ValueError:
+        return {}
+    return dict(ETF_minimum_commission_CNY_per_transaction=minimum,
+                source=source, broker_and_rate_unconfirmed=True)
+
+
 def _risk_projection(data: dict) -> tuple[dict, float | None]:
     """An incomplete display record must not inherit an old risk profile."""
     risk = data.get('current_risk_policy')
@@ -126,6 +149,7 @@ def current_project_status(root: str | Path = '.', *, today: date | None = None)
                 generated_at=data['updated_at'], authority_document=data['authority_document'],
                 evidence_counts=data['counts'], capital_cny=data['capital_cny'],
                 actual_fees_verified=data['actual_fees_verified'],
+                user_confirmed_costs=_confirmed_costs_projection(data),
                 current_risk_policy=risk,
                 max_single_position_fraction_NAV=exposure,
                 campaign=_campaign_projection(root, data.get('campaign', {})),

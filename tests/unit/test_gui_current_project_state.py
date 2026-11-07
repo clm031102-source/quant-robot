@@ -3,6 +3,8 @@ from datetime import date
 from pathlib import Path
 import tempfile
 import unittest
+import shutil
+import subprocess
 from unittest.mock import patch
 
 from quant_robot.gui.project_state import current_project_status, current_daily_ops
@@ -44,6 +46,56 @@ class CurrentProjectStateTests(unittest.TestCase):
         self.assertEqual(result['evidence_counts']['forward_observation_days'],0)
         self.assertFalse(result['paper_observation_allowed'])
         self.assertEqual(result['generated_at'],'2026-11-04')
+
+    def test_etf_user_confirmation_is_partial_and_preserves_utc_source_label(self):
+        costs = dict(ETF_minimum_commission_CNY_per_transaction=5,
+                     source='user_reported_2026-11-07UTC', broker_and_rate_unconfirmed=True)
+        self.state['user_confirmed_costs'] = dict(costs, BTC_minimum_commission=5)
+        for local_date in ('2026-11-06', '2026-11-07'):
+            with self.subTest(local_date=local_date):
+                self.state['updated_at'] = local_date
+                self.write()
+                result = current_project_status(self.root, today=date(2026,11,7))
+                self.assertEqual(result['user_confirmed_costs'], costs)
+                self.assertFalse(result['actual_fees_verified'])
+                self.assertFalse(result['paper_observation_allowed'])
+
+    def test_missing_or_malformed_fee_confirmation_is_not_inferred(self):
+        valid = dict(ETF_minimum_commission_CNY_per_transaction=5,
+                     source='user_reported_2026-11-07UTC', broker_and_rate_unconfirmed=True)
+        self.assertEqual(self.get()['user_confirmed_costs'], {})
+        bad = [None, [], {}, False]
+        bad += [dict(valid, ETF_minimum_commission_CNY_per_transaction=value)
+                for value in (True, False, 0, -5, '5', None, float('nan'), float('inf'), 10)]
+        bad += [dict(valid, source=value) for value in
+                (None, '', 'broker_verified', 'user_reported_invalidUTC',
+                 'user_reported_2026-02-30UTC', 'user_reported_20261107UTC')]
+        bad += [dict(valid, broker_and_rate_unconfirmed=value) for value in (False, 1, 'true')]
+        for costs in bad:
+            with self.subTest(costs=costs):
+                self.state['user_confirmed_costs'] = costs
+                self.write()
+                result = self.get()
+                self.assertEqual(result['user_confirmed_costs'], {})
+                self.assertFalse(result['actual_fees_verified'])
+
+    def test_status_read_reflects_new_record_without_execution_permissions(self):
+        self.assertEqual(self.get()['evidence_counts']['return_studies'], 12)
+        self.state['counts']['return_studies'] = 23
+        self.state['state_label'] = '新的工作记录'
+        self.write()
+        result = self.get()
+        self.assertEqual(result['evidence_counts']['return_studies'], 23)
+        self.assertEqual(result['state_label'], '新的工作记录')
+        self.assertFalse(result['paper_observation_allowed'])
+        self.assertFalse(result['live_boundary_allowed'])
+
+    @unittest.skipUnless(shutil.which('node'), 'Node.js needed for status refresh regression')
+    def test_browser_status_refresh(self):
+        root = Path(__file__).resolve().parents[2]
+        result = subprocess.run([shutil.which('node'), '--test', 'tests/gui_project_status.test.cjs'],
+                                cwd=root, capture_output=True, text=True, encoding='utf-8', timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_missing_malformed_stale_or_future_state_never_falls_back(self):
         for content in ('{', '{}', json.dumps(dict(self.state,updated_at='2026-06-13')),
