@@ -14,6 +14,8 @@ class FiniteUSScheduleTests(unittest.TestCase):
 
     def test_exact_twenty_utc_sessions_and_early_close(self):
         built = self.build()
+        self.assertTrue(built['xml'].startswith('<Task '))
+        self.assertNotIn('<?xml', built['xml'])  # Register-ScheduledTask receives a Unicode string.
         root = ET.fromstring(built['xml']); ns = {'t': NS}
         triggers = root.findall('t:Triggers/t:TimeTrigger', ns)
         self.assertEqual(len(triggers), 20)

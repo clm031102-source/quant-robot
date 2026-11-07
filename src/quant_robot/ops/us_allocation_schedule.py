@@ -89,6 +89,6 @@ def build_task_files(*, checkout, python, scope_path, scope_sha, preparation_dir
     child(action, 'WorkingDirectory', checkout)
     ET.indent(task, space='  ')
     return dict(task_name=TASK_NAME, task_path=TASK_PATH, dates=operation_dates(),
-                launcher=launch_text, xml=ET.tostring(task, encoding='unicode', xml_declaration=True),
+                launcher=launch_text, xml=ET.tostring(task, encoding='unicode', xml_declaration=False),
                 scope_sha256=scope_sha, requires_user_session=True, missed_run_catch_up=False,
                 launch_path=launcher, registration_performed=False)
