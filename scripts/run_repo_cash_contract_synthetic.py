@@ -6,6 +6,13 @@ import hashlib
 import json
 from pathlib import Path
 import platform
+import sys
+
+# Use this checkout even when Python safe-path mode omits the script directory.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
 
 from quant_robot.research import repo_cash_contract as model
 
