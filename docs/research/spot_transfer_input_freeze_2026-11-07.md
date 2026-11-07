@@ -5,3 +5,5 @@ The one conditional BTCUSDT spot transfer study now binds the exact retained his
 This pins input identity only. A separate final registration must still bind the current implementation and numeric runtime, pass both exact reviews and the fixed comparison review, and receive its single-use admission before any financial decoding. No actual registration, admission or claim is supplied by this change. The economic contract, 27 accounts, cost cases and rejection criteria are unchanged. Historical results cannot qualify a strategy or add real forward evidence.
 
 Raw sources, the full input manifest, local reviews and backup archives remain outside Git.
+
+The separately admitted study subsequently completed all 27 historical accounts and failed the fixed conditional screen. Accounting and fixed-statistic review passed; qualification and real-forward counts remain zero. The input-freeze change itself did not grant execution. See the [closed Study22 result](spot_macd_transfer_result_2026-11-07.md).
