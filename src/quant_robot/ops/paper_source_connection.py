@@ -101,13 +101,27 @@ class SyntheticSourceVerification:
     def __init__(self,evidence_root,*,operation=None):
         self.root=Path(evidence_root).resolve(strict=True)
         if operation is not None and (type(operation) is not sessions.EvidenceOperation
-                or operation.root!=self.root or operation._policy is not sessions.SYNTHETIC_POLICY):
+                or operation.root!=self.root or not any(operation._policy is policy for policy in
+                    (sessions.SYNTHETIC_POLICY,sessions.G1_SYNTHETIC_POLICY))):
             raise ValueError('Exact shared synthetic operation required')
         self.operation=operation or sessions.EvidenceOperation(self.root)
         self._owned=operation is None;self.stage=None
 
     def __enter__(self):
+        if self.stage is not None:raise ValueError('Borrowed verification cannot open another stage')
         self.stage=self.operation.stage();return self
+
+    @classmethod
+    def from_stage(cls,stage):
+        """Trusted root owns finalization; borrowed children cannot commit."""
+        if (type(stage) is not sessions.VerificationSession or not any(stage.policy is policy for policy in
+                (sessions.SYNTHETIC_POLICY,sessions.G1_SYNTHETIC_POLICY))):
+            raise ValueError('Exact shared synthetic stage required')
+        stage.require_open()
+        result=object.__new__(cls)
+        result.root=stage.root;result.operation=None;result._owned=False;result.stage=stage
+        result._borrowed=True
+        return result
 
     def __exit__(self,kind,value,traceback):
         if self.stage is not None:self.stage.__exit__(kind,value,traceback)
@@ -167,7 +181,9 @@ class SyntheticSourceVerification:
         except BaseException:
             self.stage.abort();raise
 
-    def commit(self):return self.stage.commit()
+    def commit(self):
+        if getattr(self,'_borrowed',False):raise ValueError('Only the root may commit a borrowed source stage')
+        return self.stage.commit()
 
 
 def _profile(profile_id, *, require_recorded=False):
