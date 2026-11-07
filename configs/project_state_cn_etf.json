@@ -4,7 +4,7 @@
   "market": "CN_ETF",
   "updated_at": "2026-11-07",
   "state": "research_in_progress",
-  "state_label": "2025美元配置通过固定经济条件，正在准备日常模拟",
+  "state_label": "美元日常模型已部署，等待首个交易日",
   "authority_document": "docs/research/campaign_72h_2026-11-06.md",
   "counts": {
     "return_studies": 27,
@@ -22,28 +22,28 @@
       "blocker_id": "no_qualified_strategy",
       "severity": "block",
       "track_id": "strategy",
-      "evidence": "第27项独立核账通过：USD1000冷启动，2025年主/压力现金净利润70.62/57.33美元，最大回撤3.49%/3.51%，各7笔成交。SPY全年0股、GLD233日0股，实际为高现金、整股受限配置；固定经济条件通过，尚无真实时间模拟和稳定盈利证据。"
+      "evidence": "第27项独立核账通过：USD1000冷启动，2025年主/压力现金净利润70.62/57.33美元，最大回撤3.49%/3.51%，各7笔成交。实际为高现金、整股受限配置；已部署未来20日条件模型，当前0个运行日，尚无稳定盈利证据。"
     },
     {
       "blocker_id": "forward_observation_not_started",
       "severity": "block",
       "track_id": "forward",
-      "evidence": "合格候选产生后才开始真实时间模拟，旧回放不能累计前向天数。"
+      "evidence": "美元条件模型已用固定20日数据完成初始化，两个账户各1000美元现金、零交易。20次系统计划已安装，首次2026-11-09美股收盘后运行；条件模型天数和严格真实前向分开计数，当前均为0。"
     },
     {
       "blocker_id": "holdout_proxy_context_exposure",
       "severity": "review",
       "track_id": "research",
-      "evidence": "当前封存的2026 ETF分区未读；旧etf_csv的部分2026已被Round17消费。原有及本轮网页背景暴露记录保留，不能称全项目完全盲态；2026日历与规则元数据另行取证，不是价格解封。"
+      "evidence": "当前封存的CN2026 ETF分区未读；旧etf_csv部分2026已被Round17消费，网页背景暴露记录保留。新US运营范围已明示使用2026-10-12至11-06的20日收盘/成交量暖机，仅初始化固定方法，不调参，不解封CN历史。"
     }
   ],
   "next_actions": [
     {
       "priority": 1,
       "track_id": "paper",
-      "title": "把通过的配置方法接到真实时间纸面运行",
+      "title": "按计划积累未来20日条件模型记录",
       "command": "",
-      "reason": "跨日账本与重启已完成人工验收；下一步固定真实来源、时钟和运行合同，费用保持明示场景，等待已询问的实际美股收费。"
+      "reason": "系统计划负责11月9日至12月7日收盘后更新；电脑开机且保持当前用户登录，聊天无需保持打开。月底按固定规则决策；不会补造早期交易。"
     }
   ],
   "max_single_position_fraction_NAV": 1,
@@ -67,7 +67,7 @@
     "source": "user_reported_2026-11-07UTC",
     "broker_and_rate_unconfirmed": false
   },
-  "updated_at_utc": "2026-11-07T17:34:05.774Z",
+  "updated_at_utc": "2026-11-07T18:32:33.027Z",
   "closed_research_findings": [
     {
       "blocker_id": "persistence_excess_return_and_costs_failed",
@@ -122,6 +122,18 @@
       "report": "data/reports/polymarket_complete_set/20261107_160500/report.json",
       "fills": 0,
       "realized_profit": null
+    },
+    {
+      "id": "us_conditional_model_initialized_and_schedule_installed",
+      "at": "2026-11-07T18:32:33.027Z",
+      "source_GET": 4,
+      "model_accounts": 2,
+      "initial_cash_USD": 1000,
+      "model_days": 0,
+      "strict_real_forward_days": 0,
+      "operation_start": "2026-11-09",
+      "operation_end": "2026-12-07",
+      "source_record": "data/reports/us_allocation_model_20261109_20261207/current_status.json"
     }
   ],
   "research_universe": {
