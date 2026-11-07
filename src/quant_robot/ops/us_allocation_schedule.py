@@ -54,7 +54,9 @@ def build_task_files(*, checkout, python, scope_path, scope_sha, preparation_dir
         "$env:PYTHONPATH = Join-Path $checkout 'src'",
         "$env:PYTHONDONTWRITEBYTECODE = '1'",
         "$process = Start-Process -FilePath $python -ArgumentList $arguments -WorkingDirectory $checkout -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logDir ($attempt + '.stdout.log')) -RedirectStandardError (Join-Path $logDir ($attempt + '.stderr.log'))",
+        "$processHandle = $process.Handle",
         "if (-not $process.WaitForExit(270000)) { $process.Kill(); $process.WaitForExit(); exit 124 }",
+        'if ($null -eq $process.ExitCode) { exit 125 }',
         'exit $process.ExitCode', '',
     ])
     def child(parent, tag, value=None, **attrs):

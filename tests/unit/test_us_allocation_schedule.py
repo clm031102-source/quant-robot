@@ -1,4 +1,11 @@
 from datetime import datetime, timedelta
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -44,6 +51,31 @@ class FiniteUSScheduleTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.build(scope_sha='not-a-hash')
         with self.assertRaises(ValueError): self.build(checkout='relative')
         with self.assertRaises(ValueError): self.build(user_sid='administrator')
+
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Requires native Windows PowerShell')
+    def test_native_launcher_propagates_success_and_failure(self):
+        with tempfile.TemporaryDirectory(prefix='quant exit probe ') as temporary:
+            root = Path(temporary)
+            (root / 'scripts').mkdir()
+            (root / 'scripts/run_us_allocation_daily_model_observer.py').write_text(
+                'import json,sys\nfrom pathlib import Path\nscope=Path(sys.argv[sys.argv.index("--scope")+1])\n'
+                'raise SystemExit(json.loads(scope.read_bytes())["exit"])\n', encoding='utf-8')
+            environment = {key: value for key, value in os.environ.items() if key.casefold() != 'psmodulepath'}
+            shell = Path(os.environ['WINDIR']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+            for expected in (0, 7):
+                with self.subTest(exit_code=expected):
+                    raw = json.dumps({'exit': expected}).encode()
+                    scope = root / 'scope.json'
+                    scope.write_bytes(raw)
+                    built = build_task_files(checkout=str(root), python=sys.executable,
+                        scope_path=str(scope), scope_sha=hashlib.sha256(raw).hexdigest(),
+                        preparation_dir=str(root / 'schedule'), user_sid='S-1-5-21-123-500')
+                    launcher = root / 'launcher.ps1'
+                    launcher.write_text(built['launcher'], encoding='utf-8')
+                    outcome = subprocess.run([str(shell), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(launcher)],
+                        capture_output=True, text=True, timeout=25, env=environment, creationflags=subprocess.CREATE_NO_WINDOW)
+                    self.assertEqual(outcome.returncode, expected, outcome.stderr)
 
 
 if __name__ == '__main__': unittest.main()
