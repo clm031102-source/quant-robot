@@ -255,8 +255,11 @@ def _fresh_gate(root, scope, output):
 
 
 def _existing_token():
-    from quant_robot.config.secrets import require_env_secret
-    return require_env_secret('TUSHARE_TOKEN')
+    """Capture accepts only the named process credential; never search dotenv files."""
+    value = os.environ.get('TUSHARE_TOKEN')
+    if not isinstance(value, str) or not value.strip():
+        raise ScopeError('existing_credential_unavailable')
+    return value.strip()
 
 
 def _new_session():
