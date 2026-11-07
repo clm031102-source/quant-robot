@@ -1,7 +1,7 @@
-"""Artificial-only implementation of the frozen single-wallet spot transfer method.
+"""Frozen spot ledger with an unchanged invented-input public interface.
 
-No file/network loader or historical admission is provided. The public input
-contract is an invented 2001-origin calendar, not renamed historical evidence.
+The separate claimed historical controller supplies explicit evidence identity
+before a ledger runs. This module itself never reads market source files.
 """
 from __future__ import annotations
 
@@ -132,6 +132,35 @@ class Prepared:
     states: tuple[bool, ...]
     fixture_sha256: str
     signal_context_json: str
+
+
+@dataclass(frozen=True)
+class _HistoricalEvidence:
+    source_nature: str
+    registration_sha256: str
+    normalized_input_sha256: str
+    provenance_sha256: str
+
+    def fields(self, artifact):
+        actual = self.source_nature == "retained_official_history"
+        return dict(artifact_type="conditional_historical_spot_"+artifact+"_v1",
+            evidence_class="conditional_historical" if actual else "artificial_historical_adapter_test",
+            historical_returns_computed=actual, source_nature=self.source_nature,
+            registration_sha256=self.registration_sha256,
+            normalized_input_sha256=self.normalized_input_sha256,
+            provenance_sha256=self.provenance_sha256, real_forward_days_added=0)
+
+
+def _claimed_evidence(claim, normalized_input_sha256, provenance_sha256):
+    from quant_robot.research.spot_macd_transfer_admission import _Claim
+    if (not isinstance(claim, _Claim) or not claim.active or not claim.decoding_started
+            or claim.source_nature not in ("retained_official_history", "artificial_protocol_fixture")):
+        raise ValueError("Active decoded claim required before historical ledger identity")
+    for value in (normalized_input_sha256, provenance_sha256):
+        if not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
+            raise ValueError("Exact normalized evidence digest required")
+    return _HistoricalEvidence(claim.source_nature, claim.packet["registration_sha256"],
+                               normalized_input_sha256, provenance_sha256)
 
 
 def validate_synthetic_fixture(fixture):
@@ -386,7 +415,10 @@ class _Account:
             common_valid=settled and after_dd <= D(".4") and not self.capacity_failures and cash_ok and qty_ok)
 
 
-def _run_prepared(prepared, case, role):
+def _run_prepared(prepared, case, role, *, evidence=None):
+    if evidence is not None and (not isinstance(evidence, _HistoricalEvidence)
+            or evidence.normalized_input_sha256 != prepared.fixture_sha256):
+        raise ValueError("Historical prepared identity mismatch")
     with localcontext(context()) as ctx:
         a = _Account(case, role)
         previous_desired, episode = False, 0
@@ -444,9 +476,11 @@ def _run_prepared(prepared, case, role):
                                                minute_volume=minute.volume, conditional_fill_retained=True))
             if terminal:
                 summary = a.finish(i, minute.day)
-        return serial(dict(artifact_type="invented_spot_account_v1", evidence_class="synthetic_only",
-            historical_returns_computed=False, qualified=False, method_sha256=METHOD_SHA,
-            fixture_sha256=prepared.fixture_sha256, case_id=f"fee{case[0]}_slip{case[1]}",
+        identity = (dict(artifact_type="invented_spot_account_v1", evidence_class="synthetic_only",
+            historical_returns_computed=False, fixture_sha256=prepared.fixture_sha256)
+            if evidence is None else evidence.fields("account"))
+        return serial(dict(**identity, qualified=False, method_sha256=METHOD_SHA,
+            case_id=f"fee{case[0]}_slip{case[1]}",
             fee_bps=case[0], slippage_bps=case[1], role=role, summary=summary,
             daily_NAV=a.curve, fills=a.fills, rejections=a.rejections, risk_records=a.risks,
             observed_wallets=a.observations, cycles=a.cycles, lots=a.lots,
@@ -458,19 +492,23 @@ def run_account(fixture, *, case=(10, 10), role="strategy"):
     return _run_prepared(validate_synthetic_fixture(fixture), case, role)
 
 
-def paired_bootstrap(accounts):
+def paired_bootstrap(accounts, *, evidence=None):
     """One shared index stream; no large replication/observation/endpoint tensor."""
     columns, keys, identity = [], [], None
     for f, s in CASES:
         key = f"fee{f}_slip{s}"
         strategy, holding = (accounts[f"{key}/{r}"] for r in ("strategy", "holding"))
-        identity = strategy["fixture_sha256"] if identity is None else identity
-        if strategy["fixture_sha256"] != identity:
+        id_key = "fixture_sha256" if evidence is None else "normalized_input_sha256"
+        expected_class = "synthetic_only" if evidence is None else evidence.fields("account")["evidence_class"]
+        identity = strategy[id_key] if identity is None else identity
+        if strategy[id_key] != identity:
             raise ValueError("Different source identity across cost cases")
-        if any(a["evidence_class"] != "synthetic_only" or len(a["daily_NAV"]) != 1827 for a in (strategy, holding)):
-            raise ValueError("Bootstrap requires1827invented intervals for every fixed account")
+        if any(a["evidence_class"] != expected_class or len(a["daily_NAV"]) != 1827 for a in (strategy, holding)):
+            raise ValueError("Bootstrap requires1827 same-evidence intervals for every fixed account")
+        if evidence is not None and any(any(a.get(k) != v for k,v in evidence.fields("account").items()) for a in (strategy,holding)):
+            raise ValueError("Statistical evidence binding changed")
         for role in ("strategy", "holding"):
-            if accounts[f"{key}/{role}"]["fixture_sha256"] != strategy["fixture_sha256"]:
+            if accounts[f"{key}/{role}"][id_key] != strategy[id_key]:
                 raise ValueError("Different source identity")
         sv, hv = (np.array([float(row["PnL"]) for row in a["daily_NAV"]]) for a in (strategy, holding))
         columns.extend((sv, sv-hv)); keys.extend((key+"/net", key+"/minus_holding"))
@@ -499,6 +537,28 @@ def _persist(path, value):
     return dict(path=str(path.resolve()), sha256=hashlib.sha256(raw).hexdigest(), bytes=len(raw))
 
 
+def _conditional_checks(accounts, bootstrap):
+    with localcontext(context()):
+        checks = {"all18_common_valid": all(a["summary"]["common_valid"] for a in accounts.values() if a["role"] != "cash"),
+                  "all9_cash_identity": all(D(a["summary"]["cash"]) == INITIAL and all(D(r["cash"]) == INITIAL and D(r["BTC"]) == 0 for r in a["daily_NAV"]) and not a["fills"] for a in accounts.values() if a["role"] == "cash")}
+        if bootstrap:
+            primary = accounts["fee10_slip10/strategy"]
+            holding = accounts["fee10_slip10/holding"]
+            pnl = [D(r["PnL"]) for r in primary["daily_NAV"]]
+            annual = [sum(pnl[a:b], ZERO) for a, b in ((0,364),(364,730),(730,1095),(1095,1460),(1460,1825))]
+            checks.update(primary_net_positive=D(primary["summary"]["net_PnL"]) > 0,
+                primary_later_positive=sum(pnl[365:], ZERO) > 0,
+                primary_beats_holding=D(primary["summary"]["net_PnL"]) > D(holding["summary"]["net_PnL"]),
+                at_least_three_positive_attribution_years=sum(v > 0 for v in annual) >= 3,
+                primary_strict_completed30=primary["summary"]["strict_completed_episodes"] >= 30,
+                highcost_positive=D(accounts["fee20_slip30/strategy"]["summary"]["net_PnL"]) > 0,
+                primary_net_lower_positive=bootstrap["lower"]["fee10_slip10/net"] > 0,
+                primary_delta_lower_positive=bootstrap["lower"]["fee10_slip10/minus_holding"] > 0)
+        else:
+            annual = []
+    return checks, annual
+
+
 def run_synthetic_suite(fixture, *, output_dir=None):
     prepared = validate_synthetic_fixture(fixture)
     target = Path(output_dir) if output_dir is not None else None
@@ -521,24 +581,7 @@ def run_synthetic_suite(fixture, *, output_dir=None):
             if target:
                 artifacts[key] = _persist(target/(key.replace("/", "__")+".json"), account)
     bootstrap = paired_bootstrap(accounts) if len(prepared.execution) == 1827 else None
-    with localcontext(context()):
-        checks = {"all18_common_valid": all(a["summary"]["common_valid"] for a in accounts.values() if a["role"] != "cash"),
-                  "all9_cash_identity": all(D(a["summary"]["cash"]) == INITIAL and all(D(r["cash"]) == INITIAL and D(r["BTC"]) == 0 for r in a["daily_NAV"]) and not a["fills"] for a in accounts.values() if a["role"] == "cash")}
-        if bootstrap:
-            primary = accounts["fee10_slip10/strategy"]
-            holding = accounts["fee10_slip10/holding"]
-            pnl = [D(r["PnL"]) for r in primary["daily_NAV"]]
-            annual = [sum(pnl[a:b], ZERO) for a, b in ((0,364),(364,730),(730,1095),(1095,1460),(1460,1825))]
-            checks.update(primary_net_positive=D(primary["summary"]["net_PnL"]) > 0,
-                primary_later_positive=sum(pnl[365:], ZERO) > 0,
-                primary_beats_holding=D(primary["summary"]["net_PnL"]) > D(holding["summary"]["net_PnL"]),
-                at_least_three_positive_attribution_years=sum(v > 0 for v in annual) >= 3,
-                primary_strict_completed30=primary["summary"]["strict_completed_episodes"] >= 30,
-                highcost_positive=D(accounts["fee20_slip30/strategy"]["summary"]["net_PnL"]) > 0,
-                primary_net_lower_positive=bootstrap["lower"]["fee10_slip10/net"] > 0,
-                primary_delta_lower_positive=bootstrap["lower"]["fee10_slip10/minus_holding"] > 0)
-        else:
-            annual = []
+    checks, annual = _conditional_checks(accounts, bootstrap)
     result = serial(dict(artifact_type="invented_spot27_suite_v1", qualified=False,
         historical_returns_computed=False, financial_sources_read=0, method_sha256=METHOD_SHA,
         fixture_sha256=prepared.fixture_sha256, account_count=27, observations=len(prepared.execution),
