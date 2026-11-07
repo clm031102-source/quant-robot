@@ -111,6 +111,17 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 self._send_text(report.read_text(encoding='utf-8'), status=200,
                                 content_type=kind + '; charset=utf-8')
                 return
+            if parsed.path.startswith('/reports/us-low-unit-allocation/'):
+                name = parsed.path.removeprefix('/reports/us-low-unit-allocation/')
+                report = Path.cwd() / 'data/reports/campaign_72h_20261106/us_low_unit_allocation_report' / name
+                if name not in {'index.html', 'summary.csv', 'source.json'} or not report.is_file():
+                    self._send_text('五年整股配置比较尚未生成。', status=404,
+                                    content_type='text/plain; charset=utf-8')
+                    return
+                kind = 'text/html' if name.endswith('.html') else 'text/csv' if name.endswith('.csv') else 'application/json'
+                self._send_text(report.read_text(encoding='utf-8'), status=200,
+                                content_type=kind + '; charset=utf-8')
+                return
             if parsed.path.startswith('/reports/sector-screen/'):
                 name = parsed.path.removeprefix('/reports/sector-screen/')
                 report = Path.cwd() / 'data/reports/campaign_72h_20261106/us_sector_momentum_report' / name
