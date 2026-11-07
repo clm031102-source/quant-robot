@@ -59,10 +59,11 @@ Direct model.run/register_plan calls after construction violate ownership and
 are detected at the next wrapper operation. Hashes are not source provenance.
     """
 
-    def __init__(self, model: CarryModel):
+    def __init__(self, model: CarryModel, *, market_sources=None):
         if model.plan is not None or model.transfer is not None or model._finished:
             raise ValueError("Start the scheduler without a pre-existing pending operation")
         self.model = model
+        self._market_sources = model._checked_market_sources(market_sources)
         self.prefixes: dict[datetime, CompletedPrefix] = {}
         self._completed_prices: dict[datetime, tuple[CompletedPrices, datetime]] = {}
         self.openings: set[datetime] = set()
@@ -93,12 +94,16 @@ are detected at the next wrapper operation. Hashes are not source provenance.
         at = stamp(at)
         if at.second or at.microsecond or at in self.openings:
             raise ValueError("One explicit opening per complete-minute boundary required")
-        self.model.queue_quote(at, spot=spot, future=future, mark=mark)
+        self.model.queue_quote(at, spot=spot, future=future, mark=mark, market_sources=self._market_sources)
         self.openings.add(at)
 
     def queue_funding(self, at, *, rate, mark, synchronous_spot=None):
         self._owned()
         self.model.queue_funding(at, rate=rate, mark=mark, synchronous_spot=synchronous_spot)
+
+    def queue_funding_charge(self, at, *, rate, charge_basis):
+        self._owned()
+        self.model.queue_funding_charge(at, rate=rate, charge_basis=charge_basis)
 
     def queue_day_end(self, at):
         """Settle at the next 00:00 close, before that new day's other events.
@@ -141,7 +146,8 @@ minute cannot be complete until the next boundary; no price is backdated.
                 raise ValueError("Previously supplied completed prices are immutable")
             return
         self.model.queue_completed_close(closed_at=prices.minute_end, available_at=available_at,
-            price_received_at=prices.received_at, spot=prices.spot, future=prices.future, mark=prices.mark)
+            price_received_at=prices.received_at, spot=prices.spot, future=prices.future, mark=prices.mark,
+            market_sources=self._market_sources)
         self._completed_prices[prices.minute_end] = (prices, available_at)
 
     def _day_end_blocker(self, at):
