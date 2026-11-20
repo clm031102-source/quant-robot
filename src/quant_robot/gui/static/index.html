@@ -57,18 +57,20 @@
     <!-- TAB 2: BACKTEST LAB -->
     <section id="tab-backtest" class="tab-panel">
       <div class="card">
-        <h2>真实数据回测实验室（含真实最低佣金 / 整手 / T+1 因果执行）</h2>
+        <h2>真实数据回测实验室（含最低佣金 / 整手与小数份额 / 365天加密年化 / T+1 因果执行）</h2>
         <div class="preset-bar" id="preset-buttons"></div>
         <form id="bt-form" class="form-grid">
           <label>市场
             <select name="market">
               <option value="CN_ETF">CN_ETF (A股ETF · 100股整手)</option>
               <option value="US_ETF">US_ETF (美股ETF · 1股整手)</option>
+              <option value="CRYPTO">CRYPTO (加密货币 · 小数份额 · 365天)</option>
             </select>
           </label>
           <label>策略模型
             <select name="strategy_kind">
               <option value="dual_momentum">双动量趋势轮动 (dual_momentum)</option>
+              <option value="crypto_trend_vol">加密趋势+波动率控仓 (crypto_trend_vol)</option>
               <option value="risk_parity_trend">风险平价趋势 (risk_parity_trend)</option>
               <option value="fixed_allocation">固定比例再平衡 (fixed_allocation)</option>
               <option value="passive_drift">初始建仓不再平衡 (passive_drift)</option>
@@ -77,6 +79,7 @@
           <label>标的池（逗号分隔）<input name="symbols" value="510300.SH,510500.SH,159915.SZ,510880.SH,518880.SH,513100.SH" /></label>
           <label>防御标的（留空=空仓持现）<input name="defensive_symbol" value="" /></label>
           <label>初始资金<input name="initial_cash" type="number" value="10000" /></label>
+          <label>最小交易单位<input name="lot_size" type="number" step="any" value="100" /></label>
           <label>单笔最低佣金<input name="minimum_commission" type="number" step="0.5" value="5" /></label>
           <label>佣金万分比(bps)<input name="commission_bps" type="number" step="0.5" value="1" /></label>
           <label>单边滑点(bps)<input name="slippage_bps" type="number" step="1" value="5" /></label>
@@ -91,6 +94,8 @@
           </label>
           <label>动量回看天数<input name="lookback_days" type="number" value="60" /></label>
           <label>趋势均线天数(0=关闭)<input name="trend_ma_days" type="number" value="120" /></label>
+          <label>目标年化波动率(加密)<input name="target_volatility" type="number" step="0.05" value="0.35" /></label>
+          <input type="hidden" name="min_trade_notional" value="0" />
           <div class="form-actions">
             <button type="submit" class="btn primary">运行回测</button>
           </div>

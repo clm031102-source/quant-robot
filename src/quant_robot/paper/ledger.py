@@ -210,9 +210,12 @@ class PaperLedger:
             else:
                 has_pos = bool(state["positions"])
                 if is_rebalance_day(all_dates, idx, self.spec.strategy.rebalance_frequency, has_positions=has_pos):
-                    targets, diagnostics = compute_target_weights(history, norm_symbols, self.spec.strategy, self.spec.risk)
+                    ppy = 365.0 if self.spec.market.upper() == "CRYPTO" else 252.0
+                    targets, diagnostics = compute_target_weights(
+                        history, norm_symbols, self.spec.strategy, self.spec.risk, periods_per_year=ppy
+                    )
                     target_weights_preview = targets
-                    if not has_pos or should_rebalance_by_band(cur_weights, targets, self.spec.strategy.rebalance_band):
+                    if (not has_pos and targets) or (has_pos and should_rebalance_by_band(cur_weights, targets, self.spec.strategy.rebalance_band)):
                         state["pending_targets"] = targets
                         state["pending_reason"] = "initial_entry" if not has_pos else "scheduled_rebalance"
                         decision_action = state["pending_reason"]
@@ -258,8 +261,12 @@ class PaperLedger:
     ) -> list[dict[str, Any]]:
         cash = float(state["cash"])
         positions: dict[str, dict[str, Any]] = state["positions"]
-        lot_size = int(self.spec.lot_size)
+        lot_size = float(self.spec.lot_size)
+        min_notional = float(self.spec.min_trade_notional)
         cost = self.spec.cost
+
+        def _fmt_qty(q: float) -> int | float:
+            return int(round(q)) if lot_size >= 1.0 else round(q, 6)
 
         nav = cash
         for sym, pos in positions.items():
@@ -291,39 +298,41 @@ class PaperLedger:
         for sym in all_syms:
             cur_adj = float(positions.get(sym, {}).get("adj_shares", 0.0))
             tgt_adj = desired[sym]
-            if cur_adj <= 1e-9 or tgt_adj >= cur_adj - 1e-9:
+            if cur_adj <= 1e-12 or tgt_adj >= cur_adj - 1e-12:
                 continue
             adj_px = float(exec_prices[sym])
             raw_px = float(raw_prices[sym])
             scale = max(scales[sym], 1e-12)
-            if tgt_adj <= 1e-9:
+            if tgt_adj <= 1e-12:
                 sell_adj = cur_adj
                 new_adj = 0.0
-                raw_qty = max(1, int(positions[sym].get("raw_qty", round(sell_adj / scale))))
+                raw_qty = float(positions[sym].get("raw_qty", sell_adj / scale))
             else:
-                sell_lots = math.floor(((cur_adj - tgt_adj) / scale + 1e-9) / lot_size)
+                sell_lots = math.floor(((cur_adj - tgt_adj) / scale + 1e-12) / lot_size)
                 if sell_lots <= 0:
                     continue
-                raw_qty = int(sell_lots * lot_size)
+                raw_qty = sell_lots * lot_size
                 sell_adj = min(cur_adj, raw_qty * scale)
                 new_adj = max(0.0, cur_adj - sell_adj)
+                if sell_adj * adj_px < min_notional:
+                    continue
 
             gross = sell_adj * adj_px
             slip = gross * (cost.slippage_bps / 10000.0)
             comm = max(gross * (cost.commission_bps / 10000.0), cost.minimum_commission)
             duty = gross * (cost.stamp_duty_sell_bps / 10000.0)
             cash += gross - slip - comm - duty
-            if new_adj <= 1e-9:
+            if new_adj <= 1e-12:
                 positions.pop(sym, None)
             else:
                 positions[sym]["adj_shares"] = new_adj
-                positions[sym]["raw_qty"] = max(0, int(positions[sym].get("raw_qty", 0)) - raw_qty)
+                positions[sym]["raw_qty"] = _fmt_qty(max(0.0, float(positions[sym].get("raw_qty", 0.0)) - raw_qty))
             fills.append(
                 {
                     "date": cur_date.isoformat(),
                     "symbol": sym,
                     "side": "SELL",
-                    "quantity": raw_qty,
+                    "quantity": _fmt_qty(raw_qty),
                     "raw_price": round(raw_px, 4),
                     "notional": round(gross, 2),
                     "commission": round(comm + duty, 4),
@@ -336,7 +345,7 @@ class PaperLedger:
         for sym in all_syms:
             cur_adj = float(positions.get(sym, {}).get("adj_shares", 0.0))
             tgt_adj = desired[sym]
-            if tgt_adj <= cur_adj + 1e-9:
+            if tgt_adj <= cur_adj + 1e-12:
                 continue
             adj_px = exec_prices.get(sym)
             raw_px = raw_prices.get(sym)
@@ -345,11 +354,17 @@ class PaperLedger:
             adj_px_f = float(adj_px)
             raw_px_f = float(raw_px)
             scale = scales[sym]
-            need_lots = math.floor(((tgt_adj - cur_adj) / scale + 1e-9) / lot_size)
+            need_lots = math.floor(((tgt_adj - cur_adj) / scale + 1e-12) / lot_size)
+            unit_gross = lot_size * scale * adj_px_f
+            fee_mult = 1.0 + (cost.slippage_bps + cost.commission_bps) / 10000.0
+            max_afford = math.floor(max(0.0, cash - cost.minimum_commission) / max(unit_gross * fee_mult, 1e-12))
+            need_lots = min(need_lots, max_afford + 1)
             while need_lots > 0:
-                buy_qty = int(need_lots * lot_size)
+                buy_qty = need_lots * lot_size
                 buy_adj = buy_qty * scale
                 gross = buy_adj * adj_px_f
+                if gross < min_notional:
+                    break
                 slip = gross * (cost.slippage_bps / 10000.0)
                 comm = max(gross * (cost.commission_bps / 10000.0), cost.minimum_commission)
                 total_out = gross + slip + comm
@@ -357,13 +372,13 @@ class PaperLedger:
                     cash -= total_out
                     prev = positions.get(sym)
                     if prev:
-                        old_qty = int(prev.get("raw_qty", 0))
+                        old_qty = float(prev.get("raw_qty", 0.0))
                         old_cost = float(prev.get("avg_cost", raw_px_f))
                         new_qty = old_qty + buy_qty
-                        avg_cost = (old_qty * old_cost + gross) / max(new_qty, 1)
+                        avg_cost = (old_qty * old_cost + gross) / max(new_qty, 1e-12)
                         positions[sym] = {
                             "adj_shares": cur_adj + buy_adj,
-                            "raw_qty": new_qty,
+                            "raw_qty": _fmt_qty(new_qty),
                             "avg_cost": round(avg_cost, 4),
                             "last_price": round(raw_px_f, 4),
                             "market_value": round((cur_adj + buy_adj) * adj_px_f, 2),
@@ -371,7 +386,7 @@ class PaperLedger:
                     else:
                         positions[sym] = {
                             "adj_shares": buy_adj,
-                            "raw_qty": buy_qty,
+                            "raw_qty": _fmt_qty(buy_qty),
                             "avg_cost": round(raw_px_f, 4),
                             "last_price": round(raw_px_f, 4),
                             "market_value": round(gross, 2),
@@ -381,7 +396,7 @@ class PaperLedger:
                             "date": cur_date.isoformat(),
                             "symbol": sym,
                             "side": "BUY",
-                            "quantity": buy_qty,
+                            "quantity": _fmt_qty(buy_qty),
                             "raw_price": round(raw_px_f, 4),
                             "notional": round(gross, 2),
                             "commission": round(comm, 4),

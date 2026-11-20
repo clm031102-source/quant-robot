@@ -181,6 +181,80 @@
         "top_n": 2,
         "defensive_symbol": "IEF"
       }
+    },
+    {
+      "portfolio_id": "crypto_trend_vol_1k",
+      "name": "加密货币主流趋势+波动率控仓 ($1,000·现货口径)",
+      "description": "BTC/ETH/SOL/BNB 周频趋势筛选+逆波动率配权+35%目标波动率控仓，熊市自动空仓持U，0.1%费率+10bps滑点。",
+      "enabled": true,
+      "market": "CRYPTO",
+      "currency": "USD",
+      "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"],
+      "lot_size": 0.0001,
+      "min_trade_notional": 10.0,
+      "initial_cash": 1000.0,
+      "start_date": "2026-11-01",
+      "execution_price": "open",
+      "cost": {
+        "commission_bps": 10.0,
+        "minimum_commission": 0.0,
+        "slippage_bps": 10.0,
+        "stamp_duty_sell_bps": 0.0
+      },
+      "risk": {
+        "max_drawdown_halt": 0.40,
+        "daily_loss_halt": null,
+        "cooldown_sessions": 7,
+        "max_single_weight": 0.60,
+        "min_cash_weight": 0.0
+      },
+      "strategy": {
+        "kind": "crypto_trend_vol",
+        "rebalance_frequency": "weekly",
+        "rebalance_band": 0.06,
+        "lookback_days": 40,
+        "trend_ma_days": 60,
+        "vol_lookback_days": 30,
+        "target_volatility": 0.35,
+        "top_n": 2,
+        "defensive_symbol": null
+      }
+    },
+    {
+      "portfolio_id": "crypto_dual_momentum_1k",
+      "name": "加密货币主流双动量轮动 ($1,000·熊市持U)",
+      "description": "BTC/ETH/SOL/BNB 周频双动量+60日均线趋势过滤，仅持有强势前2币种，转弱自动空仓持U，0.1%费率+10bps滑点。",
+      "enabled": true,
+      "market": "CRYPTO",
+      "currency": "USD",
+      "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"],
+      "lot_size": 0.0001,
+      "min_trade_notional": 10.0,
+      "initial_cash": 1000.0,
+      "start_date": "2026-11-01",
+      "execution_price": "open",
+      "cost": {
+        "commission_bps": 10.0,
+        "minimum_commission": 0.0,
+        "slippage_bps": 10.0,
+        "stamp_duty_sell_bps": 0.0
+      },
+      "risk": {
+        "max_drawdown_halt": 0.45,
+        "daily_loss_halt": null,
+        "cooldown_sessions": 7,
+        "max_single_weight": 0.60,
+        "min_cash_weight": 0.0
+      },
+      "strategy": {
+        "kind": "dual_momentum",
+        "rebalance_frequency": "weekly",
+        "rebalance_band": 0.08,
+        "lookback_days": 40,
+        "trend_ma_days": 60,
+        "top_n": 2,
+        "defensive_symbol": null
+      }
     }
   ]
 }

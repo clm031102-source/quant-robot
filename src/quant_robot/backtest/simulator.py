@@ -58,7 +58,8 @@ def run_portfolio_backtest(
     cost: CostConfig,
     risk: RiskConfig,
     initial_cash: float = 10000.0,
-    lot_size: int = 100,
+    lot_size: float = 100.0,
+    min_trade_notional: float = 0.0,
     execution_price: str = "open",
     start_date: str | None = None,
     end_date: str | None = None,
@@ -67,6 +68,8 @@ def run_portfolio_backtest(
     """Run a strictly causal T+1 backtest on daily OHLCV bars."""
     if bars.empty:
         raise ValueError("Cannot run backtest on empty bars DataFrame")
+
+    periods_per_year = 365.0 if market.strip().upper() == "CRYPTO" else 252.0
 
     df = bars.copy()
     df["date"] = pd.to_datetime(df["date"]).dt.date
@@ -118,6 +121,7 @@ def run_portfolio_backtest(
                 exec_prices=exec_panel.iloc[idx],
                 raw_prices=raw_exec_panel.iloc[idx],
                 lot_size=lot_size,
+                min_trade_notional=min_trade_notional,
                 cost=cost,
                 reason=pending_reason,
             )
@@ -180,13 +184,15 @@ def run_portfolio_backtest(
             has_pos = any(q > 0 for q in shares.values())
             if is_rebalance_day(all_dates, idx, strategy.rebalance_frequency, has_positions=has_pos):
                 history = adj_panel.iloc[: idx + 1]
-                targets, _ = compute_target_weights(history, norm_symbols, strategy, risk)
+                targets, _ = compute_target_weights(
+                    history, norm_symbols, strategy, risk, periods_per_year=periods_per_year
+                )
                 cur_weights = {
                     sym: (shares[sym] * float(close_prices[sym]) / nav)
                     for sym in norm_symbols
                     if shares[sym] > 0 and pd.notna(close_prices.get(sym)) and nav > 0
                 }
-                if not has_pos or should_rebalance_by_band(cur_weights, targets, strategy.rebalance_band):
+                if (not has_pos and targets) or (has_pos and should_rebalance_by_band(cur_weights, targets, strategy.rebalance_band)):
                     pending_targets = targets
                     pending_reason = "initial_entry" if not has_pos else "scheduled_rebalance"
 
@@ -194,7 +200,14 @@ def run_portfolio_backtest(
 
     eq_df = pd.DataFrame(equity_rows)
     trades_df = pd.DataFrame(trade_rows)
-    metrics = compute_backtest_metrics(eq_df, initial_cash=initial_cash, total_commission=total_commission, total_slippage=total_slippage, trade_count=len(trades_df))
+    metrics = compute_backtest_metrics(
+        eq_df,
+        initial_cash=initial_cash,
+        total_commission=total_commission,
+        total_slippage=total_slippage,
+        trade_count=len(trades_df),
+        periods_per_year=periods_per_year,
+    )
 
     if include_benchmark:
         bench_spec = StrategySpec(kind="passive_drift", rebalance_frequency="never", rebalance_band=0.0)
@@ -210,6 +223,7 @@ def run_portfolio_backtest(
             risk=bench_risk,
             initial_cash=initial_cash,
             lot_size=lot_size,
+            min_trade_notional=min_trade_notional,
             execution_price=execution_price,
             start_date=str(all_dates[sim_indices[0]]),
             end_date=str(all_dates[sim_indices[-1]]),
@@ -238,6 +252,10 @@ def run_portfolio_backtest(
     )
 
 
+def _format_qty(qty: float, lot_size: float) -> int | float:
+    return int(round(qty)) if lot_size >= 1.0 else round(qty, 6)
+
+
 def _execute_rebalance(
     *,
     cur_date: date,
@@ -246,12 +264,12 @@ def _execute_rebalance(
     target_weights: dict[str, float],
     exec_prices: pd.Series,
     raw_prices: pd.Series,
-    lot_size: int,
+    lot_size: float,
+    min_trade_notional: float,
     cost: CostConfig,
     reason: str,
 ) -> tuple[float, list[dict[str, Any]]]:
-    """Execute sells first, then buys, respecting exact integer lots and minimum commissions."""
-    # Current NAV at execution prices
+    """Execute sells first, then buys, respecting exact lot granularity and minimum commissions."""
     nav = cash
     for sym, qty in shares.items():
         px = exec_prices.get(sym)
@@ -261,7 +279,6 @@ def _execute_rebalance(
         return cash, []
 
     fills: list[dict[str, Any]] = []
-    # Compute desired integer lots in raw share units, converted to adjusted-equivalent share units
     desired_shares: dict[str, float] = {}
     unit_scale: dict[str, float] = {}
     for sym in shares:
@@ -271,7 +288,6 @@ def _execute_rebalance(
             desired_shares[sym] = shares[sym]
             unit_scale[sym] = 1.0
             continue
-        # 1 raw lot costs raw_px * lot_size; in adj coordinates that corresponds to (raw_px / adj_px) * lot_size adj-shares
         scale = float(raw_px) / float(adj_px)
         unit_scale[sym] = scale
         tgt_val = nav * float(target_weights.get(sym, 0.0))
@@ -282,22 +298,24 @@ def _execute_rebalance(
     for sym in sorted(shares):
         cur_q = shares[sym]
         tgt_q = desired_shares[sym]
-        if tgt_q >= cur_q - 1e-9:
+        if cur_q <= 1e-12 or tgt_q >= cur_q - 1e-12:
             continue
         adj_px = float(exec_prices[sym])
         raw_px = float(raw_prices[sym])
         scale = max(unit_scale[sym], 1e-12)
-        if tgt_q <= 1e-9:
+        if tgt_q <= 1e-12:
             sell_q = cur_q
             new_q = 0.0
-            raw_qty = max(1, round(sell_q / scale))
+            raw_qty = sell_q / scale
         else:
-            sell_lots = math.floor(((cur_q - tgt_q) / scale + 1e-9) / lot_size)
+            sell_lots = math.floor(((cur_q - tgt_q) / scale + 1e-12) / lot_size)
             if sell_lots <= 0:
                 continue
-            raw_qty = int(sell_lots * lot_size)
+            raw_qty = sell_lots * lot_size
             sell_q = min(cur_q, raw_qty * scale)
             new_q = max(0.0, cur_q - sell_q)
+            if sell_q * adj_px < min_trade_notional:
+                continue
         gross = sell_q * adj_px
         slip = gross * (cost.slippage_bps / 10000.0)
         comm = max(gross * (cost.commission_bps / 10000.0), cost.minimum_commission)
@@ -310,7 +328,7 @@ def _execute_rebalance(
                 "date": cur_date.isoformat(),
                 "symbol": sym,
                 "side": "SELL",
-                "quantity": int(raw_qty),
+                "quantity": _format_qty(raw_qty, lot_size),
                 "raw_price": round(raw_px, 4),
                 "notional": round(gross, 2),
                 "commission": round(comm + duty, 4),
@@ -323,7 +341,7 @@ def _execute_rebalance(
     for sym in sorted(shares):
         cur_q = shares[sym]
         tgt_q = desired_shares[sym]
-        if tgt_q <= cur_q + 1e-9:
+        if tgt_q <= cur_q + 1e-12:
             continue
         adj_px = exec_prices.get(sym)
         raw_px = raw_prices.get(sym)
@@ -332,13 +350,20 @@ def _execute_rebalance(
         adj_px_f = float(adj_px)
         raw_px_f = float(raw_px)
         scale = unit_scale[sym]
-        need_lots = math.floor(((tgt_q - cur_q) / scale + 1e-9) / lot_size)
+        need_lots = math.floor(((tgt_q - cur_q) / scale + 1e-12) / lot_size)
         if need_lots <= 0:
             continue
-        # Reduce lots if cash cannot cover notional + slippage + minimum commission
+        # Direct analytic cap so fractional crypto lot counts (thousands of lots) run in O(1) time!
+        unit_gross = lot_size * scale * adj_px_f
+        fee_mult = 1.0 + (cost.slippage_bps + cost.commission_bps) / 10000.0
+        max_afford = math.floor(max(0.0, cash - cost.minimum_commission) / max(unit_gross * fee_mult, 1e-12))
+        need_lots = min(need_lots, max_afford + 1)
         while need_lots > 0:
-            buy_q = need_lots * lot_size * scale
+            buy_qty = need_lots * lot_size
+            buy_q = buy_qty * scale
             gross = buy_q * adj_px_f
+            if gross < min_trade_notional:
+                break
             slip = gross * (cost.slippage_bps / 10000.0)
             comm = max(gross * (cost.commission_bps / 10000.0), cost.minimum_commission)
             total_cost = gross + slip + comm
@@ -350,7 +375,7 @@ def _execute_rebalance(
                         "date": cur_date.isoformat(),
                         "symbol": sym,
                         "side": "BUY",
-                        "quantity": int(need_lots * lot_size),
+                        "quantity": _format_qty(buy_qty, lot_size),
                         "raw_price": round(raw_px_f, 4),
                         "notional": round(gross, 2),
                         "commission": round(comm, 4),
@@ -371,6 +396,7 @@ def compute_backtest_metrics(
     total_commission: float,
     total_slippage: float,
     trade_count: int,
+    periods_per_year: float = 252.0,
 ) -> dict[str, float]:
     if eq_df.empty:
         return {}
@@ -379,13 +405,13 @@ def compute_backtest_metrics(
     final_nav = float(nav.iloc[-1])
     total_return = final_nav / initial_cash - 1.0
     n_days = max(len(eq_df), 1)
-    years = n_days / 252.0
+    years = n_days / periods_per_year
     cagr = (final_nav / initial_cash) ** (1.0 / years) - 1.0 if years > 0 and final_nav > 0 else -1.0
-    vol = float(rets.std(ddof=0) * math.sqrt(252.0))
+    vol = float(rets.std(ddof=0) * math.sqrt(periods_per_year))
     downside = rets[rets < 0]
-    down_vol = float(downside.std(ddof=0) * math.sqrt(252.0)) if len(downside) > 1 else 0.0
-    sharpe = float((rets.mean() * 252.0) / vol) if vol > 1e-12 else 0.0
-    sortino = float((rets.mean() * 252.0) / down_vol) if down_vol > 1e-12 else 0.0
+    down_vol = float(downside.std(ddof=0) * math.sqrt(periods_per_year)) if len(downside) > 1 else 0.0
+    sharpe = float((rets.mean() * periods_per_year) / vol) if vol > 1e-12 else 0.0
+    sortino = float((rets.mean() * periods_per_year) / down_vol) if down_vol > 1e-12 else 0.0
     max_dd = float(eq_df["drawdown"].min())
     calmar = float(cagr / abs(max_dd)) if abs(max_dd) > 1e-9 else 0.0
     cost_drag = (total_commission + total_slippage) / initial_cash

@@ -21,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run strategy backtests from configs/backtest_presets.json.")
     parser.add_argument("--config", default=str(ROOT / "configs" / "backtest_presets.json"))
     parser.add_argument("--preset", help="Optional single preset_id to run")
-    parser.add_argument("--market", help="Optional market filter (CN_ETF or US_ETF)")
+    parser.add_argument("--market", help="Optional market filter (CN_ETF, US_ETF, or CRYPTO)")
     parser.add_argument("--data-root", help="Override data directory")
     parser.add_argument("--output-dir", help="Override report output directory")
     args = parser.parse_args(argv)
@@ -59,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
             risk=preset.risk,
             initial_cash=preset.initial_cash,
             lot_size=preset.lot_size,
+            min_trade_notional=preset.min_trade_notional,
             execution_price=preset.execution_price,
             start_date=preset.start_date,
             end_date=preset.end_date,

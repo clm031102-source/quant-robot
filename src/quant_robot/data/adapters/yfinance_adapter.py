@@ -8,7 +8,7 @@ from quant_robot.data.adapters.base import FetchRequest, MarketDataAdapter, requ
 
 class YFinanceAdapter(MarketDataAdapter):
     name = "yfinance"
-    supported_markets = {"HK", "US"}
+    supported_markets = {"HK", "US", "US_ETF", "CRYPTO"}
 
     def __init__(self, client: object | None = None) -> None:
         self._client = client

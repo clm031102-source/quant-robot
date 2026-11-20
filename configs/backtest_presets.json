@@ -121,6 +121,101 @@
         "top_n": 2,
         "defensive_symbol": "IEF"
       }
+    },
+    {
+      "preset_id": "crypto_trend_vol",
+      "name": "加密货币趋势+波动率控仓 (BTC/ETH/SOL/BNB · 2021-至今)",
+      "market": "CRYPTO",
+      "currency": "USD",
+      "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"],
+      "lot_size": 0.0001,
+      "min_trade_notional": 10.0,
+      "initial_cash": 1000.0,
+      "start_date": "2021-01-01",
+      "execution_price": "open",
+      "cost": { "commission_bps": 10.0, "minimum_commission": 0.0, "slippage_bps": 10.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.40, "cooldown_sessions": 7, "max_single_weight": 0.60, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "crypto_trend_vol",
+        "rebalance_frequency": "weekly",
+        "rebalance_band": 0.06,
+        "lookback_days": 40,
+        "trend_ma_days": 60,
+        "vol_lookback_days": 30,
+        "target_volatility": 0.35,
+        "top_n": 2,
+        "defensive_symbol": null
+      }
+    },
+    {
+      "preset_id": "crypto_dual_momentum",
+      "name": "加密货币主流双动量轮动 (BTC/ETH/SOL/BNB · 2021-至今)",
+      "market": "CRYPTO",
+      "currency": "USD",
+      "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"],
+      "lot_size": 0.0001,
+      "min_trade_notional": 10.0,
+      "initial_cash": 1000.0,
+      "start_date": "2021-01-01",
+      "execution_price": "open",
+      "cost": { "commission_bps": 10.0, "minimum_commission": 0.0, "slippage_bps": 10.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.45, "cooldown_sessions": 7, "max_single_weight": 0.60, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "dual_momentum",
+        "rebalance_frequency": "weekly",
+        "rebalance_band": 0.08,
+        "lookback_days": 40,
+        "trend_ma_days": 60,
+        "top_n": 2,
+        "defensive_symbol": null
+      }
+    },
+    {
+      "preset_id": "crypto_risk_parity_trend",
+      "name": "加密货币风险平价趋势 (BTC/ETH/SOL/BNB · 2021-至今)",
+      "market": "CRYPTO",
+      "currency": "USD",
+      "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"],
+      "lot_size": 0.0001,
+      "min_trade_notional": 10.0,
+      "initial_cash": 1000.0,
+      "start_date": "2021-01-01",
+      "execution_price": "open",
+      "cost": { "commission_bps": 10.0, "minimum_commission": 0.0, "slippage_bps": 10.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.45, "cooldown_sessions": 7, "max_single_weight": 0.50, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "risk_parity_trend",
+        "rebalance_frequency": "weekly",
+        "rebalance_band": 0.08,
+        "vol_lookback_days": 30,
+        "trend_ma_days": 60,
+        "defensive_symbol": null
+      }
+    },
+    {
+      "preset_id": "crypto_btc_trend_vol",
+      "name": "BTC 单币趋势+波动率择时 (vs BTC买入持有 · 2021-至今)",
+      "market": "CRYPTO",
+      "currency": "USD",
+      "symbols": ["BTC-USD"],
+      "lot_size": 0.0001,
+      "min_trade_notional": 10.0,
+      "initial_cash": 1000.0,
+      "start_date": "2021-01-01",
+      "execution_price": "open",
+      "cost": { "commission_bps": 10.0, "minimum_commission": 0.0, "slippage_bps": 10.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.40, "cooldown_sessions": 7, "max_single_weight": 1.0, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "crypto_trend_vol",
+        "rebalance_frequency": "weekly",
+        "rebalance_band": 0.06,
+        "lookback_days": 40,
+        "trend_ma_days": 60,
+        "vol_lookback_days": 30,
+        "target_volatility": 0.45,
+        "top_n": 1,
+        "defensive_symbol": null
+      }
     }
   ]
 }

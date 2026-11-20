@@ -244,24 +244,34 @@ def _run_api_backtest(body: dict[str, Any], cache: MarketCache) -> dict[str, Any
     if bars.empty:
         raise ValueError(f"No cached bars found for {market}: {symbols}. Click 'Update Data' first.")
 
+    is_crypto = market == "CRYPTO"
     strategy = StrategySpec(
-        kind=body.get("strategy_kind", "dual_momentum"),
-        rebalance_frequency=body.get("rebalance_frequency", "monthly"),
-        rebalance_band=float(body.get("rebalance_band", 0.05)),
-        lookback_days=int(body.get("lookback_days", 60)),
-        trend_ma_days=int(body.get("trend_ma_days", 120)),
-        top_n=int(body.get("top_n", 2)),
+        kind=body.get("strategy_kind", "crypto_trend_vol" if is_crypto else "dual_momentum"),
+        rebalance_frequency=body.get("rebalance_frequency", "weekly" if is_crypto else "monthly"),
+        rebalance_band=float(body.get("rebalance_band") or (0.06 if is_crypto else 0.05)),
+        lookback_days=int(body.get("lookback_days") or (40 if is_crypto else 60)),
+        trend_ma_days=int(body.get("trend_ma_days") if body.get("trend_ma_days") not in (None, "") else (60 if is_crypto else 120)),
+        vol_lookback_days=int(body.get("vol_lookback_days") or (30 if is_crypto else 60)),
+        target_volatility=float(body.get("target_volatility") or 0.35),
+        top_n=int(body.get("top_n") or 2),
         defensive_symbol=body.get("defensive_symbol") or None,
     )
+    default_comm_bps = 10.0 if is_crypto else 1.0
+    default_min_comm = 0.0 if is_crypto else (5.0 if market == "CN_ETF" else 1.0)
+    default_slip_bps = 10.0 if is_crypto else 5.0
     cost = CostConfig(
-        commission_bps=float(body.get("commission_bps", 1.0)),
-        minimum_commission=float(body.get("minimum_commission", 5.0 if market == "CN_ETF" else 1.0)),
-        slippage_bps=float(body.get("slippage_bps", 5.0)),
+        commission_bps=float(body["commission_bps"]) if body.get("commission_bps") not in (None, "") else default_comm_bps,
+        minimum_commission=float(body["minimum_commission"]) if body.get("minimum_commission") not in (None, "") else default_min_comm,
+        slippage_bps=float(body["slippage_bps"]) if body.get("slippage_bps") not in (None, "") else default_slip_bps,
     )
     risk = RiskConfig(
         max_drawdown_halt=float(body["max_drawdown_halt"]) if body.get("max_drawdown_halt") else None,
-        cooldown_sessions=int(body.get("cooldown_sessions", 5)),
+        cooldown_sessions=int(body.get("cooldown_sessions") or (7 if is_crypto else 5)),
+        max_single_weight=1.0 if len(symbols) == 1 else float(body.get("max_single_weight") or 0.60),
     )
+    default_lot = 0.0001 if is_crypto else (100.0 if market in {"CN_ETF", "CN"} else 1.0)
+    lot_size = float(body["lot_size"]) if body.get("lot_size") not in (None, "") else default_lot
+    min_trade_notional = float(body["min_trade_notional"]) if body.get("min_trade_notional") not in (None, "") else (10.0 if is_crypto else 0.0)
     report = run_portfolio_backtest(
         bars,
         name=str(body.get("name", f"{market} {strategy.kind}")),
@@ -271,8 +281,9 @@ def _run_api_backtest(body: dict[str, Any], cache: MarketCache) -> dict[str, Any
         strategy=strategy,
         cost=cost,
         risk=risk,
-        initial_cash=float(body.get("initial_cash", 10000.0 if market == "CN_ETF" else 1000.0)),
-        lot_size=int(body.get("lot_size", 100 if market in {"CN_ETF", "CN"} else 1)),
+        initial_cash=float(body.get("initial_cash") or (10000.0 if market == "CN_ETF" else 1000.0)),
+        lot_size=lot_size,
+        min_trade_notional=min_trade_notional,
         start_date=body.get("start_date") or None,
         end_date=body.get("end_date") or None,
     )

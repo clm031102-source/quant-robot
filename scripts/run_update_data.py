@@ -1,4 +1,4 @@
-"""Incrementally update local daily OHLCV market cache (CN_ETF via Tushare, US_ETF via yfinance)."""
+"""Incrementally update local daily OHLCV market cache (CN_ETF via Tushare, US_ETF & CRYPTO via yfinance)."""
 from __future__ import annotations
 
 import argparse
@@ -17,7 +17,7 @@ from quant_robot.storage.market_cache import MarketCache
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Update local daily market data cache.")
-    parser.add_argument("--market", help="Optional filter: CN_ETF or US_ETF")
+    parser.add_argument("--market", help="Optional filter: CN_ETF, US_ETF, or CRYPTO")
     parser.add_argument("--symbols", help="Optional comma-separated symbols (requires --market)")
     parser.add_argument("--start", default="2020-01-01", help="Default history start date (YYYY-MM-DD)")
     parser.add_argument("--full-refresh", action="store_true", help="Ignore existing cache and re-fetch full range")

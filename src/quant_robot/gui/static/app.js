@@ -2,6 +2,13 @@ let selectedPortfolioId = null;
 
 const fmtPct = (v) => (v == null ? "-" : `${(Number(v) * 100).toFixed(2)}%`);
 const fmtNum = (v, d = 2) => (v == null ? "-" : Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }));
+const fmtQty = (v) => {
+  if (v == null || v === "") return "-";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  if (Math.abs(n - Math.round(n)) < 1e-6) return String(Math.round(n));
+  return n.toFixed(6).replace(/\.?0+$/, "");
+};
 const clsSign = (v) => (Number(v) >= 0 ? "pos" : "neg");
 
 function showToast(msg) {
@@ -94,14 +101,14 @@ async function selectPortfolio(pid) {
     const posBody = document.querySelector("#positions-table tbody");
     const posEntries = Object.entries(st.positions || {});
     posBody.innerHTML = posEntries.length
-      ? posEntries.map(([sym, p]) => `<tr><td>${sym}</td><td>${p.raw_qty}</td><td>${fmtNum(p.avg_cost, 3)}</td><td>${fmtNum(p.last_price, 3)}</td><td>${fmtNum(p.market_value)}</td><td>${fmtPct(p.market_value / Math.max(st.nav, 1))}</td></tr>`).join("")
+      ? posEntries.map(([sym, p]) => `<tr><td>${sym}</td><td>${fmtQty(p.raw_qty)}</td><td>${fmtNum(p.avg_cost, 3)}</td><td>${fmtNum(p.last_price, 3)}</td><td>${fmtNum(p.market_value)}</td><td>${fmtPct(p.market_value / Math.max(st.nav, 1))}</td></tr>`).join("")
       : `<tr><td colspan="6" class="muted">当前空仓（100% 现金）</td></tr>`;
 
     document.getElementById("signal-json").textContent = JSON.stringify(detail.latest_signal || {}, null, 2);
 
     const trBody = document.querySelector("#trades-table tbody");
     trBody.innerHTML = (detail.trades || []).length
-      ? detail.trades.map((t) => `<tr><td>${t.date}</td><td>${t.symbol}</td><td class="${t.side === "BUY" ? "pos" : "neg"}">${t.side}</td><td>${t.quantity}</td><td>${fmtNum(t.raw_price, 3)}</td><td>${fmtNum(t.notional)}</td><td>${fmtNum(t.commission)}</td><td>${fmtNum(t.slippage)}</td><td>${t.reason}</td></tr>`).join("")
+      ? detail.trades.map((t) => `<tr><td>${t.date}</td><td>${t.symbol}</td><td class="${t.side === "BUY" ? "pos" : "neg"}">${t.side}</td><td>${fmtQty(t.quantity)}</td><td>${fmtNum(t.raw_price, 3)}</td><td>${fmtNum(t.notional)}</td><td>${fmtNum(t.commission)}</td><td>${fmtNum(t.slippage)}</td><td>${t.reason}</td></tr>`).join("")
       : `<tr><td colspan="9" class="muted">暂无成交记录</td></tr>`;
   } catch (err) {
     document.getElementById("portfolio-detail").classList.add("hidden");
@@ -124,6 +131,8 @@ async function loadPresets() {
       f.symbols.value = p.symbols.join(",");
       f.defensive_symbol.value = p.strategy.defensive_symbol || "";
       f.initial_cash.value = p.initial_cash;
+      f.lot_size.value = p.lot_size;
+      f.min_trade_notional.value = p.min_trade_notional || 0;
       f.minimum_commission.value = p.cost.minimum_commission;
       f.commission_bps.value = p.cost.commission_bps;
       f.slippage_bps.value = p.cost.slippage_bps;
@@ -131,6 +140,7 @@ async function loadPresets() {
       f.rebalance_frequency.value = p.strategy.rebalance_frequency;
       f.lookback_days.value = p.strategy.lookback_days;
       f.trend_ma_days.value = p.strategy.trend_ma_days;
+      f.target_volatility.value = p.strategy.target_volatility || 0.35;
     };
     bar.appendChild(btn);
   });
@@ -194,10 +204,56 @@ document.getElementById("bt-form").onsubmit = async (e) => {
     document.querySelector("#bt-yearly tbody").innerHTML = (res.summary.yearly_returns || [])
       .map((y) => `<tr><td>${y.year}</td><td class="${clsSign(y.strategy_return)}">${fmtPct(y.strategy_return)}</td><td>${fmtPct(y.benchmark_return)}</td><td>${fmtPct(y.max_drawdown)}</td><td>${y.trades}</td></tr>`).join("");
     document.querySelector("#bt-trades tbody").innerHTML = (res.trades || []).slice().reverse()
-      .map((t) => `<tr><td>${t.date}</td><td>${t.symbol}</td><td class="${t.side === "BUY" ? "pos" : "neg"}">${t.side}</td><td>${t.quantity}</td><td>${fmtNum(t.raw_price, 3)}</td><td>${fmtNum(t.commission)}</td></tr>`).join("");
+      .map((t) => `<tr><td>${t.date}</td><td>${t.symbol}</td><td class="${t.side === "BUY" ? "pos" : "neg"}">${t.side}</td><td>${fmtQty(t.quantity)}</td><td>${fmtNum(t.raw_price, 3)}</td><td>${fmtNum(t.commission)}</td></tr>`).join("");
     showToast("回测完成！");
   } catch (err) {
     showToast(`回测失败: ${err.message}`);
+  }
+};
+
+document.querySelector("#bt-form select[name='market']").onchange = (e) => {
+  const f = document.getElementById("bt-form");
+  const m = e.target.value;
+  if (m === "CRYPTO") {
+    f.strategy_kind.value = "crypto_trend_vol";
+    f.symbols.value = "BTC-USD,ETH-USD,SOL-USD,BNB-USD";
+    f.defensive_symbol.value = "";
+    f.initial_cash.value = 1000;
+    f.lot_size.value = 0.0001;
+    f.min_trade_notional.value = 10;
+    f.minimum_commission.value = 0;
+    f.commission_bps.value = 10;
+    f.slippage_bps.value = 10;
+    f.rebalance_frequency.value = "weekly";
+    f.lookback_days.value = 40;
+    f.trend_ma_days.value = 60;
+    f.target_volatility.value = 0.35;
+  } else if (m === "US_ETF") {
+    f.strategy_kind.value = "dual_momentum";
+    f.symbols.value = "SPYM,EFA,IEF,GLDM";
+    f.defensive_symbol.value = "IEF";
+    f.initial_cash.value = 1000;
+    f.lot_size.value = 1;
+    f.min_trade_notional.value = 0;
+    f.minimum_commission.value = 1;
+    f.commission_bps.value = 0;
+    f.slippage_bps.value = 10;
+    f.rebalance_frequency.value = "monthly";
+    f.lookback_days.value = 60;
+    f.trend_ma_days.value = 120;
+  } else {
+    f.strategy_kind.value = "dual_momentum";
+    f.symbols.value = "510300.SH,510500.SH,159915.SZ,510880.SH,518880.SH,513100.SH";
+    f.defensive_symbol.value = "";
+    f.initial_cash.value = 10000;
+    f.lot_size.value = 100;
+    f.min_trade_notional.value = 0;
+    f.minimum_commission.value = 5;
+    f.commission_bps.value = 1;
+    f.slippage_bps.value = 5;
+    f.rebalance_frequency.value = "monthly";
+    f.lookback_days.value = 60;
+    f.trend_ma_days.value = 120;
   }
 };
 

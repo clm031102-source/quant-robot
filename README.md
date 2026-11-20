@@ -1,8 +1,8 @@
 # Quant Robot v2
 
-轻量、清晰、真正可落地的本地多市场量化研究与模拟盘框架（支持 **A 股 ETF** 与 **美股 ETF**）。
+轻量、清晰、真正可落地的本地多市场量化研究与模拟盘框架（支持 **A 股 ETF**、**美股 ETF** 与 **主流加密货币现货 `CRYPTO`**）。
 
-> **安全边界**：本项目严格限定为 **研究到模拟盘（Research-to-Paper Only）**。不连接任何实盘券商、不读取真实账户、不下单、不自动实盘交易；所有本地行情与账本留在 `data/`（已加入 `.gitignore`），密钥仅通过环境变量 `TUSHARE_TOKEN` 读取。
+> **安全边界**：本项目严格限定为 **研究到模拟盘（Research-to-Paper Only）**。不连接任何实盘券商/交易所下单接口、不读取真实账户、不下实盘单、不自动实盘交易；所有本地行情与账本留在 `data/`（已加入 `.gitignore`），密钥仅通过环境变量 `TUSHARE_TOKEN` 读取。
 
 ---
 
@@ -10,14 +10,14 @@
 
 1. **增量容错行情缓存 (`data/market_cache/`)**：
    - A 股 ETF 通过 Tushare (`fund_daily` + `fund_adj` 后复权) 自动增量更新；
-   - 美股 ETF 通过 `yfinance` 自动增量更新，并自动检测分红/拆股复权偏移；
+   - 美股 ETF 与主流加密货币（`BTC-USD` / `ETH-USD` / `SOL-USD` / `BNB-USD`）通过 `yfinance` 自动增量更新，并自动检测复权偏移；
    - 内置指数退避重试与**自动补采**，偶发网络抖动或电脑关机几天后再次运行即可无缝追平。
 2. **真实交易口径回测引擎 (`backtest/simulator.py`)**：
    - 严格 **T+1 因果执行**（收盘生成信号、次日开盘/收盘成交，无未来函数）；
-   - 精确模拟**整手约束**（A 股 ETF 100 股整手、美股 ETF 1 股整手）、**单笔最低佣金**（如华宝证券万 1 最低 ¥5、美股最低 $1）、单边滑点、复权总收益与回撤熔断冷却恢复；
+   - 精确模拟**整手与小数份额约束**（A 股 ETF 100 股整手、美股 ETF 1 股整手、加密货币 `0.0001` 小数份额 + 最小下单额限制）、**单笔最低佣金 / 现货比例费率**、单边滑点、**365 天加密年化 / 252 天股市年化**与回撤熔断冷却恢复；
    - 自动附带同资金、同费率、同标的池的**等权买入持有基准**对照与分年度明细。
 3. **统一、幂等、可自动补采的模拟盘账本 (`paper/`)**：
-   - 单一配置 [configs/portfolios.json](configs/portfolios.json) 同时管理多套 A 股与美股模拟组合；
+   - 单一配置 [configs/portfolios.json](configs/portfolios.json) 同时管理 A 股 ETF、美股 ETF 与加密货币模拟组合；
    - 原子落盘 (`state.json`、`equity.csv`、`trades.csv`、`latest_signal.json`)，重复运行幂等安全，漏跑自动补齐。
 4. **滚动样本外 Walk-Forward 验证 (`validation/walk_forward.py`)**：
    - 滚动训练期优选参数、严格在样本外测试期打分，避免单一区间过拟合。
@@ -29,7 +29,7 @@
 ## 快速开始（Windows PowerShell）
 
 ```powershell
-# 1. 拉取/更新 A股ETF + 美股ETF 日线缓存
+# 1. 拉取/更新 A股ETF + 美股ETF + 加密货币 日线缓存
 .\.venv\Scripts\python.exe scripts\run_update_data.py
 
 # 2. 运行多策略真实数据回测并生成 Markdown / SVG 对比报告（输出到 data/reports/backtests/）
@@ -38,6 +38,7 @@
 # 3. 运行滚动样本外 Walk-Forward 验证
 .\.venv\Scripts\python.exe scripts\run_walk_forward.py --market CN_ETF
 .\.venv\Scripts\python.exe scripts\run_walk_forward.py --market US_ETF
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --market CRYPTO
 
 # 4. 推进全部启用组合的每日模拟盘（幂等 + 自动补采）
 .\.venv\Scripts\python.exe scripts\run_paper_daily.py
@@ -64,7 +65,7 @@ configs/                 # 仅 3 个清晰配置：portfolios.json / backtest_pr
 docs/                    # 简洁架构说明
 scripts/                 # 8 个清晰入口脚本 + 1 个桌面启动 .bat
 src/quant_robot/
-  ├── assets/            # 标的定义与 CN/US ETF 解析
+  ├── assets/            # 标的定义与 CN/US ETF、加密货币解析
   ├── audit/             # 安全边界与代码健康审计
   ├── backtest/          # 因果多资产回测引擎、成本与指标
   ├── config/            # Pydantic 配置与环境变量密钥读取
@@ -76,7 +77,7 @@ src/quant_robot/
   ├── reports/           # Markdown 报告与 SVG 曲线图
   ├── schema/            # 标准化行情/因子字段
   ├── storage/           # 原子落盘与按标的 Parquet 行情缓存
-  ├── strategies/        # 固定配置 / 被动漂移 / 双动量 / 风险平价趋势
+  ├── strategies/        # 固定配置 / 被动漂移 / 双动量 / 风险平价趋势 / 加密趋势控仓
   └── validation/        # 滚动样本外 Walk-Forward 验证
 tests/                   # 覆盖全链路的快速单元测试与集成测试
 ```

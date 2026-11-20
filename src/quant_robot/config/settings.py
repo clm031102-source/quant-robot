@@ -24,13 +24,14 @@ class RiskConfig(BaseModel):
 
 
 class StrategySpec(BaseModel):
-    kind: Literal["fixed_allocation", "passive_drift", "dual_momentum", "risk_parity_trend"]
+    kind: Literal["fixed_allocation", "passive_drift", "dual_momentum", "risk_parity_trend", "crypto_trend_vol"]
     target_weights: dict[str, float] = Field(default_factory=dict)
     rebalance_frequency: Literal["daily", "weekly", "monthly", "quarterly", "never"] = "monthly"
     rebalance_band: float = Field(default=0.05, ge=0.0, le=1.0)
     lookback_days: int = Field(default=60, ge=5)
     trend_ma_days: int = Field(default=120, ge=0)
     vol_lookback_days: int = Field(default=60, ge=5)
+    target_volatility: float = Field(default=0.35, gt=0.0, le=2.0)
     top_n: int = Field(default=2, ge=1)
     defensive_symbol: str | None = None
 
@@ -43,7 +44,8 @@ class PortfolioSpec(BaseModel):
     market: Literal["CN_ETF", "US_ETF", "CN", "HK", "CRYPTO"]
     currency: str = "CNY"
     symbols: list[str]
-    lot_size: int = Field(default=100, ge=1)
+    lot_size: float = Field(default=100.0, gt=0.0)
+    min_trade_notional: float = Field(default=0.0, ge=0.0)
     initial_cash: float = Field(default=10000.0, gt=0.0)
     start_date: str = "2026-11-01"
     execution_price: Literal["open", "close"] = "open"
@@ -63,7 +65,8 @@ class BacktestPreset(BaseModel):
     market: Literal["CN_ETF", "US_ETF", "CN", "HK", "CRYPTO"]
     currency: str = "CNY"
     symbols: list[str]
-    lot_size: int = Field(default=100, ge=1)
+    lot_size: float = Field(default=100.0, gt=0.0)
+    min_trade_notional: float = Field(default=0.0, ge=0.0)
     initial_cash: float = Field(default=10000.0, gt=0.0)
     start_date: str = "2021-01-01"
     end_date: str | None = None

@@ -62,6 +62,8 @@ def compute_target_weights(
     symbols: list[str],
     spec: StrategySpec,
     risk: RiskConfig,
+    *,
+    periods_per_year: float = 252.0,
 ) -> tuple[dict[str, float], dict[str, object]]:
     """Compute strictly causal target weights using ONLY rows in `adj_close_panel` (<= asof_date)."""
     available = [s for s in symbols if s in adj_close_panel.columns and adj_close_panel[s].dropna().shape[0] > 0]
@@ -77,7 +79,10 @@ def compute_target_weights(
         raw, extra = _dual_momentum_weights(adj_close_panel, available, spec)
         diagnostics.update(extra)
     elif kind == "risk_parity_trend":
-        raw, extra = _risk_parity_trend_weights(adj_close_panel, available, spec)
+        raw, extra = _risk_parity_trend_weights(adj_close_panel, available, spec, periods_per_year=periods_per_year)
+        diagnostics.update(extra)
+    elif kind == "crypto_trend_vol":
+        raw, extra = _crypto_trend_vol_weights(adj_close_panel, available, spec, periods_per_year=periods_per_year)
         diagnostics.update(extra)
     else:
         raise ValueError(f"Unsupported strategy kind: {kind}")
@@ -161,6 +166,8 @@ def _risk_parity_trend_weights(
     panel: pd.DataFrame,
     symbols: list[str],
     spec: StrategySpec,
+    *,
+    periods_per_year: float = 252.0,
 ) -> tuple[dict[str, float], dict[str, object]]:
     vol_win = max(5, int(spec.vol_lookback_days))
     ma_days = int(spec.trend_ma_days)
@@ -173,7 +180,7 @@ def _risk_parity_trend_weights(
         if len(series) <= vol_win:
             continue
         rets = series.pct_change().dropna().iloc[-vol_win:]
-        vol = float(rets.std(ddof=0)) * math.sqrt(252.0)
+        vol = float(rets.std(ddof=0)) * math.sqrt(periods_per_year)
         if not math.isfinite(vol) or vol <= 1e-6:
             continue
         vols_diag[sym] = round(vol, 5)
@@ -199,6 +206,78 @@ def _risk_parity_trend_weights(
         raw = filtered
 
     return raw, {"vols": vols_diag}
+
+
+def _crypto_trend_vol_weights(
+    panel: pd.DataFrame,
+    symbols: list[str],
+    spec: StrategySpec,
+    *,
+    periods_per_year: float = 365.0,
+) -> tuple[dict[str, float], dict[str, object]]:
+    """Trend-filtered, volatility-targeted momentum allocation built for 24/7 high-vol crypto.
+
+    1. Only coins trading above their trend moving average AND with positive blended momentum qualify.
+    2. Top `top_n` qualifying coins are inverse-volatility weighted.
+    3. Total exposure scales by `min(1.0, target_volatility / realized_vol)` so crashes/spikes
+       shrink position size automatically; bear markets stay 100% in cash (USD/USDT).
+    """
+    lookback = max(5, int(spec.lookback_days))
+    half = max(5, lookback // 2)
+    ma_days = max(10, int(spec.trend_ma_days)) if int(spec.trend_ma_days) > 0 else 0
+    vol_win = max(10, int(spec.vol_lookback_days))
+    target_vol = float(spec.target_volatility)
+
+    candidates: list[tuple[str, float, float]] = []  # (symbol, momentum_score, annualized_vol)
+    diag_scores: dict[str, float] = {}
+    diag_vols: dict[str, float] = {}
+    diag_trend: dict[str, bool] = {}
+
+    for sym in symbols:
+        series = panel[sym].dropna()
+        if len(series) <= max(lookback, vol_win):
+            continue
+        p_now = float(series.iloc[-1])
+        p_lb = float(series.iloc[-1 - lookback])
+        p_half = float(series.iloc[-1 - half])
+        if p_lb <= 0 or p_half <= 0:
+            continue
+        score = 0.5 * (p_now / p_lb - 1.0) + 0.5 * (p_now / p_half - 1.0)
+        rets = series.pct_change().dropna().iloc[-vol_win:]
+        vol = float(rets.std(ddof=0)) * math.sqrt(periods_per_year)
+        above_ma = True if ma_days == 0 or len(series) < ma_days else (p_now >= float(series.iloc[-ma_days:].mean()))
+        diag_scores[sym] = round(score, 4)
+        diag_vols[sym] = round(vol, 4)
+        diag_trend[sym] = above_ma
+        if score > 0.0 and above_ma and math.isfinite(vol) and vol > 1e-6:
+            candidates.append((sym, score, vol))
+
+    if not candidates:
+        return {}, {
+            "momentum_scores": diag_scores,
+            "vols": diag_vols,
+            "trend_ok": diag_trend,
+            "regime": "defensive_cash",
+        }
+
+    candidates.sort(key=lambda item: item[1], reverse=True)
+    selected = candidates[: min(spec.top_n, len(candidates))]
+    inv_sum = sum(1.0 / vol for _, _, vol in selected)
+    base_weights = {sym: (1.0 / vol) / inv_sum for sym, _, vol in selected}
+    # Approximate weighted average vol (conservative upper bound assuming high crypto correlation)
+    avg_vol = sum(base_weights[sym] * vol for sym, _, vol in selected)
+    gross_scale = min(1.0, target_vol / max(avg_vol, 1e-6))
+    # Also scale down partially if fewer than top_n coins are trending up (breadth scaling)
+    breadth_scale = len(selected) / float(min(spec.top_n, len(symbols)))
+    final_scale = min(gross_scale, breadth_scale)
+    weights = {sym: w * final_scale for sym, w in base_weights.items()}
+    return weights, {
+        "momentum_scores": diag_scores,
+        "vols": diag_vols,
+        "trend_ok": diag_trend,
+        "gross_exposure": round(sum(weights.values()), 4),
+        "regime": "trending",
+    }
 
 
 def _apply_risk_caps(weights: dict[str, float], risk: RiskConfig) -> dict[str, float]:

@@ -1,7 +1,7 @@
 """Fault-tolerant incremental daily market data updater with automatic retries and backfill."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 import time
 from typing import Any, Callable
 
@@ -32,7 +32,7 @@ def fetch_symbol_bars(
     def _call() -> pd.DataFrame:
         if market_upper in {"CN_ETF", "CN"}:
             return _fetch_cn_tushare(asset, start_date, end_date, adapter=tushare_adapter)
-        if market_upper in {"US_ETF", "US", "HK"}:
+        if market_upper in {"US_ETF", "US", "HK", "CRYPTO"}:
             return _fetch_yfinance(asset, start_date, end_date, adapter=yfinance_adapter)
         raise ValueError(f"Unsupported live update market: {market_upper}")
 
@@ -78,11 +78,16 @@ def update_universe_cache(
         try:
             incoming = fetcher(market, sym, start_date=fetch_start, end_date=end_str)
             if not incoming.empty:
-                # If corporate action/split shifted adj_close on overlap dates (common with yfinance),
-                # automatically refresh full history so the entire adj_close series stays consistent.
-                if last is not None and _adj_close_shifted(cache.load_symbol(market, sym), incoming):
-                    incoming = fetcher(market, sym, start_date=default_start, end_date=end_str)
-                    cache.symbol_path(market, sym).unlink(missing_ok=True)
+                # If corporate action/split shifted adj_close on settled overlap dates (common with yfinance equities/ETFs),
+                # automatically refresh full history from the earliest cached date so adj_close stays consistent
+                # without ever truncating earlier history.
+                if last is not None and market.strip().upper() != "CRYPTO":
+                    existing_df = cache.load_symbol(market, sym)
+                    if _adj_close_shifted(existing_df, incoming, exclude_on_or_after=today):
+                        earliest_existing = str(existing_df["date"].min()) if not existing_df.empty else default_start
+                        refresh_start = min(earliest_existing, default_start)
+                        incoming = fetcher(market, sym, start_date=refresh_start, end_date=end_str)
+                        cache.symbol_path(market, sym).unlink(missing_ok=True)
                 merged = cache.upsert_symbol(market, sym, incoming)
                 rows_added = len(incoming)
             else:
@@ -183,11 +188,21 @@ def _fetch_yfinance(
     bars = bars.copy()
     end_d = pd.to_datetime(end_date).date()
     bars = bars[bars["date"] <= end_d].copy()
+    if asset.market.upper() == "CRYPTO":
+        # Drop the still-open live UTC day candle so every cached crypto daily bar is finalized and immutable.
+        utc_today = datetime.now(timezone.utc).date()
+        bars = bars[bars["date"] < utc_today].copy()
     bars["source"] = "yfinance"
     return bars
 
 
-def _adj_close_shifted(existing: pd.DataFrame, incoming: pd.DataFrame, tol: float = 1e-3) -> bool:
+def _adj_close_shifted(
+    existing: pd.DataFrame,
+    incoming: pd.DataFrame,
+    tol: float = 1e-3,
+    *,
+    exclude_on_or_after: date | None = None,
+) -> bool:
     if existing.empty or incoming.empty:
         return False
     left = existing[["date", "adj_close"]].copy()
@@ -195,6 +210,8 @@ def _adj_close_shifted(existing: pd.DataFrame, incoming: pd.DataFrame, tol: floa
     left["date"] = pd.to_datetime(left["date"]).dt.date
     right["date"] = pd.to_datetime(right["date"]).dt.date
     merged = left.merge(right, on="date", suffixes=("_old", "_new"))
+    if exclude_on_or_after is not None:
+        merged = merged[merged["date"] < exclude_on_or_after]
     if merged.empty:
         return False
     old_vals = pd.to_numeric(merged["adj_close_old"], errors="coerce")

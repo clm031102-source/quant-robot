@@ -30,6 +30,16 @@ US_ETF_NAMES: dict[str, str] = {
     "GLD": "SPDR Gold Shares",
 }
 
+CRYPTO_NAMES: dict[str, str] = {
+    "BTC-USD": "Bitcoin (BTC/USD)",
+    "ETH-USD": "Ethereum (ETH/USD)",
+    "SOL-USD": "Solana (SOL/USD)",
+    "BNB-USD": "BNB (BNB/USD)",
+    "XRP-USD": "XRP (XRP/USD)",
+    "BTC/USDT": "Bitcoin (BTC/USDT)",
+    "ETH/USDT": "Ethereum (ETH/USDT)",
+}
+
 
 def us_etf_asset(symbol: str, name: str = "") -> Asset:
     code = symbol.strip().upper()
@@ -87,17 +97,17 @@ def resolve_asset(symbol: str, market: str) -> Asset:
             tick_size=0.01,
         )
     if market_upper == "CRYPTO":
-        safe = code.replace("/", "_")
+        safe = code.replace("/", "_").replace("-", "_")
         return Asset(
             asset_id=f"CRYPTO_SPOT_{safe}",
             symbol=code,
             market="CRYPTO",
             exchange="SPOT",
             asset_type="crypto_spot",
-            currency="USDT",
+            currency="USD",
             timezone="UTC",
             calendar="24/7",
-            name=code,
+            name=CRYPTO_NAMES.get(code, code),
             lot_size=0.0001,
             tick_size=0.01,
         )
