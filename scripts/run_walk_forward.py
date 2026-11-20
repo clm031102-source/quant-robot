@@ -1,219 +1,75 @@
+"""Run rolling out-of-sample walk-forward validation on cached market data."""
 from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import replace
+import sys
 from pathlib import Path
 
-import pandas as pd
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
-try:
-    from scripts.bootstrap import ensure_workspace_imports
-except ModuleNotFoundError:  # pragma: no cover - direct script execution
-    from bootstrap import ensure_workspace_imports
-
-ensure_workspace_imports()
-
-from quant_robot.data.fixtures import load_demo_market_bars
-from quant_robot.experiments.runner import ExperimentGridConfig
-from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
-from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
-from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
-from quant_robot.ops.factor_validation_readiness import validate_factor_validation_readiness_packet
-from quant_robot.research.cn_etf_entrypoint_access import require_registered_cn_etf_markets
-from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
-from quant_robot.storage.processed_bars import load_processed_bars
-from quant_robot.validation.walk_forward import load_walk_forward_config, run_walk_forward_validation
+from quant_robot.config.settings import CostConfig, RiskConfig, StrategySpec, resolve_data_root
+from quant_robot.storage.atomic import atomic_write_json
+from quant_robot.storage.market_cache import MarketCache
+from quant_robot.validation.walk_forward import run_walk_forward
 
 
-def run_walk_forward(
-    config_path: str | Path = "configs/walk_forward.json",
-    source: str = "fixture",
-    data_root: str | Path = "data/processed",
-    output_dir: str | Path | None = None,
-    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
-    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
-    factor_batch_readiness_gate_packet: str | Path | None = Path(
-        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
-    ),
-    factor_validation_readiness_packet: str | Path | None = None,
-    allow_review_required_data_manifest: bool = False,
-) -> dict[str, object]:
-    config = load_walk_forward_config(config_path)
-    require_registered_cn_etf_markets(source, config.experiment_grid.markets)
-    if output_dir is not None:
-        config = replace(config, output_dir=Path(output_dir))
-    experiment_grid = _attach_processed_cn_etf_rotation_membership(config.experiment_grid, source, Path(data_root))
-    if experiment_grid is not config.experiment_grid:
-        config = replace(config, experiment_grid=experiment_grid)
-    _enforce_cn_stock_walk_forward_inputs(
-        source=source,
-        markets=config.experiment_grid.markets,
-        startup_gate_packet=startup_gate_packet,
-        data_manifest_packet=data_manifest_packet,
-        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
-        factor_validation_readiness_packet=factor_validation_readiness_packet,
-        data_root=Path(data_root),
-        config_path=Path(config_path),
-        moneyflow_source_root=config.experiment_grid.moneyflow_input_root,
-        factor_names=list(config.experiment_grid.factor_names),
-        allow_review_required_data_manifest=allow_review_required_data_manifest,
-    )
-    bars = _load_bars(source, Path(data_root), config.experiment_grid.markets)
-    return run_walk_forward_validation(bars, config)
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run rolling out-of-sample walk-forward validation.")
+    parser.add_argument("--market", default="CN_ETF", choices=("CN_ETF", "US_ETF"))
+    parser.add_argument("--train-sessions", type=int, default=252)
+    parser.add_argument("--test-sessions", type=int, default=126)
+    parser.add_argument("--step-sessions", type=int, default=126)
+    parser.add_argument("--data-root", help="Override data directory")
+    args = parser.parse_args(argv)
 
+    data_root = Path(args.data_root) if args.data_root else resolve_data_root(ROOT)
+    cache = MarketCache(data_root / "market_cache")
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Run local walk-forward validation for experiment candidates.")
-    parser.add_argument("--config", default="configs/walk_forward.json")
-    parser.add_argument("--source", choices=["fixture", "processed-bars", "authority-bars"], default="fixture")
-    parser.add_argument("--data-root", default="data/processed")
-    parser.add_argument("--output-dir")
-    parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
-    parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
-    parser.add_argument(
-        "--factor-batch-readiness-gate-packet",
-        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
-    )
-    parser.add_argument("--factor-validation-readiness-packet")
-    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
-    parser.add_argument(
-        "--allow-no-accepted",
-        action="store_true",
-        help="Exit successfully when validation completes but every candidate is rejected.",
-    )
-    args = parser.parse_args()
+    if args.market == "CN_ETF":
+        symbols = ["510300.SH", "510500.SH", "159915.SZ", "510880.SH", "518880.SH", "513100.SH"]
+        currency, lot_size, init_cash = "CNY", 100, 10000.0
+        cost = CostConfig(commission_bps=1.0, minimum_commission=5.0, slippage_bps=5.0)
+        defensive = None
+    else:
+        symbols = ["SPYM", "EFA", "IEF", "GLDM"]
+        currency, lot_size, init_cash = "USD", 1, 1000.0
+        cost = CostConfig(commission_bps=0.0, minimum_commission=1.0, slippage_bps=10.0)
+        defensive = "IEF"
+
+    bars = cache.load_universe(args.market, symbols)
+    if bars.empty:
+        raise SystemExit(f"No cached bars for {args.market}. Run scripts/run_update_data.py first.")
+
+    candidates = {
+        "dual_mom_40_ma100": StrategySpec(kind="dual_momentum", rebalance_frequency="monthly", lookback_days=40, trend_ma_days=100, top_n=2, defensive_symbol=defensive),
+        "dual_mom_60_ma120": StrategySpec(kind="dual_momentum", rebalance_frequency="monthly", lookback_days=60, trend_ma_days=120, top_n=2, defensive_symbol=defensive),
+        "risk_parity_trend": StrategySpec(kind="risk_parity_trend", rebalance_frequency="monthly", rebalance_band=0.06, vol_lookback_days=60, trend_ma_days=120, defensive_symbol=defensive),
+        "fixed_equal_band8": StrategySpec(kind="fixed_allocation", rebalance_frequency="quarterly", rebalance_band=0.08),
+        "passive_drift": StrategySpec(kind="passive_drift", rebalance_frequency="never", rebalance_band=0.0),
+    }
+    risk = RiskConfig(max_drawdown_halt=0.35, cooldown_sessions=5)
     result = run_walk_forward(
-        config_path=Path(args.config),
-        source=args.source,
-        data_root=Path(args.data_root),
-        output_dir=Path(args.output_dir) if args.output_dir else None,
-        startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
-        data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
-        factor_batch_readiness_gate_packet=(
-            None
-            if args.factor_validation_readiness_packet
-            else Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
-        ),
-        factor_validation_readiness_packet=(
-            Path(args.factor_validation_readiness_packet) if args.factor_validation_readiness_packet else None
-        ),
-        allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+        bars,
+        market=args.market,
+        currency=currency,
+        symbols=symbols,
+        candidates=candidates,
+        cost=cost,
+        risk=risk,
+        initial_cash=init_cash,
+        lot_size=lot_size,
+        train_sessions=args.train_sessions,
+        test_sessions=args.test_sessions,
+        step_sessions=args.step_sessions,
     )
-    print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
-    try:
-        assert_walk_forward_succeeded(result, allow_no_accepted=args.allow_no_accepted)
-    except RuntimeError as exc:
-        raise SystemExit(str(exc)) from exc
-
-
-def assert_walk_forward_succeeded(result: dict[str, object], *, allow_no_accepted: bool = False) -> None:
-    summary = result.get("summary", {})
-    if not isinstance(summary, dict):
-        raise RuntimeError("walk-forward validation failed: missing summary")
-    leaderboard = result.get("leaderboard", [])
-    if not isinstance(leaderboard, list):
-        leaderboard = []
-    failed_rows = [
-        row
-        for row in leaderboard
-        if isinstance(row, dict) and _has_failed_grid_status(row)
-    ]
-    if failed_rows:
-        cases = ", ".join(str(row.get("case_id")) for row in failed_rows[:5])
-        raise RuntimeError(f"walk-forward grid failures: {cases}")
-    if int(summary.get("accepted", 0)) == 0 and not allow_no_accepted:
-        raise RuntimeError("walk-forward validation failed: no accepted walk-forward cases")
-
-
-def _has_failed_grid_status(row: dict[str, object]) -> bool:
-    statuses = {row.get("train_status"), row.get("test_status")}
-    return "failed" in statuses or "missing" in statuses
-
-
-def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.DataFrame:
-    require_registered_cn_etf_markets(source, markets)
-    if source == "fixture":
-        return load_demo_market_bars()
-    if source == "authority-bars":
-        if not data_root.is_file():
-            raise ValueError(f"authority-bars source requires an authority config file: {data_root}")
-        return load_authority_processed_bars_from_config(data_root, markets)
-    if source != "processed-bars":
-        raise ValueError(f"Unsupported walk-forward source: {source}")
-    frames = [load_processed_bars(data_root, market) for market in markets if market.upper() != "ALL"]
-    if not frames:
-        raise ValueError("processed-bars source requires at least one specific market")
-    return pd.concat(frames, ignore_index=True)
-
-
-def _enforce_cn_stock_walk_forward_inputs(
-    *,
-    source: str,
-    markets: tuple[str, ...],
-    startup_gate_packet: str | Path | None,
-    data_manifest_packet: str | Path | None,
-    factor_batch_readiness_gate_packet: str | Path | None,
-    factor_validation_readiness_packet: str | Path | None,
-    data_root: Path,
-    config_path: Path,
-    moneyflow_source_root: Path | None,
-    factor_names: list[str],
-    allow_review_required_data_manifest: bool,
-) -> None:
-    if source not in {"processed-bars", "authority-bars"} or not any(market.upper() == "CN" for market in markets):
-        return
-    validate_cleared_startup_gate_packet(
-        startup_gate_packet,
-        context="CN walk-forward validation",
-    )
-    validate_cn_stock_data_manifest_packet(
-        data_manifest_packet,
-        expected_source_root=data_root,
-        expected_moneyflow_source_root=moneyflow_source_root if source == "authority-bars" else None,
-        allow_review_required=allow_review_required_data_manifest,
-        verify_source_fingerprint=source == "authority-bars",
-        context="CN walk-forward validation",
-    )
-    gate_count = sum(
-        packet is not None
-        for packet in (factor_batch_readiness_gate_packet, factor_validation_readiness_packet)
-    )
-    if gate_count != 1:
-        raise ValueError("CN walk-forward validation requires exactly one readiness gate type")
-    if factor_validation_readiness_packet is not None:
-        validate_factor_validation_readiness_packet(
-            factor_validation_readiness_packet,
-            expected_config_path=config_path,
-            expected_source=source,
-            expected_data_root=data_root,
-            expected_factor_names=factor_names,
-            context="CN walk-forward validation",
-        )
-        return
-    validate_factor_batch_readiness_gate_packet(
-        factor_batch_readiness_gate_packet,
-        required_permission="portfolio_grid_allowed",
-        context="CN walk-forward validation",
-    )
-
-
-def _attach_processed_cn_etf_rotation_membership(
-    config: ExperimentGridConfig,
-    source: str,
-    data_root: Path,
-) -> ExperimentGridConfig:
-    if source != "processed-bars":
-        return config
-    markets = {market.upper() for market in config.markets}
-    if "CN_ETF" not in markets:
-        return config
-    return replace(
-        config,
-        rotation_membership_root=config.rotation_membership_root or data_root,
-        rotation_membership_required=True,
-    )
+    out_file = data_root / "reports" / "walk_forward" / f"{args.market.lower()}_walk_forward.json"
+    atomic_write_json(out_file, result.to_dict())
+    print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

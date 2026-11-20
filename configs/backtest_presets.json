@@ -1,0 +1,126 @@
+{
+  "presets": [
+    {
+      "preset_id": "cn_etf_dual_momentum",
+      "name": "A股核心ETF双动量 (2021-至今·华宝5元)",
+      "market": "CN_ETF",
+      "currency": "CNY",
+      "symbols": ["510300.SH", "510500.SH", "159915.SZ", "510880.SH", "518880.SH", "513100.SH"],
+      "lot_size": 100,
+      "initial_cash": 10000.0,
+      "start_date": "2021-01-04",
+      "execution_price": "open",
+      "cost": { "commission_bps": 1.0, "minimum_commission": 5.0, "slippage_bps": 5.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.30, "cooldown_sessions": 5, "max_single_weight": 0.60, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "dual_momentum",
+        "rebalance_frequency": "monthly",
+        "rebalance_band": 0.08,
+        "lookback_days": 60,
+        "trend_ma_days": 120,
+        "top_n": 2,
+        "defensive_symbol": null
+      }
+    },
+    {
+      "preset_id": "cn_etf_risk_parity",
+      "name": "A股四资产风险平价趋势 (2021-至今·华宝5元)",
+      "market": "CN_ETF",
+      "currency": "CNY",
+      "symbols": ["510300.SH", "510880.SH", "518880.SH", "513100.SH"],
+      "lot_size": 100,
+      "initial_cash": 10000.0,
+      "start_date": "2021-01-04",
+      "execution_price": "open",
+      "cost": { "commission_bps": 1.0, "minimum_commission": 5.0, "slippage_bps": 5.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.30, "cooldown_sessions": 5, "max_single_weight": 0.50, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "risk_parity_trend",
+        "rebalance_frequency": "monthly",
+        "rebalance_band": 0.08,
+        "vol_lookback_days": 60,
+        "trend_ma_days": 120,
+        "defensive_symbol": null
+      }
+    },
+    {
+      "preset_id": "cn_etf_all_weather_quarterly",
+      "name": "A股四资产季度等权再平衡 (2021-至今·华宝5元)",
+      "market": "CN_ETF",
+      "currency": "CNY",
+      "symbols": ["510300.SH", "510880.SH", "518880.SH", "513100.SH"],
+      "lot_size": 100,
+      "initial_cash": 10000.0,
+      "start_date": "2021-01-04",
+      "execution_price": "open",
+      "cost": { "commission_bps": 1.0, "minimum_commission": 5.0, "slippage_bps": 5.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.35, "cooldown_sessions": 5, "max_single_weight": 0.50, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "fixed_allocation",
+        "target_weights": { "510300.SH": 0.25, "510880.SH": 0.25, "518880.SH": 0.25, "513100.SH": 0.25 },
+        "rebalance_frequency": "quarterly",
+        "rebalance_band": 0.08
+      }
+    },
+    {
+      "preset_id": "us_etf_monthly_base",
+      "name": "美股四资产月度再平衡 ($1,000·$1佣金)",
+      "market": "US_ETF",
+      "currency": "USD",
+      "symbols": ["SPYM", "EFA", "IEF", "GLDM"],
+      "lot_size": 1,
+      "initial_cash": 1000.0,
+      "start_date": "2021-01-04",
+      "execution_price": "open",
+      "cost": { "commission_bps": 0.0, "minimum_commission": 1.0, "slippage_bps": 10.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.35, "cooldown_sessions": 5, "max_single_weight": 0.40, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "fixed_allocation",
+        "target_weights": { "SPYM": 0.25, "EFA": 0.25, "IEF": 0.25, "GLDM": 0.25 },
+        "rebalance_frequency": "monthly",
+        "rebalance_band": 0.04
+      }
+    },
+    {
+      "preset_id": "us_etf_passive_drift",
+      "name": "美股四资产被动漂移 ($1,000·$1佣金)",
+      "market": "US_ETF",
+      "currency": "USD",
+      "symbols": ["SPYM", "EFA", "IEF", "GLDM"],
+      "lot_size": 1,
+      "initial_cash": 1000.0,
+      "start_date": "2021-01-04",
+      "execution_price": "open",
+      "cost": { "commission_bps": 0.0, "minimum_commission": 1.0, "slippage_bps": 10.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.35, "cooldown_sessions": 5, "max_single_weight": 0.50, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "passive_drift",
+        "target_weights": { "SPYM": 0.25, "EFA": 0.25, "IEF": 0.25, "GLDM": 0.25 },
+        "rebalance_frequency": "never",
+        "rebalance_band": 0.0
+      }
+    },
+    {
+      "preset_id": "us_etf_dual_momentum",
+      "name": "美股四资产双动量轮动 ($1,000·IEF防御)",
+      "market": "US_ETF",
+      "currency": "USD",
+      "symbols": ["SPYM", "EFA", "IEF", "GLDM"],
+      "lot_size": 1,
+      "initial_cash": 1000.0,
+      "start_date": "2021-01-04",
+      "execution_price": "open",
+      "cost": { "commission_bps": 0.0, "minimum_commission": 1.0, "slippage_bps": 10.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.30, "cooldown_sessions": 5, "max_single_weight": 0.60, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "dual_momentum",
+        "rebalance_frequency": "monthly",
+        "rebalance_band": 0.08,
+        "lookback_days": 60,
+        "trend_ma_days": 120,
+        "top_n": 2,
+        "defensive_symbol": "IEF"
+      }
+    }
+  ]
+}

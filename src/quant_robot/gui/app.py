@@ -1,726 +1,283 @@
+"""Zero-dependency local web server for Quant Robot v2 dashboard."""
 from __future__ import annotations
 
+import csv
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from typing import Any
+from urllib.parse import urlparse
 
-from quant_robot.ops.cn_etf_small_capital_inputs import CURRENT_RESEARCH_CAPITAL_CNY
-from quant_robot.gui.control_center import build_control_center_snapshot, run_verification_gate
-from quant_robot.gui.research_access import GuiResearchAccessDenied, normalize_gui_source
-from quant_robot.gui.paper_inputs import prepare_gui_paper_inputs
-from quant_robot.gui.paper_result_archive import load_paper_result, retain_paper_result
-from quant_robot.gui.operation_ledger import append_operation_ledger_entry, build_operation_ledger_snapshot
-from quant_robot.gui.research_service import (
-    build_constrained_search_snapshot,
-    build_daily_ops_snapshot,
-    build_evidence_refresh_snapshot,
-    build_expanded_observation_replay_snapshot,
-    build_factor_leaderboard_snapshot,
-    build_daily_trade_advisory_snapshot,
-    build_promotion_ops_snapshot,
-    build_promotion_review_snapshot,
-    build_gui_snapshot,
-    build_iterative_observation_expansion_snapshot,
-    build_observation_sufficiency_snapshot,
-    build_paper_profile_snapshot,
-    build_post_refresh_replay_snapshot,
-    build_profile_observation_snapshot,
-    build_project_status_snapshot,
-    build_recent_data_refresh_snapshot,
-    build_risk_candidate_snapshot,
-    build_tushare_activation_gate_snapshot,
-    run_demo_paper_simulation,
-    run_demo_research,
-    run_demo_signal_snapshot,
-    run_gui_paper_simulation,
-    run_gui_research,
-    run_gui_signal_snapshot,
+from quant_robot.audit.project_audit import collect_project_audit
+from quant_robot.backtest.simulator import run_portfolio_backtest
+from quant_robot.config.settings import (
+    CostConfig,
+    RiskConfig,
+    StrategySpec,
+    find_repo_root,
+    load_backtest_presets,
+    load_portfolios_config,
+    resolve_data_root,
 )
-
-BROWSER_RECEIPT_WORKFLOW_IDS = {
-    "daily_trade_advisory",
-    "daily_pretrade_checkup",
-    "paper_simulation",
-    "post_close_journal",
-    "signal_snapshot",
-}
-SENSITIVE_RECEIPT_KEYWORDS = ("account", "broker", "client", "order_id", "manual_note", "risk_note", "next_day_note")
+from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
+from quant_robot.paper.runner import run_daily_paper_update
+from quant_robot.reports.markdown import render_equity_svg
+from quant_robot.storage.market_cache import MarketCache
 
 
-def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHandler]:
-    root = static_dir or Path(__file__).with_name("static")
+def create_handler(
+    *,
+    repo_root: Path,
+    data_root: Path,
+    static_dir: Path | None = None,
+) -> type[BaseHTTPRequestHandler]:
+    assets_dir = static_dir or Path(__file__).with_name("static")
+    paper_root = data_root / "paper"
+    cache = MarketCache(data_root / "market_cache")
 
-    class GuiRequestHandler(BaseHTTPRequestHandler):
+    class DashboardHandler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
         def do_GET(self) -> None:
-            try:
-                self._do_GET()
-            except GuiResearchAccessDenied as exc:
-                self._send_json(exc.payload(), status=403)
-            except (ValueError, OSError) as exc:
-                if urlparse(self.path).path not in {'/api/paper', '/api/paper/demo', '/api/paper/inputs', '/api/paper/archive'}:
-                    raise
-                self._send_json({'status':'paper_input_error', 'error':str(exc),
-                                 'executable':False}, status=400)
-
-        def _do_GET(self) -> None:
             parsed = urlparse(self.path)
-            if parsed.path == '/reports/public-opportunities':
-                report = Path.cwd() / 'data/reports/polymarket_complete_set/latest/report.html'
-                if report.is_file():
-                    self._send_text(report.read_text(encoding='utf-8'), status=200,
-                                    content_type='text/html; charset=utf-8')
+            path = parsed.path
+            try:
+                if path == "/api/overview":
+                    self._send_json(_load_overview(repo_root, data_root, cache))
+                elif path.startswith("/api/portfolio/"):
+                    pid = path.removeprefix("/api/portfolio/").strip("/")
+                    detail = _load_portfolio_detail(paper_root, pid)
+                    if detail is None:
+                        self._send_json({"error": f"Portfolio not found: {pid}"}, HTTPStatus.NOT_FOUND)
+                    else:
+                        self._send_json(detail)
+                elif path == "/api/presets":
+                    presets_path = repo_root / "configs" / "backtest_presets.json"
+                    presets = load_backtest_presets(presets_path).model_dump() if presets_path.is_file() else {"presets": []}
+                    self._send_json(presets)
+                elif path == "/api/system":
+                    self._send_json(_system_status(repo_root, cache))
                 else:
-                    self._send_text('公开盘口扫描尚无本地结果。', status=404,
-                                    content_type='text/plain; charset=utf-8')
-                return
-            if parsed.path.startswith('/reports/monthly-breadth/'):
-                name = parsed.path.removeprefix('/reports/monthly-breadth/')
-                allowed = {'index.html', 'daily_nav.csv', 'trades.csv', 'source.json'}
-                report = Path.cwd() / 'data/reports/campaign_72h_20261106/monthly_breadth_report' / name
-                if name not in allowed or not report.is_file():
-                    self._send_text('策略结果尚未生成。', status=404,
-                                    content_type='text/plain; charset=utf-8')
-                    return
-                kind = 'text/html' if name.endswith('.html') else 'text/csv' if name.endswith('.csv') else 'application/json'
-                self._send_text(report.read_text(encoding='utf-8'), status=200,
-                                content_type=kind + '; charset=utf-8')
-                return
-            if parsed.path.startswith('/reports/us-allocation-2025/'):
-                name = parsed.path.removeprefix('/reports/us-allocation-2025/')
-                allowed = {'index.html', 'daily_nav.csv', 'trades.csv', 'source.json'}
-                report = Path.cwd() / 'data/reports/campaign_72h_20261106/us_fixed_allocation_2025_report' / name
-                if name not in allowed or not report.is_file():
-                    self._send_text('2025美元配置结果尚未生成。', status=404,
-                                    content_type='text/plain; charset=utf-8')
-                    return
-                kind = 'text/html' if name.endswith('.html') else 'text/csv' if name.endswith('.csv') else 'application/json'
-                self._send_text(report.read_text(encoding='utf-8'), status=200,
-                                content_type=kind + '; charset=utf-8')
-                return
-            if parsed.path.startswith('/reports/us-unit-feasibility/'):
-                name = parsed.path.removeprefix('/reports/us-unit-feasibility/')
-                allowed = {'index.html', 'quantities.csv', 'source.json'}
-                report = Path.cwd() / 'data/reports/campaign_72h_20261106/us_unit_feasibility_report' / name
-                if name not in allowed or not report.is_file():
-                    self._send_text('美元整股份额核算尚未生成。', status=404,
-                                    content_type='text/plain; charset=utf-8')
-                    return
-                kind = 'text/html' if name.endswith('.html') else 'text/csv' if name.endswith('.csv') else 'application/json'
-                self._send_text(report.read_text(encoding='utf-8'), status=200,
-                                content_type=kind + '; charset=utf-8')
-                return
-            if parsed.path.startswith('/reports/us-low-unit-allocation/'):
-                name = parsed.path.removeprefix('/reports/us-low-unit-allocation/')
-                report = Path.cwd() / 'data/reports/campaign_72h_20261106/us_low_unit_allocation_report' / name
-                if name not in {'index.html', 'summary.csv', 'source.json'} or not report.is_file():
-                    self._send_text('五年整股配置比较尚未生成。', status=404,
-                                    content_type='text/plain; charset=utf-8')
-                    return
-                kind = 'text/html' if name.endswith('.html') else 'text/csv' if name.endswith('.csv') else 'application/json'
-                self._send_text(report.read_text(encoding='utf-8'), status=200,
-                                content_type=kind + '; charset=utf-8')
-                return
-            if parsed.path.startswith('/reports/us-passive-drift/'):
-                name = parsed.path.removeprefix('/reports/us-passive-drift/')
-                report = Path.cwd() / 'data/reports/campaign_72h_20261106/us_passive_drift_report' / name
-                if name not in {'index.html', 'summary.csv', 'source.json'} or not report.is_file():
-                    self._send_text('低换手配置比较尚未生成。', status=404,
-                                    content_type='text/plain; charset=utf-8')
-                    return
-                kind = 'text/html' if name.endswith('.html') else 'text/csv' if name.endswith('.csv') else 'application/json'
-                self._send_text(report.read_text(encoding='utf-8'), status=200,
-                                content_type=kind + '; charset=utf-8')
-                return
-            if parsed.path.startswith('/reports/sector-screen/'):
-                name = parsed.path.removeprefix('/reports/sector-screen/')
-                report = Path.cwd() / 'data/reports/campaign_72h_20261106/us_sector_momentum_report' / name
-                if name not in {'index.html', 'daily_index.csv', 'annual.csv', 'source.json'} or not report.is_file():
-                    self._send_text('行业因子筛选结果尚未生成。', status=404,
-                                    content_type='text/plain; charset=utf-8')
-                    return
-                kind = 'text/html' if name.endswith('.html') else 'text/csv' if name.endswith('.csv') else 'application/json'
-                self._send_text(report.read_text(encoding='utf-8'), status=200,
-                                content_type=kind + '; charset=utf-8')
-                return
-            if parsed.path.startswith('/reports/us-rotation/'):
-                name = parsed.path.removeprefix('/reports/us-rotation/')
-                allowed = {'index.html', 'daily_nav.csv', 'trades.csv', 'source.json'}
-                report = Path.cwd() / 'data/reports/campaign_72h_20261106/us_monthly_rotation_report' / name
-                if name not in allowed or not report.is_file():
-                    self._send_text('美元策略结果尚未生成。', status=404,
-                                    content_type='text/plain; charset=utf-8')
-                    return
-                kind = 'text/html' if name.endswith('.html') else 'text/csv' if name.endswith('.csv') else 'application/json'
-                self._send_text(report.read_text(encoding='utf-8'), status=200,
-                                content_type=kind + '; charset=utf-8')
-                return
-            if parsed.path == "/api/control/status":
-                self._send_json(build_control_center_snapshot())
-                return
-            if parsed.path == "/api/control/operation-ledger":
-                self._send_json(build_operation_ledger_snapshot(Path.cwd()))
-                return
-            if parsed.path == '/api/paper/archive':
-                query = parse_qs(parsed.query)
-                self._send_json(load_paper_result(Path.cwd(), _first(query, 'archive_id', '')))
-                return
-            if parsed.path == "/api/control/verification":
-                query = parse_qs(parsed.query)
-                gate_id = _first(query, "gate_id", "")
-                result = run_verification_gate(gate_id=gate_id)
-                _record_operation(
-                    workflow_id="verification_runner",
-                    label=f"Run verification gate {gate_id}",
-                    status=result.get("status", "unknown"),
-                    command=f"GET {parsed.path}?{parsed.query}",
-                    request={"gate_id": gate_id},
-                    result=result,
-                )
-                self._send_json(result)
-                return
-            if parsed.path == "/api/snapshot":
-                self._send_json(build_gui_snapshot())
-                return
-            if parsed.path == "/api/factors/leaderboard":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_factor_leaderboard_snapshot(
-                        reports_root=_optional(query, "reports_root"),
-                        configs_root=_optional(query, "configs_root"),
-                        limit=int(_first(query, "limit", "20")),
-                    )
-                )
-                return
-            if parsed.path == "/api/project/status":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_project_status_snapshot(
-                        readiness_board=_optional(query, "readiness_board"),
-                        data_gap_evidence=_optional(query, "data_gap_evidence"),
-                        provider_remediation=_optional(query, "provider_remediation"),
-                        residual_focus=_optional(query, "residual_focus"),
-                    )
-                )
-                return
-            if parsed.path == "/api/daily/ops":
-                query = parse_qs(parsed.query)
-                self._send_json(build_daily_ops_snapshot(daily_ops_pack=_optional(query, "daily_ops_pack")))
-                return
-            if parsed.path == "/api/trade/daily-advisory":
-                query = parse_qs(parsed.query)
-                source = normalize_gui_source(_first(query, "source", "processed-bars"))
-                result = build_daily_trade_advisory_snapshot(
-                    reports_root=None if source == "demo_fixture" else _optional(query, "reports_root"),
-                    configs_root=None if source == "demo_fixture" else _optional(query, "configs_root"),
-                    source=source,
-                    data_root=_optional(query, "data_root"),
-                    market=_first(query, "market", "CN_ETF"),
-                    limit=int(_first(query, "limit", "3")),
-                    as_of_date=_optional(query, "as_of_date"),
-                    portfolio_value=float(_first(query, "portfolio_value", str(CURRENT_RESEARCH_CAPITAL_CNY))),
-                    default_top_n=int(_first(query, "top_n", "2")),
-                    max_asset_weight=float(_first(query, "max_asset_weight", "0.4")),
-                    max_market_weight=float(_first(query, "max_market_weight", "1")),
-                    max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
-                    min_cash_weight=float(_first(query, "min_cash_weight", "0.1")),
-                    risk_profile_id=_optional(query, "risk_profile_id"),
-                    current_positions=_optional(query, "current_positions"),
-                    manual_available_cash=_optional_float(query, "manual_available_cash"),
-                    evidence_snapshot=_optional(query, "evidence_snapshot"),
-                )
-                operation_request = dict(result.get("summary", {}) if isinstance(result.get("summary"), dict) else {})
-                operation_request["source"] = source
-                same_parameter = (
-                    result.get("daily_same_parameter_paper_rehearsal")
-                    if isinstance(result.get("daily_same_parameter_paper_rehearsal"), dict)
-                    else {}
-                )
-                same_parameter_requests = same_parameter.get("recommended_requests") if isinstance(same_parameter.get("recommended_requests"), list) else []
-                if same_parameter_requests:
-                    operation_request["same_parameter_top3_paper_requests"] = same_parameter_requests
-                    operation_request["same_parameter_lock_id"] = same_parameter.get("lock_id") or operation_request.get("lock_id")
-                _record_operation(
-                    workflow_id="daily_trade_advisory",
-                    label="Generate top-three manual trade advisory",
-                    status="completed",
-                    command=f"GET {parsed.path}?{parsed.query}",
-                    request=operation_request,
-                    result=result,
-                )
-                self._send_json(result)
-                return
-            if parsed.path == "/api/risk/candidates":
-                query = parse_qs(parsed.query)
-                self._send_json(build_risk_candidate_snapshot(risk_candidate_pack=_optional(query, "risk_candidate_pack")))
-                return
-            if parsed.path == "/api/risk/constrained-search":
-                query = parse_qs(parsed.query)
-                self._send_json(build_constrained_search_snapshot(constrained_search_pack=_optional(query, "constrained_search_pack")))
-                return
-            if parsed.path == "/api/risk/paper-profiles":
-                query = parse_qs(parsed.query)
-                self._send_json(build_paper_profile_snapshot(paper_profile_pack=_optional(query, "paper_profile_pack")))
-                return
-            if parsed.path == "/api/risk/profile-observation":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_profile_observation_snapshot(
-                        profile_observation_pack=_optional(query, "profile_observation_pack")
-                    )
-                )
-                return
-            if parsed.path == "/api/data/recent-refresh":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_recent_data_refresh_snapshot(
-                        recent_data_refresh_pack=_optional(query, "recent_data_refresh_pack")
-                    )
-                )
-                return
-            if parsed.path == "/api/data/post-refresh-replay":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_post_refresh_replay_snapshot(
-                        post_refresh_replay_pack=_optional(query, "post_refresh_replay_pack")
-                    )
-                )
-                return
-            if parsed.path == "/api/risk/observation-sufficiency":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_observation_sufficiency_snapshot(
-                        observation_sufficiency_pack=_optional(query, "observation_sufficiency_pack")
-                    )
-                )
-                return
-            if parsed.path == "/api/risk/expanded-observation-replay":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_expanded_observation_replay_snapshot(
-                        expanded_observation_replay_pack=_optional(query, "expanded_observation_replay_pack")
-                    )
-                )
-                return
-            if parsed.path == "/api/risk/iterative-observation-expansion":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_iterative_observation_expansion_snapshot(
-                        iterative_observation_expansion_pack=_optional(query, "iterative_observation_expansion_pack")
-                    )
-                )
-                return
-            if parsed.path == "/api/risk/tushare-activation-gate":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_tushare_activation_gate_snapshot(
-                        tushare_activation_gate_pack=_optional(query, "tushare_activation_gate_pack")
-                    )
-                )
-                return
-            if parsed.path == "/api/research":
-                query = parse_qs(parsed.query)
-                result = run_gui_research(
-                    source=_first(query, "source", "demo_fixture"),
-                    data_root=_optional(query, "data_root"),
-                    market=_first(query, "market", "ALL"),
-                    factor_name=_first(query, "factor", "momentum_2"),
-                    factor_windows=_optional_windows(query, "factor_windows"),
-                    top_n=int(_first(query, "top_n", "2")),
-                    cost_bps=float(_first(query, "cost_bps", "5")),
-                    start_date=_optional(query, "start_date"),
-                    end_date=_optional(query, "end_date"),
-                    forward_horizon=int(_first(query, "forward_horizon", "1")),
-                    execution_lag=int(_first(query, "execution_lag", "1")),
-                    rebalance_interval=int(_first(query, "rebalance_interval", "1")),
-                    portfolio_scope=_optional(query, "portfolio_scope"),
-                    periods_per_year=_optional_float(query, "periods_per_year"),
-                    benchmark_asset_id=_optional(query, "benchmark_asset_id"),
-                    cash_annual_return=float(_first(query, "cash_annual_return", "0")),
-                    regime_filter=_bool(_first(query, "regime_filter", "false")),
-                    regime_lookback=int(_first(query, "regime_lookback", "20")),
-                    min_relative_return=_optional_float(query, "min_relative_return"),
-                    max_drawdown_limit=_optional_float(query, "max_drawdown_limit"),
-                )
-                _record_operation(
-                    workflow_id="research_backtest",
-                    label="Run research backtest",
-                    status="completed",
-                    command=f"GET {parsed.path}?{parsed.query}",
-                    request=result.get("request", {}),
-                    result=result,
-                )
-                self._send_json(result)
-                return
-            if parsed.path == "/api/research/demo":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    run_demo_research(
-                        market=_first(query, "market", "ALL"),
-                        factor_name=_first(query, "factor", "momentum_2"),
-                        top_n=int(_first(query, "top_n", "2")),
-                        cost_bps=float(_first(query, "cost_bps", "5")),
-                        start_date=_optional(query, "start_date"),
-                        end_date=_optional(query, "end_date"),
-                        benchmark_asset_id=_optional(query, "benchmark_asset_id"),
-                        cash_annual_return=float(_first(query, "cash_annual_return", "0")),
-                        regime_filter=_bool(_first(query, "regime_filter", "false")),
-                        regime_lookback=int(_first(query, "regime_lookback", "20")),
-                        min_relative_return=_optional_float(query, "min_relative_return"),
-                        max_drawdown_limit=_optional_float(query, "max_drawdown_limit"),
-                    )
-                )
-                return
-            if parsed.path == "/api/signals/demo":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    run_demo_signal_snapshot(
-                        market=_first(query, "market", "ALL"),
-                        factor_name=_first(query, "factor", "momentum_2"),
-                        top_n=int(_first(query, "top_n", "2")),
-                        as_of_date=_optional(query, "as_of_date"),
-                        max_asset_weight=float(_first(query, "max_asset_weight", "1")),
-                        max_market_weight=float(_first(query, "max_market_weight", "1")),
-                        max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
-                        min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                        portfolio_value=float(_first(query, "portfolio_value", str(CURRENT_RESEARCH_CAPITAL_CNY))),
-                    )
-                )
-                return
-            if parsed.path == "/api/signals":
-                query = parse_qs(parsed.query)
-                result = run_gui_signal_snapshot(
-                    source=_first(query, "source", "demo_fixture"),
-                    data_root=_optional(query, "data_root"),
-                    market=_first(query, "market", "ALL"),
-                    factor_name=_first(query, "factor", "momentum_2"),
-                    factor_windows=_optional_windows(query, "factor_windows"),
-                    top_n=int(_first(query, "top_n", "2")),
-                    as_of_date=_optional(query, "as_of_date"),
-                    max_asset_weight=float(_first(query, "max_asset_weight", "1")),
-                    max_market_weight=float(_first(query, "max_market_weight", "1")),
-                    max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
-                    min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                    portfolio_value=float(_first(query, "portfolio_value", str(CURRENT_RESEARCH_CAPITAL_CNY))),
-                )
-                _record_operation(
-                    workflow_id="signal_snapshot",
-                    label="Generate advisory signal snapshot",
-                    status="completed",
-                    command=f"GET {parsed.path}?{parsed.query}",
-                    request=result.get("request", {}),
-                    result=result,
-                )
-                self._send_json(result)
-                return
-            if parsed.path == "/api/paper/inputs":
-                query = parse_qs(parsed.query)
-                self._send_json(prepare_gui_paper_inputs(
-                    source=_first(query, "source", "demo_fixture"), market=_first(query, "market", "ALL"),
-                    corporate_actions_path=_optional(query, "corporate_actions_path"),
-                    fixed_hold_benchmark_path=_optional(query, "fixed_hold_benchmark_path")))
-                return
-            if parsed.path == "/api/paper/demo":
-                query = parse_qs(parsed.query)
-                result = run_demo_paper_simulation(
-                        market=_first(query, "market", "ALL"),
-                        factor_name=_first(query, "factor", "momentum_2"),
-                        top_n=int(_first(query, "top_n", "2")),
-                        start_date=_optional(query, "start_date"),
-                        end_date=_optional(query, "end_date"),
-                        initial_cash=float(_first(query, "initial_cash", str(CURRENT_RESEARCH_CAPITAL_CNY))),
-                        commission_bps=float(_first(query, "commission_bps", "5")),
-                        minimum_commission=float(_first(query, "minimum_commission", "0")),
-                        **_paper_execution_inputs(query),
-                        slippage_bps=float(_first(query, "slippage_bps", "5")),
-                        max_asset_weight=float(_first(query, "max_asset_weight", "1")),
-                        max_market_weight=float(_first(query, "max_market_weight", "1")),
-                        max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
-                        min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                        max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
-                        guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
-                )
-                _record_operation(workflow_id='paper_simulation', label='Run demo paper simulation',
-                    status='completed', command=f'GET {parsed.path}?{parsed.query}',
-                    request=result.get('request', {}), result=result, retain_paper=True)
-                self._send_json(result)
-                return
-            if parsed.path == "/api/paper":
-                query = parse_qs(parsed.query)
-                result = run_gui_paper_simulation(
-                    source=_first(query, "source", "demo_fixture"),
-                    data_root=_optional(query, "data_root"),
-                    market=_first(query, "market", "ALL"),
-                    factor_name=_first(query, "factor", "momentum_2"),
-                    factor_windows=_optional_windows(query, "factor_windows"),
-                    top_n=int(_first(query, "top_n", "2")),
-                    rebalance_interval=int(_first(query, "rebalance_interval", "1")),
-                    start_date=_optional(query, "start_date"),
-                    end_date=_optional(query, "end_date"),
-                    initial_cash=float(_first(query, "initial_cash", str(CURRENT_RESEARCH_CAPITAL_CNY))),
-                    commission_bps=float(_first(query, "commission_bps", "5")),
-                    minimum_commission=float(_first(query, "minimum_commission", "0")),
-                    **_paper_execution_inputs(query),
-                    slippage_bps=float(_first(query, "slippage_bps", "5")),
-                    max_asset_weight=float(_first(query, "max_asset_weight", "1")),
-                    max_market_weight=float(_first(query, "max_market_weight", "1")),
-                    max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
-                    min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                    periods_per_year=_optional_float(query, "periods_per_year"),
-                    max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
-                    guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
-                )
-                operation_request = result.get("request", {}) if isinstance(result.get("request"), dict) else {}
-                operation_request = dict(operation_request)
-                if _optional(query, "as_of_date"):
-                    operation_request["as_of_date"] = _optional(query, "as_of_date")
-                if _optional(query, "run_date"):
-                    operation_request["run_date"] = _optional(query, "run_date")
-                for key in ("same_parameter_lock_id", "same_parameter_request_id", "case_id", "risk_profile_id"):
-                    value = _optional(query, key)
-                    if value:
-                        operation_request[key] = value
-                result["request"] = operation_request
-                _record_operation(
-                    workflow_id="paper_simulation",
-                    label="Run local paper simulation",
-                    retain_paper=True,
-                    status="completed",
-                    command=f"GET {parsed.path}?{parsed.query}",
-                    request=operation_request,
-                    result=result,
-                )
-                self._send_json(result)
-                return
-            if parsed.path == "/api/promotion/ops":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_promotion_ops_snapshot(
-                        promotion_report=_optional(query, "promotion_report"),
-                        provider_status=_optional(query, "provider_status"),
-                        quality_report=_optional(query, "quality_report"),
-                    )
-                )
-                return
-            if parsed.path == "/api/promotion/review":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_promotion_review_snapshot(
-                        promotion_report=_optional(query, "promotion_report"),
-                        provider_status=_optional(query, "provider_status"),
-                        quality_report=_optional(query, "quality_report"),
-                        candidate_id=_optional(query, "candidate_id"),
-                    )
-                )
-                return
-            if parsed.path == "/api/promotion/evidence-refresh":
-                query = parse_qs(parsed.query)
-                self._send_json(
-                    build_evidence_refresh_snapshot(
-                        promotion_report=_optional(query, "promotion_report"),
-                        provider_status=_optional(query, "provider_status"),
-                        quality_report=_optional(query, "quality_report"),
-                        candidate_id=_optional(query, "candidate_id"),
-                    )
-                )
-                return
-            self._serve_static(parsed.path, root)
+                    self._serve_static(path)
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
         def do_POST(self) -> None:
             parsed = urlparse(self.path)
-            if parsed.path == "/api/control/execution-receipt":
-                payload = self._read_json_body()
-                if not isinstance(payload, dict):
-                    self._send_json({"stage": "gui_browser_execution_receipt", "status": "invalid_json"}, status=400)
-                    return
-                receipt = _browser_receipt_operation(payload)
-                if not receipt:
-                    self._send_json({"stage": "gui_browser_execution_receipt", "status": "unsupported_workflow"}, status=400)
-                    return
-                _record_operation(
-                    workflow_id=receipt["workflow_id"],
-                    label=receipt["label"],
-                    status=receipt["status"],
-                    command=f"POST {parsed.path}",
-                    request=receipt["request"],
-                    result=receipt["result"],
-                )
-                self._send_json(
-                    {
-                        "stage": "gui_browser_execution_receipt",
-                        "status": "recorded",
-                        "workflow_id": receipt["workflow_id"],
-                        "safety": _receipt_safety(),
-                    }
-                )
-                return
-            self._send_text("Not found", status=404, content_type="text/plain; charset=utf-8")
+            path = parsed.path
+            try:
+                body = self._read_json_body()
+                if path == "/api/paper/run":
+                    skip_fetch = bool(body.get("skip_fetch", False))
+                    cfg_path = repo_root / "configs" / "portfolios.json"
+                    overview = run_daily_paper_update(
+                        config_path=cfg_path,
+                        data_root=data_root,
+                        skip_fetch=skip_fetch,
+                    )
+                    self._send_json(overview)
+                elif path == "/api/backtest/run":
+                    result = _run_api_backtest(body, cache)
+                    self._send_json(result)
+                else:
+                    self._send_json({"error": f"Unknown endpoint: {path}"}, HTTPStatus.NOT_FOUND)
+            except ValueError as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            except Exception as exc:
+                self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
-        def log_message(self, format: str, *args: object) -> None:
-            return
+        def _read_json_body(self) -> dict[str, Any]:
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            if length <= 0:
+                return {}
+            raw = self.rfile.read(length).decode("utf-8")
+            parsed = json.loads(raw)
+            if not isinstance(parsed, dict):
+                raise ValueError("JSON object body required")
+            return parsed
 
-        def _serve_static(self, path: str, static_root: Path) -> None:
-            relative = "index.html" if path in {"", "/"} else path.lstrip("/")
-            candidate = (static_root / relative).resolve()
-            if not _is_within(candidate, static_root.resolve()) or not candidate.exists() or not candidate.is_file():
-                self._send_text("Not found", status=404, content_type="text/plain; charset=utf-8")
+        def _serve_static(self, url_path: str) -> None:
+            rel = "index.html" if url_path in {"", "/"} else url_path.lstrip("/")
+            candidate = (assets_dir / rel).resolve()
+            if not candidate.is_relative_to(assets_dir.resolve()) or not candidate.is_file():
+                self._send_json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
                 return
-            content_type = mimetypes.guess_type(str(candidate))[0] or "application/octet-stream"
-            self.send_response(200)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Cache-Control", "no-store")
+            mime, _ = mimetypes.guess_type(str(candidate))
+            payload = candidate.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", f"{mime or 'application/octet-stream'}; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
-            self.wfile.write(candidate.read_bytes())
+            self.wfile.write(payload)
 
-        def _send_json(self, payload: object, status: int = 200) -> None:
-            body = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        def _send_json(self, payload: Any, status: HTTPStatus = HTTPStatus.OK) -> None:
+            encoded = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            try:
-                self.wfile.write(body)
-            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
-                return
-
-        def _send_text(self, body: str, status: int, content_type: str) -> None:
-            encoded = body.encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(encoded)))
             self.end_headers()
             self.wfile.write(encoded)
 
-        def _read_json_body(self) -> object:
-            try:
-                length = min(int(self.headers.get("Content-Length", "0")), 200_000)
-            except ValueError:
-                length = 0
-            try:
-                body = self.rfile.read(length).decode("utf-8") if length else "{}"
-                return json.loads(body)
-            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-                return None
-
-    return GuiRequestHandler
+    return DashboardHandler
 
 
-def create_server(host: str = "127.0.0.1", port: int = 8765) -> ThreadingHTTPServer:
-    return ThreadingHTTPServer((host, port), create_gui_handler())
-
-
-def _record_operation(
+def create_server(
     *,
-    workflow_id: str,
-    label: str,
-    status: str,
-    command: str,
-    request: dict[str, object] | None,
-    result: dict[str, object],
-    retain_paper: bool = False,
-) -> None:
-    if retain_paper:
-        retain_paper_result(Path.cwd(), result)
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    repo_root: str | Path | None = None,
+    data_root: str | Path | None = None,
+) -> ThreadingHTTPServer:
+    root = find_repo_root(repo_root)
+    droot = Path(data_root) if data_root is not None else resolve_data_root(root)
+    handler = create_handler(repo_root=root, data_root=droot)
+    return ThreadingHTTPServer((host, port), handler)
+
+
+def run_dashboard(*, host: str = "127.0.0.1", port: int = 8765, open_browser: bool = False) -> None:
+    server = create_server(host=host, port=port)
+    url = f"http://{host}:{port}"
+    print(f"Quant Robot v2 Dashboard running at {url} (research-to-paper only; Ctrl+C to stop)")
+    if open_browser:
+        import webbrowser
+
+        webbrowser.open(url)
     try:
-        append_operation_ledger_entry(
-            repo_root=Path.cwd(),
-            workflow_id=workflow_id,
-            label=label,
-            status=status,
-            command=command,
-            request=request if isinstance(request, dict) else {},
-            result=result,
-        )
-    except OSError:
-        return
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
 
 
-def _browser_receipt_operation(payload: dict[str, object]) -> dict[str, object] | None:
-    workflow_id = str(payload.get("workflow_id") or "")
-    if workflow_id not in BROWSER_RECEIPT_WORKFLOW_IDS:
-        return None
-    status = str(payload.get("status") or "completed")
-    metrics = _safe_receipt_object(payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {})
-    result = {
-        "stage": str(payload.get("stage") or "gui_browser_execution_receipt"),
-        "metrics": metrics,
-        "decision": str(payload.get("decision") or ""),
-        "status": status,
-        "safety": _receipt_safety(),
-    }
+def _load_overview(repo_root: Path, data_root: Path, cache: MarketCache) -> dict[str, Any]:
+    overview_file = data_root / "paper" / "overview.json"
+    if overview_file.is_file():
+        data = json.loads(overview_file.read_text(encoding="utf-8"))
+        data["cache_symbols"] = len(cache.summary())
+        return data
+    cfg_path = repo_root / "configs" / "portfolios.json"
+    cfg = load_portfolios_config(cfg_path) if cfg_path.is_file() else None
+    portfolios = []
+    if cfg:
+        for p in cfg.portfolios:
+            if not p.enabled:
+                continue
+            portfolios.append(
+                {
+                    "portfolio_id": p.portfolio_id,
+                    "name": p.name,
+                    "description": p.description,
+                    "market": p.market,
+                    "currency": p.currency,
+                    "strategy_kind": p.strategy.kind,
+                    "symbols": p.symbols,
+                    "status": "not_initialized",
+                    "days_recorded": 0,
+                    "initial_cash": p.initial_cash,
+                    "nav": p.initial_cash,
+                    "cash": p.initial_cash,
+                    "market_value": 0.0,
+                    "net_pnl": 0.0,
+                    "total_return": 0.0,
+                    "max_drawdown": 0.0,
+                    "trade_count": 0,
+                    "total_fees": 0.0,
+                    "positions_count": 0,
+                }
+            )
     return {
-        "workflow_id": workflow_id,
-        "label": str(payload.get("label") or workflow_id),
-        "status": status,
-        "request": _safe_receipt_object(payload.get("request") if isinstance(payload.get("request"), dict) else {}),
-        "result": result,
-    }
-
-
-def _safe_receipt_object(raw: object) -> dict[str, object]:
-    if not isinstance(raw, dict):
-        return {}
-    safe: dict[str, object] = {}
-    for key, value in raw.items():
-        text_key = str(key)
-        lowered = text_key.lower()
-        if any(keyword in lowered for keyword in SENSITIVE_RECEIPT_KEYWORDS):
-            continue
-        if isinstance(value, (str, int, float, bool)) or value is None:
-            safe[text_key] = value
-    return safe
-
-
-def _receipt_safety() -> dict[str, object]:
-    return {
-        "notice": "Research-to-paper only. Browser receipts are evidence only.",
+        "updated_at": None,
+        "paper_only": True,
         "live_trading_allowed": False,
-        "broker_connection_allowed": False,
-        "account_read_allowed": False,
-        "order_placement_allowed": False,
-        "auto_order_allowed": False,
+        "cache_symbols": len(cache.summary()),
+        "portfolios": portfolios,
     }
 
 
-def _first(query: dict[str, list[str]], key: str, default: str) -> str:
-    values = query.get(key)
-    return values[0] if values else default
-
-
-def _optional(query: dict[str, list[str]], key: str) -> str | None:
-    value = _first(query, key, "")
-    return value or None
-
-
-def _optional_float(query: dict[str, list[str]], key: str) -> float | None:
-    value = _optional(query, key)
-    return float(value) if value is not None else None
-
-
-def _paper_execution_inputs(query: dict[str, list[str]]) -> dict[str, object]:
-    return {'market_impact_bps':float(_first(query, 'market_impact_bps', '0')),
-            'max_participation_rate':_optional_float(query, 'max_participation_rate'),
-            **{key:_optional(query, key) for key in (
-                'corporate_actions_path', 'corporate_actions_fingerprint',
-                'fixed_hold_benchmark_path', 'fixed_hold_benchmark_sha256')}}
-
-
-def _optional_windows(query: dict[str, list[str]], key: str) -> tuple[int, ...] | None:
-    value = _optional(query, key)
-    if value is None:
+def _load_portfolio_detail(paper_root: Path, portfolio_id: str) -> dict[str, Any] | None:
+    pdir = (paper_root / portfolio_id).resolve()
+    if not pdir.is_relative_to(paper_root.resolve()) or not (pdir / "state.json").is_file():
         return None
-    return tuple(int(part.strip()) for part in value.split(",") if part.strip())
+    state = json.loads((pdir / "state.json").read_text(encoding="utf-8"))
+    signal = json.loads((pdir / "latest_signal.json").read_text(encoding="utf-8")) if (pdir / "latest_signal.json").is_file() else {}
+    equity = _read_csv_rows(pdir / "equity.csv")
+    trades = _read_csv_rows(pdir / "trades.csv")
+    return {"state": state, "latest_signal": signal, "equity": equity, "trades": list(reversed(trades))[:100]}
 
 
-def _bool(value: str) -> bool:
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+def _read_csv_rows(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
+    with path.open("r", encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
 
 
-def _is_within(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    return True
+def _system_status(repo_root: Path, cache: MarketCache) -> dict[str, Any]:
+    audit = collect_project_audit(repo_root)
+    return {
+        "paper_only": True,
+        "live_trading_allowed": False,
+        "providers": {
+            "tushare": check_tushare_readiness(),
+            "parquet": check_parquet_readiness(),
+        },
+        "audit": audit["summary"],
+        "cache": cache.summary(),
+    }
+
+
+def _run_api_backtest(body: dict[str, Any], cache: MarketCache) -> dict[str, Any]:
+    market = str(body.get("market", "CN_ETF")).upper()
+    raw_syms = body.get("symbols", [])
+    if isinstance(raw_syms, str):
+        symbols = [s.strip().upper() for s in raw_syms.split(",") if s.strip()]
+    else:
+        symbols = [str(s).strip().upper() for s in raw_syms if str(s).strip()]
+    if not symbols:
+        raise ValueError("At least one symbol is required")
+
+    bars = cache.load_universe(market, symbols)
+    if bars.empty:
+        raise ValueError(f"No cached bars found for {market}: {symbols}. Click 'Update Data' first.")
+
+    strategy = StrategySpec(
+        kind=body.get("strategy_kind", "dual_momentum"),
+        rebalance_frequency=body.get("rebalance_frequency", "monthly"),
+        rebalance_band=float(body.get("rebalance_band", 0.05)),
+        lookback_days=int(body.get("lookback_days", 60)),
+        trend_ma_days=int(body.get("trend_ma_days", 120)),
+        top_n=int(body.get("top_n", 2)),
+        defensive_symbol=body.get("defensive_symbol") or None,
+    )
+    cost = CostConfig(
+        commission_bps=float(body.get("commission_bps", 1.0)),
+        minimum_commission=float(body.get("minimum_commission", 5.0 if market == "CN_ETF" else 1.0)),
+        slippage_bps=float(body.get("slippage_bps", 5.0)),
+    )
+    risk = RiskConfig(
+        max_drawdown_halt=float(body["max_drawdown_halt"]) if body.get("max_drawdown_halt") else None,
+        cooldown_sessions=int(body.get("cooldown_sessions", 5)),
+    )
+    report = run_portfolio_backtest(
+        bars,
+        name=str(body.get("name", f"{market} {strategy.kind}")),
+        market=market,
+        currency="CNY" if market in {"CN_ETF", "CN"} else "USD",
+        symbols=symbols,
+        strategy=strategy,
+        cost=cost,
+        risk=risk,
+        initial_cash=float(body.get("initial_cash", 10000.0 if market == "CN_ETF" else 1000.0)),
+        lot_size=int(body.get("lot_size", 100 if market in {"CN_ETF", "CN"} else 1)),
+        start_date=body.get("start_date") or None,
+        end_date=body.get("end_date") or None,
+    )
+    return {
+        "summary": report.to_summary_dict(),
+        "svg": render_equity_svg(report.equity_curve, f"{report.name} ({report.start_date} ~ {report.end_date})"),
+        "trades": report.trades.tail(80).to_dict(orient="records") if not report.trades.empty else [],
+    }

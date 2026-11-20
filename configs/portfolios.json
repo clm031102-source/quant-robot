@@ -1,0 +1,186 @@
+{
+  "research_to_paper_only": true,
+  "portfolios": [
+    {
+      "portfolio_id": "cn_etf_dual_momentum_10k",
+      "name": "A股核心ETF双动量轮动 (1万元·华宝口径)",
+      "description": "宽基+红利+黄金+纳指月频双动量趋势轮动，弱势持现防御，100股整手，华宝万1最低5元。",
+      "enabled": true,
+      "market": "CN_ETF",
+      "currency": "CNY",
+      "symbols": ["510300.SH", "510500.SH", "159915.SZ", "510880.SH", "518880.SH", "513100.SH"],
+      "lot_size": 100,
+      "initial_cash": 10000.0,
+      "start_date": "2026-11-02",
+      "execution_price": "open",
+      "cost": {
+        "commission_bps": 1.0,
+        "minimum_commission": 5.0,
+        "slippage_bps": 5.0,
+        "stamp_duty_sell_bps": 0.0
+      },
+      "risk": {
+        "max_drawdown_halt": 0.30,
+        "daily_loss_halt": null,
+        "cooldown_sessions": 5,
+        "max_single_weight": 0.60,
+        "min_cash_weight": 0.0
+      },
+      "strategy": {
+        "kind": "dual_momentum",
+        "rebalance_frequency": "monthly",
+        "rebalance_band": 0.08,
+        "lookback_days": 60,
+        "trend_ma_days": 120,
+        "top_n": 2,
+        "defensive_symbol": null
+      }
+    },
+    {
+      "portfolio_id": "cn_etf_all_weather_10k",
+      "name": "A股跨境多资产低频配置 (1万元·华宝口径)",
+      "description": "沪深300/红利/黄金/纳指四资产低频均衡配置，偏移>8%才再平衡以压缩最低5元佣金损耗。",
+      "enabled": true,
+      "market": "CN_ETF",
+      "currency": "CNY",
+      "symbols": ["510300.SH", "510880.SH", "518880.SH", "513100.SH"],
+      "lot_size": 100,
+      "initial_cash": 10000.0,
+      "start_date": "2026-11-02",
+      "execution_price": "open",
+      "cost": {
+        "commission_bps": 1.0,
+        "minimum_commission": 5.0,
+        "slippage_bps": 5.0,
+        "stamp_duty_sell_bps": 0.0
+      },
+      "risk": {
+        "max_drawdown_halt": 0.35,
+        "daily_loss_halt": null,
+        "cooldown_sessions": 5,
+        "max_single_weight": 0.50,
+        "min_cash_weight": 0.0
+      },
+      "strategy": {
+        "kind": "fixed_allocation",
+        "target_weights": {
+          "510300.SH": 0.25,
+          "510880.SH": 0.25,
+          "518880.SH": 0.25,
+          "513100.SH": 0.25
+        },
+        "rebalance_frequency": "quarterly",
+        "rebalance_band": 0.08
+      }
+    },
+    {
+      "portfolio_id": "us_etf_monthly_1k",
+      "name": "美股低单价四资产月度再平衡 ($1,000)",
+      "description": "SPYM/EFA/IEF/GLDM 等权整股月度再平衡（最低佣金 $1 + 10bps 滑点，容错自动补采）。",
+      "enabled": true,
+      "market": "US_ETF",
+      "currency": "USD",
+      "symbols": ["SPYM", "EFA", "IEF", "GLDM"],
+      "lot_size": 1,
+      "initial_cash": 1000.0,
+      "start_date": "2026-11-09",
+      "execution_price": "open",
+      "cost": {
+        "commission_bps": 0.0,
+        "minimum_commission": 1.0,
+        "slippage_bps": 10.0,
+        "stamp_duty_sell_bps": 0.0
+      },
+      "risk": {
+        "max_drawdown_halt": 0.35,
+        "daily_loss_halt": null,
+        "cooldown_sessions": 5,
+        "max_single_weight": 0.40,
+        "min_cash_weight": 0.0
+      },
+      "strategy": {
+        "kind": "fixed_allocation",
+        "target_weights": {
+          "SPYM": 0.25,
+          "EFA": 0.25,
+          "IEF": 0.25,
+          "GLDM": 0.25
+        },
+        "rebalance_frequency": "monthly",
+        "rebalance_band": 0.04
+      }
+    },
+    {
+      "portfolio_id": "us_etf_drift_1k",
+      "name": "美股低单价四资产被动漂移对照 ($1,000)",
+      "description": "SPYM/EFA/IEF/GLDM 初始等权建仓后不再平衡，用于与月度再平衡对比净收益与费用拖累。",
+      "enabled": true,
+      "market": "US_ETF",
+      "currency": "USD",
+      "symbols": ["SPYM", "EFA", "IEF", "GLDM"],
+      "lot_size": 1,
+      "initial_cash": 1000.0,
+      "start_date": "2026-11-09",
+      "execution_price": "open",
+      "cost": {
+        "commission_bps": 0.0,
+        "minimum_commission": 1.0,
+        "slippage_bps": 10.0,
+        "stamp_duty_sell_bps": 0.0
+      },
+      "risk": {
+        "max_drawdown_halt": 0.35,
+        "daily_loss_halt": null,
+        "cooldown_sessions": 5,
+        "max_single_weight": 0.50,
+        "min_cash_weight": 0.0
+      },
+      "strategy": {
+        "kind": "passive_drift",
+        "target_weights": {
+          "SPYM": 0.25,
+          "EFA": 0.25,
+          "IEF": 0.25,
+          "GLDM": 0.25
+        },
+        "rebalance_frequency": "never",
+        "rebalance_band": 0.0
+      }
+    },
+    {
+      "portfolio_id": "us_etf_dual_momentum_1k",
+      "name": "美股四资产双动量轮动 ($1,000·IEF防御)",
+      "description": "SPYM/EFA/GLDM 月频双动量+120日均线趋势筛选，弱势自动切入 IEF 美债防御。",
+      "enabled": true,
+      "market": "US_ETF",
+      "currency": "USD",
+      "symbols": ["SPYM", "EFA", "IEF", "GLDM"],
+      "lot_size": 1,
+      "initial_cash": 1000.0,
+      "start_date": "2026-11-09",
+      "execution_price": "open",
+      "cost": {
+        "commission_bps": 0.0,
+        "minimum_commission": 1.0,
+        "slippage_bps": 10.0,
+        "stamp_duty_sell_bps": 0.0
+      },
+      "risk": {
+        "max_drawdown_halt": 0.30,
+        "daily_loss_halt": null,
+        "cooldown_sessions": 5,
+        "max_single_weight": 0.60,
+        "min_cash_weight": 0.0
+      },
+      "strategy": {
+        "kind": "dual_momentum",
+        "rebalance_frequency": "monthly",
+        "rebalance_band": 0.08,
+        "lookback_days": 60,
+        "trend_ma_days": 120,
+        "top_n": 2,
+        "defensive_symbol": "IEF"
+      }
+    }
+  ]
+}

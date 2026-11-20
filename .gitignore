@@ -3,16 +3,13 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-.playwright-cli/
 .coverage
 htmlcov/
 dist/
 build/
 output/
 *.egg-info/
-data/raw/
-data/processed/
-data/reports/
+data/
 *.parquet
 *.log
 *.db

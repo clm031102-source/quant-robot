@@ -1,158 +1,16 @@
 {
   "machines": {
-    "laptop": {
-      "description": "Portable laptop for architecture, audits, documentation, sync, and light factor smoke checks.",
-      "allowed_tasks": [
-        "architecture_ops",
-        "factor_integration",
-        "factor_smoke",
-        "factor_review",
-        "project_sync"
-      ]
-    },
-    "highspec_desktop": {
-      "description": "Higher-spec desktop for data generation, large Tushare factor batches, and heavier validation.",
-      "allowed_tasks": [
-        "data_pipeline",
-        "factor_batch",
-        "factor_validation",
-        "factor_review"
-      ]
-    },
-    "office_desktop": {
-      "description": "Office desktop for additional factor batches, validation reruns, and data-quality checks.",
-      "allowed_tasks": [
-        "data_pipeline",
-        "factor_batch",
-        "factor_validation",
-        "factor_review"
-      ]
-    }
-  },
-  "tasks": {
-    "architecture_ops": {
-      "description": "Project architecture, audits, CI, tests, documentation, GitHub sync, and merge work.",
-      "branch": "codex/architecture-ops"
-    },
-    "project_sync": {
-      "description": "Repository synchronization, branch cleanup, and safe mainline integration.",
-      "branch": "main"
-    },
-    "data_pipeline": {
-      "description": "Tushare downloads, local raw/processed data generation, and data-quality checks.",
-      "branch": "codex/tushare-data-pipeline"
-    },
-    "factor_mining_core": {
-      "description": "Reusable factor definitions, IC/RankIC logic, quantile returns, and research framework code.",
-      "branch": "codex/factor-mining-core"
-    },
-    "factor_smoke": {
-      "description": "Small-sample factor smoke tests and fast local replication checks.",
-      "branch": "codex/factor-smoke-<topic-or-date>"
-    },
-    "factor_batch": {
-      "description": "Large factor experiment batches. Multiple desktops should use separate topic/date branches. CN stock factor batches must first run scripts/run_factor_mining_startup_gate.py and scripts/run_cn_stock_data_manifest.py. The startup gate must confirm the repeatable audit-driven next-run protocol before mining.",
-      "branch": "codex/factor-batch-<topic-or-date>"
-    },
-    "factor_validation": {
-      "description": "Candidate factor validation, walk-forward reruns, long-cycle replay evidence, walk-forward progress audit evidence, cost checks, market-regime coverage checks, robustness reviews, and desktop residual-regime validation via scripts/run_checks.py --profile desktop-validation --execute. CN stock validation reruns must first confirm the startup gate and CN stock data manifest.",
-      "branch": "codex/factor-validation-<topic-or-date>"
-    },
-    "factor_review": {
-      "description": "Review candidate reports and promote only robust findings into integration work.",
-      "branch": "codex/factor-review-<topic-or-date>"
-    },
-    "factor_integration": {
-      "description": "Integrate validated factor logic into the formal pipeline before mainline merge.",
-      "branch": "codex/factor-integration-<topic-or-date>"
-    }
+    "laptop": { "role": "Light review, architecture, documentation, and sync." },
+    "highspec_desktop": { "role": "Heavy backtests, walk-forward validation, and data pipelines." },
+    "office_desktop": { "role": "Daily market updates, paper-trading scheduler, and research." }
   },
   "branch_policy": {
     "stable_branch": "main",
-    "naming_rule": "Name branches by work content, not by machine. Use the machine only as startup context.",
-    "temporary_branch_cleanup": "Delete task branches after their work is merged and verified.",
-    "main_rule": "Do not run exploratory factor development directly on main.",
-    "conversation_start_rule": "Start new Codex conversations from main, pull latest main, then create or switch to a task branch before non-trivial work."
-  },
-  "sync_policy": {
-    "trigger_phrase": "同步项目",
-    "default_command": "python scripts\\sync_project.py --machine <machine> --task <task>",
-    "execute_command": "python scripts\\sync_project.py --machine <machine> --task <task> --execute --push",
-    "allowed_paths": [
-      "AGENTS.md",
-      "README.md",
-      ".gitattributes",
-      ".gitignore",
-      ".github/",
-      "configs/",
-      "docs/",
-      "quant_robot/",
-      "scripts/",
-      "src/",
-      "tests/",
-      "pyproject.toml",
-      "requirements/",
-      ".env.example"
-    ],
-    "forbidden_paths": [
-      ".env",
-      ".env.*",
-      "data/raw/",
-      "data/processed/",
-      "data/reports/",
-      "*.parquet",
-      "*.log",
-      "*.db",
-      "*.duckdb",
-      "*.jsonl",
-      "*.key",
-      "*.p12",
-      "*.pem",
-      "*.pfx",
-      "*.sqlite",
-      "*.sqlite3"
-    ],
-    "ask_before_push_when": [
-      "machine is not confirmed",
-      "task type is not confirmed",
-      "current branch is main and task is not project_sync",
-      "forbidden paths are present",
-      "branch is behind upstream",
-      "tests or validation failed",
-      "token, credential, broker, account, or order-risk files are present"
-    ]
-  },
-  "data_policy": {
-    "sync_code_with": "GitHub",
-    "sync_large_data_with": "Local copy, NAS, external drive, or future DVC/object storage.",
-    "ignored_paths": [
-      "data/raw/",
-      "data/processed/",
-      "data/reports/",
-      "*.parquet",
-      "*.log"
-    ],
-    "commit_allowed": [
-      "source code",
-      "tests",
-      "configs",
-      "lightweight summaries",
-      "documentation"
-    ],
-    "commit_forbidden": [
-      "Tushare token",
-      "broker credentials",
-      "account data",
-      "large raw market data",
-      "large processed market data"
-    ]
+    "cleanup_rule": "Delete merged topic branches and temporary worktrees immediately after merge."
   },
   "safety": [
     "Research-to-paper only.",
-    "No broker connection.",
-    "No live account reads.",
-    "No order placement.",
-    "No automatic live trading.",
-    "TUSHARE_TOKEN must stay in the local environment and must not be written to repository files."
+    "No broker connection, no live account reads, no live order placement, no automatic live trading.",
+    "Never commit data/, .env, TUSHARE_TOKEN, or large Parquet/CSV artifacts to GitHub."
   ]
 }

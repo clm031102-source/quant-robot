@@ -1,8 +1,0 @@
-market: US
-source: yfinance
-symbols:
-  - AAPL
-  - MSFT
-  - NVDA
-  - SPY
-  - QQQ

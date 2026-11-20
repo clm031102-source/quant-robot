@@ -1,49 +1,17 @@
+"""Fast, honest repository safety and maintainability audit.
+
+Enforces three simple, high-signal engineering invariants:
+1. Research-to-paper boundary: zero live broker/order placement calls in implementation code.
+2. Secret & data hygiene: `.gitignore` blocks data/, .env, and credential files; no tokens in repo.
+3. Maintainability: no bloated monster Python modules (>800 lines) in src/quant_robot/.
+"""
 from __future__ import annotations
 
-import argparse
-import ast
-import json
-import re
+from datetime import datetime, timezone
 from pathlib import Path
+import re
 from typing import Any
 
-from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
-from quant_robot.factors.cn_stock_champion import CN_STOCK_CHAMPION_FACTOR_NAMES
-from quant_robot.factors.daily_basic_public_anomaly_residual_ensemble import (
-    DAILY_BASIC_PUBLIC_ANOMALY_RESIDUAL_ENSEMBLE_FACTOR_NAMES,
-)
-from quant_robot.factors.daily_basic_public_quality_value_momentum import DAILY_BASIC_PUBLIC_QVM_FACTOR_NAMES
-from quant_robot.factors.daily_basic_public_risk_filter_bridge import (
-    DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES,
-)
-from quant_robot.factors.daily_basic_residual_composite import DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES
-from quant_robot.factors.daily_basic_smart_money_quality import DAILY_BASIC_SMART_MONEY_QUALITY_FACTOR_NAMES
-from quant_robot.factors.daily_basic_technical_combo import DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES
-from quant_robot.factors.daily_basic_value_liquidity_tail import DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES
-from quant_robot.factors.etf_moneyflow_basket import ETF_MONEYFLOW_BASKET_FACTOR_NAMES
-from quant_robot.factors.etf_share_size import ETF_SHARE_SIZE_FACTOR_NAMES
-from quant_robot.factors.etf_theme_breadth import etf_theme_breadth_factor_names
-from quant_robot.factors.industry_breadth_regime import INDUSTRY_BREADTH_REGIME_FACTOR_NAMES
-from quant_robot.factors.industry_leader_lag import INDUSTRY_LEADER_LAG_FACTOR_NAMES
-from quant_robot.factors.information_discreteness import INFORMATION_DISCRETENESS_FACTOR_NAMES
-from quant_robot.factors.liquidity_shock_recovery import LIQUIDITY_SHOCK_RECOVERY_FACTOR_NAMES
-from quant_robot.factors.listing_age_board import LISTING_AGE_BOARD_FACTOR_NAMES
-from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
-from quant_robot.factors.official_tradeability_events import OFFICIAL_TRADEABILITY_EVENT_FACTOR_NAMES
-from quant_robot.factors.public_formula_price_volume import PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES
-from quant_robot.factors.public_rsrs import PUBLIC_RSRS_FACTOR_NAMES
-from quant_robot.factors.public_technical import PUBLIC_TECHNICAL_FACTOR_NAMES
-from quant_robot.factors.public_technical_liquidity import PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES
-from quant_robot.factors.public_technical_tail_guard import PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES
-from quant_robot.factors.public_trend_strength_state import PUBLIC_TREND_STRENGTH_STATE_FACTOR_NAMES
-from quant_robot.factors.public_trend_volume import PUBLIC_TREND_VOLUME_FACTOR_NAMES
-from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
-from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
-
-SCAN_ROOTS = ("src", "scripts", "tests", "README.md", "docs", "configs", "quant_robot")
-IMPLEMENTATION_ROOTS = ("src/", "scripts/", "quant_robot/")
-SELF_AUDIT_FILES = {"src/quant_robot/audit/project_audit.py"}
-TEXT_SUFFIXES = {".py", ".md", ".txt", ".yaml", ".yml", ".toml", ".json", ".html", ".css", ".js"}
 FORBIDDEN_PATTERNS = (
     "place_order",
     "submit_order",
@@ -53,570 +21,65 @@ FORBIDDEN_PATTERNS = (
     "live_order",
     "account_login",
 )
-BOUNDARY_PHRASES = (
-    "no broker",
-    "not connect to broker",
-    "without live trading",
-    "no live trading",
-    "no order placement",
-    "does not place",
-    "research-only",
-    "research only",
-)
-DISABLED_LIVE_BOUNDARY_FIELDS = ("live_order_allowed",)
-TECHNICAL_FACTOR_PREFIXES = (
-    "momentum",
-    "risk_adjusted_momentum",
-    "reversal",
-    "volatility",
-    "low_volatility",
-    "low_downside_volatility",
-    "drawdown_resilience",
-    "volume_change",
-    "liquidity",
-    "high_liquidity",
-    "liquidity_resilience",
-    "amount_stability",
-    "average_amount",
-    "trend_resilience",
-    "risk_confirmed_momentum",
-    "defensive_reversal",
-    "liquidity_confirmed_breakout",
-    "market_relative_strength",
-    "momentum_dispersion_breakout",
-    "crash_recovery",
-    "recovery_quality",
-    "demand_pressure",
-    "quiet_accumulation",
-    "liquid_market_relative_strength",
-    "liquid_crash_recovery",
-    "liquid_recovery_quality",
-    "liquid_demand_pressure",
-    "liquid_quiet_accumulation",
-    "state_adaptive_trend_defense",
-    "state_stress_defensive_resilience",
-    "state_stress_recovery_leadership",
-)
-DAILY_BASIC_LEGACY_CAPACITY_FACTOR_NAMES = (
-    "turnover_rate_low_large_mv",
-    "turnover_rate_f_low_large_mv",
-    "dv_ttm_large_mv",
-    "ps_ttm_inverse_large_mv",
-    "turnover_rate_low_mv_bucket_rank",
-    "turnover_rate_f_low_mv_bucket_rank",
-    "dv_ttm_mv_bucket_rank",
-    "ps_ttm_inverse_mv_bucket_rank",
-)
-ETF_THEME_BREADTH_LEGACY_LIQUID_PREFIXES = (
-    "theme_relative_strength_liquid",
-    "theme_rank_strength_liquid",
-    "theme_risk_adjusted_strength_liquid",
-)
-DEFAULT_FACTOR_SOURCE = "technical"
-DEFAULT_FACTOR_WINDOWS = (2, 3)
+REQUIRED_GITIGNORE_RULES = ("data/", ".env", "*.parquet", "*.key", "*.pem", "*.sqlite")
+SECRET_REGEX = re.compile(r"TUSHARE_TOKEN\s*=\s*['\"]?[A-Za-z0-9]{20,}", re.I)
+MAX_MODULE_LINES = 800
+SELF_FILE = "src/quant_robot/audit/project_audit.py"
 
 
 def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
-    root_path = Path(root)
-    files = _scan_files(root_path)
-    forbidden_hits = []
-    syntax_errors = []
-    boundary_mentions = 0
-    mock_files = []
-    fixture_imports = []
-    invalid_fixture_imports = []
-    for path in files:
-        relative = _relative(path, root_path)
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        lower = text.lower()
-        if _is_mock_file(relative):
-            mock_files.append(relative)
-        boundary_mentions += sum(1 for line in lower.splitlines() if any(phrase in line for phrase in BOUNDARY_PHRASES))
-        if not _is_implementation_file(relative):
+    root_path = Path(root).resolve()
+    violations: list[dict[str, Any]] = []
+    oversized: list[dict[str, Any]] = []
+    scanned_files = 0
+    src_modules = 0
+    src_lines = 0
+
+    for folder in ("src", "scripts", "quant_robot"):
+        base = root_path / folder
+        if not base.exists():
             continue
-        implementation = _audit_python_implementation(text, relative)
-        forbidden_hits.extend(implementation["forbidden_hits"])
-        syntax_errors.extend(implementation["syntax_errors"])
-        fixture_imports.extend(implementation["fixture_imports"])
-        invalid_fixture_imports.extend(implementation["invalid_fixture_imports"])
-    tushare = check_tushare_readiness()
-    parquet = check_parquet_readiness()
-    factor_config_registry = _audit_factor_config_registry(root_path)
-    safety_passes = not forbidden_hits and not syntax_errors
-    mock_passes = not invalid_fixture_imports
-    factor_config_passes = bool(factor_config_registry["passes"])
+        for py in sorted(base.rglob("*.py")):
+            if "__pycache__" in py.parts:
+                continue
+            rel = py.relative_to(root_path).as_posix()
+            text = py.read_text(encoding="utf-8", errors="ignore")
+            lines = text.splitlines()
+            scanned_files += 1
+            if rel.startswith("src/quant_robot/"):
+                src_modules += 1
+                src_lines += len(lines)
+                if len(lines) > MAX_MODULE_LINES:
+                    oversized.append({"path": rel, "lines": len(lines), "limit": MAX_MODULE_LINES})
+            if rel == SELF_FILE:
+                continue
+            lower = text.lower()
+            for pat in FORBIDDEN_PATTERNS:
+                if pat in lower:
+                    violations.append({"type": "forbidden_live_trading_pattern", "path": rel, "pattern": pat})
+            if SECRET_REGEX.search(text):
+                violations.append({"type": "hardcoded_secret", "path": rel})
+
+    # Verify .gitignore covers data and secrets
+    gitignore = root_path / ".gitignore"
+    gi_lines = {l.strip() for l in gitignore.read_text(encoding="utf-8").splitlines()} if gitignore.is_file() else set()
+    missing_gi = [rule for rule in REQUIRED_GITIGNORE_RULES if rule not in gi_lines]
+    for rule in missing_gi:
+        violations.append({"type": "missing_gitignore_rule", "rule": rule})
+
+    passes = (len(violations) == 0) and (len(oversized) == 0)
     return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
-            "passes": safety_passes and mock_passes and factor_config_passes,
-            "files_scanned": len(files),
+            "passes": passes,
+            "scanned_files": scanned_files,
+            "src_modules": src_modules,
+            "src_lines": src_lines,
+            "violation_count": len(violations),
+            "oversized_count": len(oversized),
+            "max_module_lines": MAX_MODULE_LINES,
+            "live_trading_allowed": False,
         },
-        "safety": {
-            "passes": safety_passes,
-            "forbidden_hits": forbidden_hits,
-            "syntax_errors": syntax_errors,
-            "boundary_mentions": boundary_mentions,
-        },
-        "mock_boundaries": {
-            "passes": mock_passes,
-            "mock_files": sorted(mock_files),
-            "fixture_imports": fixture_imports,
-            "invalid_fixture_imports": invalid_fixture_imports,
-        },
-        "real_data": {
-            "tushare_ready": bool(tushare["ready"]),
-            "tushare_missing": list(tushare["missing"]),
-            "parquet_ready": bool(parquet["ready"]),
-            "parquet_missing": list(parquet["missing"]),
-        },
-        "factor_config_registry": factor_config_registry,
+        "violations": violations,
+        "oversized_modules": oversized,
     }
-
-
-def render_markdown_report(audit: dict[str, Any]) -> str:
-    safety = audit["safety"]
-    mock = audit["mock_boundaries"]
-    real_data = audit.get("real_data", {})
-    factor_registry = audit.get("factor_config_registry", {})
-    lines = [
-        "# Quant Robot Project Audit",
-        "",
-        f"- Overall pass: {audit['summary']['passes']}",
-        f"- Files scanned: {audit['summary']['files_scanned']}",
-        "",
-        "## Safety Boundary",
-        "",
-        f"- Passes: {safety['passes']}",
-        f"- Boundary mentions: {safety['boundary_mentions']}",
-        f"- Forbidden implementation hits: {len(safety['forbidden_hits'])}",
-        f"- Syntax errors: {len(safety.get('syntax_errors', []))}",
-    ]
-    for hit in safety["forbidden_hits"]:
-        lines.append(f"  - {hit['path']}:{hit['line']} `{hit['pattern']}`")
-    lines.extend(
-        [
-            "",
-            "## Mock Data Boundary",
-            "",
-            f"- Passes: {mock['passes']}",
-            f"- Mock/fixture files: {len(mock['mock_files'])}",
-            f"- Invalid fixture imports: {len(mock.get('invalid_fixture_imports', []))}",
-        ]
-    )
-    for file in mock["mock_files"]:
-        lines.append(f"  - `{file}`")
-    for hit in mock.get("invalid_fixture_imports", []):
-        lines.append(f"  - {hit['path']}:{hit['line']} imports `{hit['module']}`")
-    lines.extend(
-        [
-            "",
-            "## Factor Config Registry",
-            "",
-            f"- Passes: {factor_registry.get('passes', False)}",
-            f"- Configs scanned: {factor_registry.get('configs_scanned', 0)}",
-            f"- Unknown factor refs: {len(factor_registry.get('unknown_factor_refs', []))}",
-            f"- Unsupported factor sources: {len(factor_registry.get('unsupported_factor_sources', []))}",
-            f"- Window mismatches: {len(factor_registry.get('window_mismatches', []))}",
-        ]
-    )
-    for hit in factor_registry.get("unknown_factor_refs", []):
-        lines.append(f"  - {hit['path']} `{hit['factor_source']}` `{hit['factor_name']}`")
-    for hit in factor_registry.get("unsupported_factor_sources", []):
-        lines.append(f"  - {hit['path']} unsupported `{hit['factor_source']}`")
-    for hit in factor_registry.get("window_mismatches", []):
-        lines.append(
-            "  - "
-            f"{hit['path']} `{hit['factor_name']}` window {hit['factor_window']} "
-            f"not in {hit['configured_windows']}"
-        )
-    lines.extend(
-        [
-            "",
-            "## Real Data Readiness",
-            "",
-            f"- Tushare ready: {real_data.get('tushare_ready', False)}",
-            f"- Parquet ready: {real_data.get('parquet_ready', False)}",
-        ]
-    )
-    return "\n".join(lines) + "\n"
-
-
-def write_audit_reports(root: str | Path, output_dir: str | Path) -> dict[str, Path]:
-    audit = collect_project_audit(root)
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    json_path = output_path / "project_audit.json"
-    markdown_path = output_path / "project_audit.md"
-    json_path.write_text(json.dumps(audit, indent=2, sort_keys=True), encoding="utf-8")
-    markdown_path.write_text(render_markdown_report(audit), encoding="utf-8")
-    return {"json": json_path, "markdown": markdown_path}
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Audit Quant Robot project boundaries and readiness.")
-    parser.add_argument("--root", default=".")
-    parser.add_argument("--output-dir", default="data/reports/project_audit")
-    parser.add_argument("--json", action="store_true")
-    args = parser.parse_args()
-    if args.json:
-        print(json.dumps(collect_project_audit(args.root), indent=2, sort_keys=True))
-        return
-    paths = write_audit_reports(args.root, args.output_dir)
-    print(json.dumps({key: str(value) for key, value in paths.items()}, indent=2, sort_keys=True))
-
-
-def _scan_files(root: Path) -> list[Path]:
-    files: list[Path] = []
-    for entry in SCAN_ROOTS:
-        path = root / entry
-        if path.is_file() and _is_text_file(path):
-            files.append(path)
-        elif path.is_dir():
-            files.extend(candidate for candidate in path.rglob("*") if candidate.is_file() and _is_text_file(candidate))
-    return sorted(files)
-
-
-def _is_text_file(path: Path) -> bool:
-    return path.suffix.lower() in TEXT_SUFFIXES
-
-
-def _relative(path: Path, root: Path) -> str:
-    return path.relative_to(root).as_posix()
-
-
-def _audit_python_implementation(text: str, relative_path: str) -> dict[str, list[dict[str, Any]]]:
-    try:
-        tree = ast.parse(text, filename=relative_path)
-    except SyntaxError as exc:
-        return {
-            "forbidden_hits": [],
-            "syntax_errors": [
-                {
-                    "path": relative_path,
-                    "line": int(exc.lineno or 0),
-                    "error": str(exc.msg),
-                }
-            ],
-            "fixture_imports": [],
-            "invalid_fixture_imports": [],
-        }
-
-    source_lines = text.splitlines()
-    hit_keys: set[tuple[int, str]] = set()
-    forbidden_hits: list[dict[str, Any]] = []
-
-    def add_hit(line_number: int, pattern: str) -> None:
-        key = (line_number, pattern)
-        if key in hit_keys:
-            return
-        hit_keys.add(key)
-        source = source_lines[line_number - 1].strip() if 0 < line_number <= len(source_lines) else ""
-        forbidden_hits.append(
-            {
-                "path": relative_path,
-                "line": line_number,
-                "pattern": pattern,
-                "text": source,
-            }
-        )
-
-    for node in ast.walk(tree):
-        for identifier in _node_identifiers(node):
-            lowered = identifier.casefold()
-            if lowered in DISABLED_LIVE_BOUNDARY_FIELDS:
-                continue
-            for pattern in FORBIDDEN_PATTERNS:
-                if pattern.casefold() in lowered:
-                    add_hit(int(getattr(node, "lineno", 0) or 0), pattern)
-        for field, value, line_number in _live_boundary_assignments(node):
-            if field.casefold() in DISABLED_LIVE_BOUNDARY_FIELDS and not _is_literal_false(value):
-                add_hit(line_number, "live_order")
-
-    fixture_imports = _fixture_import_records(tree, relative_path)
-    invalid_fixture_imports = [row for row in fixture_imports if not _fixture_import_allowed(row, relative_path)]
-    return {
-        "forbidden_hits": sorted(forbidden_hits, key=lambda row: (row["path"], row["line"], row["pattern"])),
-        "syntax_errors": [],
-        "fixture_imports": fixture_imports,
-        "invalid_fixture_imports": invalid_fixture_imports,
-    }
-
-
-def _node_identifiers(node: ast.AST) -> list[str]:
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        return [node.name]
-    if isinstance(node, ast.Name):
-        return [node.id]
-    if isinstance(node, ast.Attribute):
-        return [node.attr]
-    if isinstance(node, ast.arg):
-        return [node.arg]
-    if isinstance(node, ast.alias):
-        return [node.name, node.asname or ""]
-    if isinstance(node, ast.keyword) and node.arg:
-        return [node.arg]
-    return []
-
-
-def _live_boundary_assignments(node: ast.AST) -> list[tuple[str, ast.AST, int]]:
-    rows: list[tuple[str, ast.AST, int]] = []
-    if isinstance(node, ast.Dict):
-        for key, value in zip(node.keys, node.values):
-            field = _string_literal(key)
-            if field is not None:
-                rows.append((field, value, int(getattr(key, "lineno", getattr(node, "lineno", 0)) or 0)))
-    elif isinstance(node, ast.Assign):
-        for target in node.targets:
-            field = _assignment_field(target)
-            if field is not None:
-                rows.append((field, node.value, int(getattr(target, "lineno", getattr(node, "lineno", 0)) or 0)))
-    elif isinstance(node, ast.AnnAssign):
-        field = _assignment_field(node.target)
-        if field is not None and node.value is not None:
-            rows.append((field, node.value, int(getattr(node.target, "lineno", getattr(node, "lineno", 0)) or 0)))
-    elif isinstance(node, ast.keyword) and node.arg:
-        rows.append((node.arg, node.value, int(getattr(node, "lineno", 0) or 0)))
-    return rows
-
-
-def _assignment_field(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    if isinstance(node, ast.Subscript):
-        return _string_literal(node.slice)
-    return None
-
-
-def _string_literal(node: ast.AST | None) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    return None
-
-
-def _is_literal_false(node: ast.AST) -> bool:
-    return isinstance(node, ast.Constant) and node.value is False
-
-
-def _fixture_import_records(tree: ast.AST, relative_path: str) -> list[dict[str, Any]]:
-    rows = []
-    for node in ast.walk(tree):
-        modules = []
-        if isinstance(node, ast.Import):
-            modules.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom):
-            prefix = "." * int(node.level or 0)
-            if node.module:
-                modules.append(prefix + node.module)
-            else:
-                modules.extend(prefix + alias.name for alias in node.names)
-        for module in modules:
-            if _looks_like_fixture_module(module):
-                rows.append(
-                    {
-                        "path": relative_path,
-                        "line": int(getattr(node, "lineno", 0) or 0),
-                        "module": module,
-                    }
-                )
-    return sorted(rows, key=lambda row: (row["path"], row["line"], row["module"]))
-
-
-def _looks_like_fixture_module(module: str) -> bool:
-    return any("fixture" in part.casefold() or "mock" in part.casefold() for part in module.split("."))
-
-
-def _fixture_import_allowed(row: dict[str, Any], relative_path: str) -> bool:
-    module = str(row.get("module", "")).lstrip(".").casefold()
-    if module == "tests" or module.startswith("tests."):
-        return False
-    if relative_path.startswith("scripts/"):
-        return True
-    if relative_path.startswith("src/quant_robot/gui/") and module.startswith("quant_robot.gui.fixtures"):
-        return True
-    return not relative_path.startswith("src/")
-
-
-def _is_mock_file(relative_path: str) -> bool:
-    lower = relative_path.lower()
-    return "mock" in lower or "fixture" in lower
-
-
-def _is_implementation_file(relative_path: str) -> bool:
-    if relative_path in SELF_AUDIT_FILES:
-        return False
-    return relative_path.endswith(".py") and relative_path.startswith(IMPLEMENTATION_ROOTS)
-
-
-def _audit_factor_config_registry(root: Path) -> dict[str, Any]:
-    configs_scanned = 0
-    unknown_factor_refs = []
-    unsupported_factor_sources = []
-    window_mismatches = []
-    invalid_config_files = []
-    config_dir = root / "configs"
-    if not config_dir.exists():
-        return {
-            "passes": True,
-            "configs_scanned": 0,
-            "unknown_factor_refs": [],
-            "unsupported_factor_sources": [],
-            "window_mismatches": [],
-            "invalid_config_files": [],
-        }
-    for path in sorted(config_dir.glob("*.json")):
-        relative = _relative(path, root)
-        try:
-            data = json.loads(path.read_text(encoding="utf-8-sig"))
-        except json.JSONDecodeError as exc:
-            invalid_config_files.append({"path": relative, "error": str(exc)})
-            continue
-        grid = _factor_grid_mapping(data)
-        if grid is None:
-            continue
-        configs_scanned += 1
-        factor_source = str(grid.get("factor_source", DEFAULT_FACTOR_SOURCE))
-        factor_names = tuple(str(name) for name in grid.get("factor_names", ()))
-        factor_windows = _factor_windows(grid.get("factor_windows", DEFAULT_FACTOR_WINDOWS))
-        registered = _registered_factor_names(factor_source, factor_windows)
-        if registered is None:
-            unsupported_factor_sources.append({"path": relative, "factor_source": factor_source})
-            continue
-        for factor_name in factor_names:
-            window = _parse_technical_factor_window(factor_name)
-            if factor_source in {"technical", "combined"} and window is not None and window not in factor_windows:
-                window_mismatches.append(
-                    {
-                        "path": relative,
-                        "factor_name": factor_name,
-                        "factor_window": window,
-                        "configured_windows": list(factor_windows),
-                    }
-                )
-                continue
-            if factor_name not in registered:
-                unknown_factor_refs.append(
-                    {
-                        "path": relative,
-                        "factor_source": factor_source,
-                        "factor_name": factor_name,
-                    }
-                )
-    passes = not unknown_factor_refs and not unsupported_factor_sources and not window_mismatches and not invalid_config_files
-    return {
-        "passes": passes,
-        "configs_scanned": configs_scanned,
-        "unknown_factor_refs": unknown_factor_refs,
-        "unsupported_factor_sources": unsupported_factor_sources,
-        "window_mismatches": window_mismatches,
-        "invalid_config_files": invalid_config_files,
-    }
-
-
-def _factor_grid_mapping(data: Any) -> dict[str, Any] | None:
-    if not isinstance(data, dict):
-        return None
-    nested = data.get("experiment_grid")
-    if isinstance(nested, dict) and "factor_names" in nested:
-        return nested
-    if "factor_names" in data:
-        return data
-    return None
-
-
-def _factor_windows(value: Any) -> tuple[int, ...]:
-    if not isinstance(value, (list, tuple)):
-        return DEFAULT_FACTOR_WINDOWS
-    windows = []
-    for item in value:
-        try:
-            windows.append(int(item))
-        except (TypeError, ValueError):
-            continue
-    return tuple(windows) or DEFAULT_FACTOR_WINDOWS
-
-
-def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]) -> set[str] | None:
-    if factor_source == "technical":
-        return _technical_factor_names(factor_windows)
-    if factor_source == "tushare_daily_basic":
-        return set(DAILY_BASIC_FACTOR_NAMES) | set(DAILY_BASIC_LEGACY_CAPACITY_FACTOR_NAMES)
-    if factor_source == "tushare_moneyflow":
-        return set(MONEYFLOW_FACTOR_NAMES)
-    if factor_source == "moneyflow_technical_combo":
-        return set(MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES)
-    if factor_source == "cn_stock_champion":
-        return set(CN_STOCK_CHAMPION_FACTOR_NAMES)
-    if factor_source == "daily_basic_public_anomaly_residual_ensemble":
-        return set(DAILY_BASIC_PUBLIC_ANOMALY_RESIDUAL_ENSEMBLE_FACTOR_NAMES)
-    if factor_source == "daily_basic_public_quality_value_momentum":
-        return set(DAILY_BASIC_PUBLIC_QVM_FACTOR_NAMES)
-    if factor_source == "daily_basic_public_risk_filter_bridge":
-        return set(DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES)
-    if factor_source == "daily_basic_residual_composite":
-        return set(DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES)
-    if factor_source == "daily_basic_smart_money_quality":
-        return set(DAILY_BASIC_SMART_MONEY_QUALITY_FACTOR_NAMES)
-    if factor_source == "daily_basic_technical_combo":
-        return set(DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES)
-    if factor_source == "daily_basic_value_liquidity_tail":
-        return set(DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES)
-    if factor_source == "etf_share_size":
-        return set(ETF_SHARE_SIZE_FACTOR_NAMES)
-    if factor_source == "etf_moneyflow_basket":
-        return set(ETF_MONEYFLOW_BASKET_FACTOR_NAMES)
-    if factor_source == "etf_theme_breadth":
-        return _etf_theme_breadth_factor_names(factor_windows)
-    if factor_source == "industry_breadth_regime":
-        return set(INDUSTRY_BREADTH_REGIME_FACTOR_NAMES)
-    if factor_source == "industry_leader_lag":
-        return set(INDUSTRY_LEADER_LAG_FACTOR_NAMES)
-    if factor_source == "information_discreteness":
-        return set(INFORMATION_DISCRETENESS_FACTOR_NAMES)
-    if factor_source == "liquidity_shock_recovery":
-        return set(LIQUIDITY_SHOCK_RECOVERY_FACTOR_NAMES)
-    if factor_source == "listing_age_board":
-        return set(LISTING_AGE_BOARD_FACTOR_NAMES)
-    if factor_source == "official_tradeability_events":
-        return set(OFFICIAL_TRADEABILITY_EVENT_FACTOR_NAMES)
-    if factor_source == "public_formula_price_volume":
-        return set(PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES)
-    if factor_source == "public_rsrs":
-        return set(PUBLIC_RSRS_FACTOR_NAMES)
-    if factor_source == "public_technical":
-        return set(PUBLIC_TECHNICAL_FACTOR_NAMES)
-    if factor_source == "public_technical_liquidity":
-        return set(PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES)
-    if factor_source == "public_technical_tail_guard":
-        return set(PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES)
-    if factor_source == "public_trend_strength_state":
-        return set(PUBLIC_TREND_STRENGTH_STATE_FACTOR_NAMES)
-    if factor_source == "public_trend_volume":
-        return set(PUBLIC_TREND_VOLUME_FACTOR_NAMES)
-    if factor_source == "combined":
-        return _technical_factor_names(factor_windows) | set(DAILY_BASIC_FACTOR_NAMES) | set(DAILY_BASIC_LEGACY_CAPACITY_FACTOR_NAMES)
-    return None
-
-
-def _technical_factor_names(windows: tuple[int, ...]) -> set[str]:
-    return {f"{prefix}_{window}" for prefix in TECHNICAL_FACTOR_PREFIXES for window in windows}
-
-
-def _etf_theme_breadth_factor_names(windows: tuple[int, ...]) -> set[str]:
-    legacy_liquid_names = {f"{prefix}_{window}" for prefix in ETF_THEME_BREADTH_LEGACY_LIQUID_PREFIXES for window in windows}
-    return set(etf_theme_breadth_factor_names(windows)) | legacy_liquid_names
-
-
-def _parse_technical_factor_window(factor_name: str) -> int | None:
-    for prefix in sorted(TECHNICAL_FACTOR_PREFIXES, key=len, reverse=True):
-        marker = f"{prefix}_"
-        if factor_name.startswith(marker):
-            try:
-                return int(factor_name.removeprefix(marker))
-            except ValueError:
-                return None
-    return None
-
-
-if __name__ == "__main__":
-    main()

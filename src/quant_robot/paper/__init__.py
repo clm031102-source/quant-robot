@@ -1,9 +1,5 @@
-"""Local paper trading simulation. Research-only, no broker integration."""
+"""Unified, fault-tolerant paper-trading ledger and daily runner (research-to-paper only)."""
+from quant_robot.paper.ledger import PaperLedger
+from quant_robot.paper.runner import run_daily_paper_update
 
-from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation, write_paper_simulation_artifacts
-
-__all__ = [
-    "PaperSimulationConfig",
-    "run_paper_simulation",
-    "write_paper_simulation_artifacts",
-]
+__all__ = ["PaperLedger", "run_daily_paper_update"]
