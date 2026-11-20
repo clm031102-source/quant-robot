@@ -21,7 +21,7 @@ FORBIDDEN_PATTERNS = (
     "live_order",
     "account_login",
 )
-REQUIRED_GITIGNORE_RULES = ("data/", ".env", "*.parquet", "*.key", "*.pem", "*.sqlite")
+REQUIRED_GITIGNORE_RULES = ("/data/", ".env", "*.parquet", "*.key", "*.pem", "*.sqlite")
 SECRET_REGEX = re.compile(r"TUSHARE_TOKEN\s*=\s*['\"]?[A-Za-z0-9]{20,}", re.I)
 MAX_MODULE_LINES = 800
 SELF_FILE = "src/quant_robot/audit/project_audit.py"
