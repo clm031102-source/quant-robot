@@ -102,6 +102,7 @@ def run_portfolio_backtest(
     pending_reason = ""
     total_commission = 0.0
     total_slippage = 0.0
+    total_funding = 0.0
     equity_rows: list[dict[str, Any]] = []
     trade_rows: list[dict[str, Any]] = []
 
@@ -124,6 +125,8 @@ def run_portfolio_backtest(
                 min_trade_notional=min_trade_notional,
                 cost=cost,
                 reason=pending_reason,
+                allow_short=risk.allow_short,
+                max_gross_leverage=risk.max_gross_leverage,
             )
             for tr in filled:
                 total_commission += tr["commission"]
@@ -133,13 +136,20 @@ def run_portfolio_backtest(
             pending_targets = None
             pending_reason = ""
 
-        # 2) Mark-to-market at close
+        # 2) Mark-to-market at close (signed for Long/Short) + daily perpetual funding/carry drag
         close_prices = adj_panel.iloc[idx]
         mv = 0.0
+        gross_mv = 0.0
         for sym, qty in shares.items():
             px = close_prices.get(sym)
-            if qty > 0 and pd.notna(px) and float(px) > 0:
-                mv += qty * float(px)
+            if abs(qty) > 1e-12 and pd.notna(px) and float(px) > 0:
+                val = qty * float(px)
+                mv += val
+                gross_mv += abs(val)
+        if cost.funding_annual_bps > 0 and gross_mv > 0:
+            funding_fee = gross_mv * (cost.funding_annual_bps / 10000.0) / periods_per_year
+            cash -= funding_fee
+            total_funding += funding_fee
         nav = cash + mv
         peak_nav = max(peak_nav, nav)
         dd = (nav / peak_nav - 1.0) if peak_nav > 0 else 0.0
@@ -151,6 +161,8 @@ def run_portfolio_backtest(
                 "nav": round(nav, 4),
                 "cash": round(cash, 4),
                 "market_value": round(mv, 4),
+                "gross_exposure": round(gross_mv / nav, 4) if nav > 0 else 0.0,
+                "net_exposure": round(mv / nav, 4) if nav > 0 else 0.0,
                 "daily_return": daily_ret,
                 "drawdown": dd,
                 "peak_nav": round(peak_nav, 4),
@@ -168,12 +180,12 @@ def run_portfolio_backtest(
             continue
 
         risk_triggered = False
-        if risk.max_drawdown_halt is not None and (-dd) >= risk.max_drawdown_halt and mv > 0:
+        if risk.max_drawdown_halt is not None and (-dd) >= risk.max_drawdown_halt and gross_mv > 0:
             risk_triggered = True
             pending_targets = {}
             pending_reason = f"drawdown_halt_{risk.max_drawdown_halt:.0%}"
             cooldown_left = max(1, risk.cooldown_sessions)
-        elif risk.daily_loss_halt is not None and (-daily_ret) >= risk.daily_loss_halt and mv > 0:
+        elif risk.daily_loss_halt is not None and (-daily_ret) >= risk.daily_loss_halt and gross_mv > 0:
             risk_triggered = True
             pending_targets = {}
             pending_reason = f"daily_loss_halt_{risk.daily_loss_halt:.1%}"
@@ -181,7 +193,7 @@ def run_portfolio_backtest(
 
         # 4) Compute T-close signal for T+1 execution
         if not risk_triggered and pos_in_sim + 1 < len(sim_indices):
-            has_pos = any(q > 0 for q in shares.values())
+            has_pos = any(abs(q) > 1e-12 for q in shares.values())
             if is_rebalance_day(all_dates, idx, strategy.rebalance_frequency, has_positions=has_pos):
                 history = adj_panel.iloc[: idx + 1]
                 targets, _ = compute_target_weights(
@@ -190,7 +202,7 @@ def run_portfolio_backtest(
                 cur_weights = {
                     sym: (shares[sym] * float(close_prices[sym]) / nav)
                     for sym in norm_symbols
-                    if shares[sym] > 0 and pd.notna(close_prices.get(sym)) and nav > 0
+                    if abs(shares[sym]) > 1e-12 and pd.notna(close_prices.get(sym)) and nav > 0
                 }
                 if (not has_pos and targets) or (has_pos and should_rebalance_by_band(cur_weights, targets, strategy.rebalance_band)):
                     pending_targets = targets
@@ -205,13 +217,15 @@ def run_portfolio_backtest(
         initial_cash=initial_cash,
         total_commission=total_commission,
         total_slippage=total_slippage,
+        total_funding=total_funding,
         trade_count=len(trades_df),
         periods_per_year=periods_per_year,
     )
 
     if include_benchmark:
         bench_spec = StrategySpec(kind="passive_drift", rebalance_frequency="never", rebalance_band=0.0)
-        bench_risk = RiskConfig(max_drawdown_halt=None, daily_loss_halt=None, cooldown_sessions=0)
+        bench_risk = RiskConfig(max_drawdown_halt=None, daily_loss_halt=None, cooldown_sessions=0, allow_short=False)
+        bench_cost = cost.model_copy(update={"funding_annual_bps": 0.0})
         bench = run_portfolio_backtest(
             bars,
             name=f"{name} (Buy&Hold)",
@@ -219,7 +233,7 @@ def run_portfolio_backtest(
             currency=currency,
             symbols=norm_symbols,
             strategy=bench_spec,
-            cost=cost,
+            cost=bench_cost,
             risk=bench_risk,
             initial_cash=initial_cash,
             lot_size=lot_size,
@@ -268,12 +282,14 @@ def _execute_rebalance(
     min_trade_notional: float,
     cost: CostConfig,
     reason: str,
+    allow_short: bool = False,
+    max_gross_leverage: float = 1.0,
 ) -> tuple[float, list[dict[str, Any]]]:
-    """Execute sells first, then buys, respecting exact lot granularity and minimum commissions."""
+    """Execute portfolio rebalance respecting lot granularity, minimum commissions, and optional margin shorting."""
     nav = cash
     for sym, qty in shares.items():
         px = exec_prices.get(sym)
-        if qty > 0 and pd.notna(px) and float(px) > 0:
+        if abs(qty) > 1e-12 and pd.notna(px) and float(px) > 0:
             nav += qty * float(px)
     if nav <= 0:
         return cash, []
@@ -290,11 +306,32 @@ def _execute_rebalance(
             continue
         scale = float(raw_px) / float(adj_px)
         unit_scale[sym] = scale
-        tgt_val = nav * float(target_weights.get(sym, 0.0))
-        raw_lots = math.floor(tgt_val / (float(raw_px) * lot_size))
-        desired_shares[sym] = raw_lots * lot_size * scale
+        tgt_w = float(target_weights.get(sym, 0.0))
+        if not allow_short:
+            tgt_w = max(0.0, tgt_w)
+        tgt_val = nav * tgt_w
+        sign = 1.0 if tgt_val >= 0.0 else -1.0
+        raw_lots = math.floor(abs(tgt_val) / (float(raw_px) * lot_size))
+        desired_shares[sym] = sign * raw_lots * lot_size * scale
 
-    # 1) SELLS first
+    if allow_short:
+        return _execute_margin_rebalance(
+            cur_date=cur_date,
+            cash=cash,
+            nav=nav,
+            shares=shares,
+            desired_shares=desired_shares,
+            unit_scale=unit_scale,
+            exec_prices=exec_prices,
+            raw_prices=raw_prices,
+            lot_size=lot_size,
+            min_trade_notional=min_trade_notional,
+            cost=cost,
+            reason=reason,
+            max_gross_leverage=max_gross_leverage,
+        )
+
+    # Long-only mode: 1) SELLS first
     for sym in sorted(shares):
         cur_q = shares[sym]
         tgt_q = desired_shares[sym]
@@ -389,12 +426,123 @@ def _execute_rebalance(
     return cash, fills
 
 
+def _execute_margin_rebalance(
+    *,
+    cur_date: date,
+    cash: float,
+    nav: float,
+    shares: dict[str, float],
+    desired_shares: dict[str, float],
+    unit_scale: dict[str, float],
+    exec_prices: pd.Series,
+    raw_prices: pd.Series,
+    lot_size: float,
+    min_trade_notional: float,
+    cost: CostConfig,
+    reason: str,
+    max_gross_leverage: float,
+) -> tuple[float, list[dict[str, Any]]]:
+    """Two-pass Long/Short margin rebalance: Pass 1 closes/reduces exposure, Pass 2 opens/adds within gross cap."""
+    fills: list[dict[str, Any]] = []
+
+    def _apply_trade(sym: str, delta_q: float, raw_qty: float, raw_px: float, adj_px: float, side: str) -> None:
+        nonlocal cash
+        gross = abs(delta_q) * adj_px
+        slip = gross * (cost.slippage_bps / 10000.0)
+        comm = max(gross * (cost.commission_bps / 10000.0), cost.minimum_commission)
+        duty = gross * (cost.stamp_duty_sell_bps / 10000.0) if delta_q < 0 else 0.0
+        # Exact signed margin cash flow: buying (delta_q > 0) spends cash, selling/shorting (delta_q < 0) adds proceeds
+        cash -= delta_q * adj_px + slip + comm + duty
+        shares[sym] = shares[sym] + delta_q
+        if abs(shares[sym]) <= 1e-12:
+            shares[sym] = 0.0
+        fills.append(
+            {
+                "date": cur_date.isoformat(),
+                "symbol": sym,
+                "side": side,
+                "quantity": _format_qty(raw_qty, lot_size),
+                "raw_price": round(raw_px, 4),
+                "notional": round(gross, 2),
+                "commission": round(comm + duty, 4),
+                "slippage": round(slip, 4),
+                "reason": reason,
+            }
+        )
+
+    # Pass 1: Close sign flips and reduce existing exposures first to free margin
+    for sym in sorted(shares):
+        cur_q = shares[sym]
+        tgt_q = desired_shares[sym]
+        if abs(cur_q) <= 1e-12:
+            continue
+        adj_px = exec_prices.get(sym)
+        raw_px = raw_prices.get(sym)
+        if pd.isna(adj_px) or pd.isna(raw_px) or float(adj_px) <= 0 or float(raw_px) <= 0:
+            continue
+        adj_px_f, raw_px_f = float(adj_px), float(raw_px)
+        scale = max(unit_scale[sym], 1e-12)
+        flip_or_exit = (cur_q * tgt_q < 0.0) or (abs(tgt_q) <= 1e-12)
+        if flip_or_exit:
+            side = "SELL" if cur_q > 0 else "COVER"
+            _apply_trade(sym, -cur_q, abs(cur_q) / scale, raw_px_f, adj_px_f, side)
+        elif abs(tgt_q) < abs(cur_q) - 1e-12:
+            reduce_lots = math.floor((abs(cur_q - tgt_q) / scale + 1e-12) / lot_size)
+            if reduce_lots <= 0:
+                continue
+            raw_qty = reduce_lots * lot_size
+            reduce_q = min(abs(cur_q), raw_qty * scale)
+            if reduce_q * adj_px_f < min_trade_notional:
+                continue
+            delta_q = -reduce_q if cur_q > 0 else reduce_q
+            side = "SELL" if cur_q > 0 else "COVER"
+            _apply_trade(sym, delta_q, raw_qty, raw_px_f, adj_px_f, side)
+
+    # Pass 2: Open or add Long/Short positions capped by max_gross_leverage * nav
+    current_gross = sum(
+        abs(shares[s]) * float(exec_prices[s])
+        for s in shares
+        if abs(shares[s]) > 1e-12 and pd.notna(exec_prices.get(s)) and float(exec_prices[s]) > 0
+    )
+    remaining_gross = max(0.0, nav * max_gross_leverage * 0.995 - current_gross)
+
+    for sym in sorted(shares):
+        cur_q = shares[sym]
+        tgt_q = desired_shares[sym]
+        if abs(tgt_q) <= abs(cur_q) + 1e-12:
+            continue
+        adj_px = exec_prices.get(sym)
+        raw_px = raw_prices.get(sym)
+        if pd.isna(adj_px) or pd.isna(raw_px) or float(adj_px) <= 0 or float(raw_px) <= 0:
+            continue
+        adj_px_f, raw_px_f = float(adj_px), float(raw_px)
+        scale = max(unit_scale[sym], 1e-12)
+        sign = 1.0 if tgt_q > 0 else -1.0
+        need_lots = math.floor((abs(tgt_q - cur_q) / scale + 1e-12) / lot_size)
+        unit_gross = lot_size * scale * adj_px_f
+        max_by_gross = math.floor(remaining_gross / max(unit_gross, 1e-12))
+        lots = min(need_lots, max_by_gross)
+        if lots <= 0:
+            continue
+        add_qty = lots * lot_size
+        add_q = sign * add_qty * scale
+        gross = abs(add_q) * adj_px_f
+        if gross < min_trade_notional:
+            continue
+        side = "BUY" if sign > 0 else "SHORT"
+        _apply_trade(sym, add_q, add_qty, raw_px_f, adj_px_f, side)
+        remaining_gross = max(0.0, remaining_gross - gross)
+
+    return cash, fills
+
+
 def compute_backtest_metrics(
     eq_df: pd.DataFrame,
     *,
     initial_cash: float,
     total_commission: float,
     total_slippage: float,
+    total_funding: float = 0.0,
     trade_count: int,
     periods_per_year: float = 252.0,
 ) -> dict[str, float]:
@@ -414,7 +562,7 @@ def compute_backtest_metrics(
     sortino = float((rets.mean() * periods_per_year) / down_vol) if down_vol > 1e-12 else 0.0
     max_dd = float(eq_df["drawdown"].min())
     calmar = float(cagr / abs(max_dd)) if abs(max_dd) > 1e-9 else 0.0
-    cost_drag = (total_commission + total_slippage) / initial_cash
+    cost_drag = (total_commission + total_slippage + total_funding) / initial_cash
     return {
         "initial_cash": round(initial_cash, 2),
         "final_nav": round(final_nav, 2),
@@ -430,6 +578,7 @@ def compute_backtest_metrics(
         "trade_count": float(trade_count),
         "total_commission": round(total_commission, 2),
         "total_slippage": round(total_slippage, 2),
+        "total_funding": round(total_funding, 2),
         "cost_drag_pct": round(cost_drag, 6),
         "trading_days": float(n_days),
     }

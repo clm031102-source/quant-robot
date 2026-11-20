@@ -70,13 +70,14 @@
           <label>策略模型
             <select name="strategy_kind">
               <option value="dual_momentum">双动量趋势轮动 (dual_momentum)</option>
+              <option value="crypto_trend_ls">加密多空双向CTA (crypto_trend_ls)</option>
               <option value="crypto_trend_vol">加密趋势+波动率控仓 (crypto_trend_vol)</option>
               <option value="risk_parity_trend">风险平价趋势 (risk_parity_trend)</option>
               <option value="fixed_allocation">固定比例再平衡 (fixed_allocation)</option>
               <option value="passive_drift">初始建仓不再平衡 (passive_drift)</option>
             </select>
           </label>
-          <label>标的池（逗号分隔）<input name="symbols" value="510300.SH,510500.SH,159915.SZ,510880.SH,518880.SH,513100.SH" /></label>
+          <label>标的池（逗号分隔）<input name="symbols" value="510300.SH,510880.SH,518880.SH,513100.SH" /></label>
           <label>防御标的（留空=空仓持现）<input name="defensive_symbol" value="" /></label>
           <label>初始资金<input name="initial_cash" type="number" value="10000" /></label>
           <label>最小交易单位<input name="lot_size" type="number" step="any" value="100" /></label>
@@ -89,13 +90,22 @@
               <option value="monthly">每月 (monthly)</option>
               <option value="quarterly">每季 (quarterly)</option>
               <option value="weekly">每周 (weekly)</option>
+              <option value="daily">每日风控检查 (daily)</option>
               <option value="never">仅建仓 (never)</option>
             </select>
           </label>
           <label>动量回看天数<input name="lookback_days" type="number" value="60" /></label>
           <label>趋势均线天数(0=关闭)<input name="trend_ma_days" type="number" value="120" /></label>
-          <label>目标年化波动率(加密)<input name="target_volatility" type="number" step="0.05" value="0.35" /></label>
+          <label>目标年化波动率(加密)<input name="target_volatility" type="number" step="0.05" value="0.50" /></label>
+          <label>允许做空(永续模拟)
+            <select name="allow_short">
+              <option value="false">否 (仅做多)</option>
+              <option value="true">是 (支持多空双向)</option>
+            </select>
+          </label>
           <input type="hidden" name="min_trade_notional" value="0" />
+          <input type="hidden" name="funding_annual_bps" value="0" />
+          <input type="hidden" name="rebalance_band" value="0.08" />
           <div class="form-actions">
             <button type="submit" class="btn primary">运行回测</button>
           </div>

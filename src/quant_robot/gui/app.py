@@ -245,29 +245,43 @@ def _run_api_backtest(body: dict[str, Any], cache: MarketCache) -> dict[str, Any
         raise ValueError(f"No cached bars found for {market}: {symbols}. Click 'Update Data' first.")
 
     is_crypto = market == "CRYPTO"
+    kind = str(body.get("strategy_kind") or ("crypto_trend_ls" if is_crypto else "dual_momentum"))
+    allow_short_raw = body.get("allow_short", kind == "crypto_trend_ls")
+    allow_short = (
+        allow_short_raw.strip().lower() in {"1", "true", "yes", "on"}
+        if isinstance(allow_short_raw, str)
+        else bool(allow_short_raw)
+    )
     strategy = StrategySpec(
-        kind=body.get("strategy_kind", "crypto_trend_vol" if is_crypto else "dual_momentum"),
-        rebalance_frequency=body.get("rebalance_frequency", "weekly" if is_crypto else "monthly"),
-        rebalance_band=float(body.get("rebalance_band") or (0.06 if is_crypto else 0.05)),
-        lookback_days=int(body.get("lookback_days") or (40 if is_crypto else 60)),
+        kind=kind,
+        rebalance_frequency=body.get("rebalance_frequency", "daily" if kind == "crypto_trend_ls" else ("weekly" if is_crypto else "monthly")),
+        rebalance_band=float(body.get("rebalance_band") or (0.12 if kind == "crypto_trend_ls" else (0.06 if is_crypto else 0.05))),
+        lookback_days=int(body.get("lookback_days") or (20 if is_crypto else 60)),
+        fast_ma_days=int(body.get("fast_ma_days") or 20),
         trend_ma_days=int(body.get("trend_ma_days") if body.get("trend_ma_days") not in (None, "") else (60 if is_crypto else 120)),
+        short_exit_ma_days=int(body.get("short_exit_ma_days") or 15),
         vol_lookback_days=int(body.get("vol_lookback_days") or (30 if is_crypto else 60)),
-        target_volatility=float(body.get("target_volatility") or 0.35),
+        target_volatility=float(body.get("target_volatility") or (0.50 if kind == "crypto_trend_ls" else 0.35)),
+        short_exposure_scale=float(body.get("short_exposure_scale") or 0.60),
         top_n=int(body.get("top_n") or 2),
         defensive_symbol=body.get("defensive_symbol") or None,
     )
-    default_comm_bps = 10.0 if is_crypto else 1.0
+    default_comm_bps = 5.0 if (is_crypto and allow_short) else (10.0 if is_crypto else 1.0)
     default_min_comm = 0.0 if is_crypto else (5.0 if market == "CN_ETF" else 1.0)
     default_slip_bps = 10.0 if is_crypto else 5.0
+    default_funding_bps = 500.0 if (is_crypto and allow_short) else 0.0
     cost = CostConfig(
         commission_bps=float(body["commission_bps"]) if body.get("commission_bps") not in (None, "") else default_comm_bps,
         minimum_commission=float(body["minimum_commission"]) if body.get("minimum_commission") not in (None, "") else default_min_comm,
         slippage_bps=float(body["slippage_bps"]) if body.get("slippage_bps") not in (None, "") else default_slip_bps,
+        funding_annual_bps=float(body["funding_annual_bps"]) if body.get("funding_annual_bps") not in (None, "") else default_funding_bps,
     )
     risk = RiskConfig(
         max_drawdown_halt=float(body["max_drawdown_halt"]) if body.get("max_drawdown_halt") else None,
         cooldown_sessions=int(body.get("cooldown_sessions") or (7 if is_crypto else 5)),
-        max_single_weight=1.0 if len(symbols) == 1 else float(body.get("max_single_weight") or 0.60),
+        max_single_weight=1.0 if len(symbols) == 1 else float(body.get("max_single_weight") or (0.50 if allow_short else 0.60)),
+        allow_short=allow_short,
+        max_gross_leverage=float(body.get("max_gross_leverage") or 1.0),
     )
     default_lot = 0.0001 if is_crypto else (100.0 if market in {"CN_ETF", "CN"} else 1.0)
     lot_size = float(body["lot_size"]) if body.get("lot_size") not in (None, "") else default_lot

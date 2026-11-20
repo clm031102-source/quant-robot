@@ -21,7 +21,7 @@ def render_comparison_markdown(reports: list[BacktestReport], title: str = "Quan
     ]
     for rep in reports:
         m = rep.metrics
-        fees = m.get("total_commission", 0.0) + m.get("total_slippage", 0.0)
+        fees = m.get("total_commission", 0.0) + m.get("total_slippage", 0.0) + m.get("total_funding", 0.0)
         ex = m.get("excess_total_return", 0.0)
         lines.append(
             f"| {rep.name} | {rep.market} | {rep.start_date} ~ {rep.end_date} | "

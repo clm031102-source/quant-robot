@@ -101,14 +101,17 @@ async function selectPortfolio(pid) {
     const posBody = document.querySelector("#positions-table tbody");
     const posEntries = Object.entries(st.positions || {});
     posBody.innerHTML = posEntries.length
-      ? posEntries.map(([sym, p]) => `<tr><td>${sym}</td><td>${fmtQty(p.raw_qty)}</td><td>${fmtNum(p.avg_cost, 3)}</td><td>${fmtNum(p.last_price, 3)}</td><td>${fmtNum(p.market_value)}</td><td>${fmtPct(p.market_value / Math.max(st.nav, 1))}</td></tr>`).join("")
+      ? posEntries.map(([sym, p]) => {
+          const sideTag = p.side === "SHORT" || Number(p.raw_qty) < 0 ? `<span class="neg">[空]</span> ` : "";
+          return `<tr><td>${sideTag}${sym}</td><td>${fmtQty(p.raw_qty)}</td><td>${fmtNum(p.avg_cost, 3)}</td><td>${fmtNum(p.last_price, 3)}</td><td>${fmtNum(p.market_value)}</td><td>${fmtPct(p.market_value / Math.max(st.nav, 1))}</td></tr>`;
+        }).join("")
       : `<tr><td colspan="6" class="muted">当前空仓（100% 现金）</td></tr>`;
 
     document.getElementById("signal-json").textContent = JSON.stringify(detail.latest_signal || {}, null, 2);
 
     const trBody = document.querySelector("#trades-table tbody");
     trBody.innerHTML = (detail.trades || []).length
-      ? detail.trades.map((t) => `<tr><td>${t.date}</td><td>${t.symbol}</td><td class="${t.side === "BUY" ? "pos" : "neg"}">${t.side}</td><td>${fmtQty(t.quantity)}</td><td>${fmtNum(t.raw_price, 3)}</td><td>${fmtNum(t.notional)}</td><td>${fmtNum(t.commission)}</td><td>${fmtNum(t.slippage)}</td><td>${t.reason}</td></tr>`).join("")
+      ? detail.trades.map((t) => `<tr><td>${t.date}</td><td>${t.symbol}</td><td class="${t.side === "BUY" || t.side === "COVER" ? "pos" : "neg"}">${t.side}</td><td>${fmtQty(t.quantity)}</td><td>${fmtNum(t.raw_price, 3)}</td><td>${fmtNum(t.notional)}</td><td>${fmtNum(t.commission)}</td><td>${fmtNum(t.slippage)}</td><td>${t.reason}</td></tr>`).join("")
       : `<tr><td colspan="9" class="muted">暂无成交记录</td></tr>`;
   } catch (err) {
     document.getElementById("portfolio-detail").classList.add("hidden");
@@ -136,11 +139,14 @@ async function loadPresets() {
       f.minimum_commission.value = p.cost.minimum_commission;
       f.commission_bps.value = p.cost.commission_bps;
       f.slippage_bps.value = p.cost.slippage_bps;
+      f.funding_annual_bps.value = p.cost.funding_annual_bps || 0;
       f.start_date.value = p.start_date;
       f.rebalance_frequency.value = p.strategy.rebalance_frequency;
+      f.rebalance_band.value = p.strategy.rebalance_band || 0.08;
       f.lookback_days.value = p.strategy.lookback_days;
       f.trend_ma_days.value = p.strategy.trend_ma_days;
-      f.target_volatility.value = p.strategy.target_volatility || 0.35;
+      f.target_volatility.value = p.strategy.target_volatility || 0.50;
+      f.allow_short.value = p.risk && p.risk.allow_short ? "true" : "false";
     };
     bar.appendChild(btn);
   });
@@ -197,14 +203,14 @@ document.getElementById("bt-form").onsubmit = async (e) => {
       ["等权买入持有", fmtPct(b.total_return)],
       ["夏普比率", fmtNum(m.sharpe, 2)],
       ["最大回撤", fmtPct(m.max_drawdown)],
-      ["交易笔数 / 费用", `${m.trade_count} 笔 / ${fmtNum(m.total_commission + m.total_slippage)}`],
+      ["交易笔数 / 费用", `${m.trade_count} 笔 / ${fmtNum((m.total_commission || 0) + (m.total_slippage || 0) + (m.total_funding || 0))}`],
     ];
     document.getElementById("bt-kpis").innerHTML = kpis.map(([k, v]) => `<div class="kpi"><div class="label">${k}</div><div class="val">${v}</div></div>`).join("");
     document.getElementById("bt-chart").innerHTML = res.svg;
     document.querySelector("#bt-yearly tbody").innerHTML = (res.summary.yearly_returns || [])
       .map((y) => `<tr><td>${y.year}</td><td class="${clsSign(y.strategy_return)}">${fmtPct(y.strategy_return)}</td><td>${fmtPct(y.benchmark_return)}</td><td>${fmtPct(y.max_drawdown)}</td><td>${y.trades}</td></tr>`).join("");
     document.querySelector("#bt-trades tbody").innerHTML = (res.trades || []).slice().reverse()
-      .map((t) => `<tr><td>${t.date}</td><td>${t.symbol}</td><td class="${t.side === "BUY" ? "pos" : "neg"}">${t.side}</td><td>${fmtQty(t.quantity)}</td><td>${fmtNum(t.raw_price, 3)}</td><td>${fmtNum(t.commission)}</td></tr>`).join("");
+      .map((t) => `<tr><td>${t.date}</td><td>${t.symbol}</td><td class="${t.side === "BUY" || t.side === "COVER" ? "pos" : "neg"}">${t.side}</td><td>${fmtQty(t.quantity)}</td><td>${fmtNum(t.raw_price, 3)}</td><td>${fmtNum(t.commission)}</td></tr>`).join("");
     showToast("回测完成！");
   } catch (err) {
     showToast(`回测失败: ${err.message}`);
@@ -215,19 +221,22 @@ document.querySelector("#bt-form select[name='market']").onchange = (e) => {
   const f = document.getElementById("bt-form");
   const m = e.target.value;
   if (m === "CRYPTO") {
-    f.strategy_kind.value = "crypto_trend_vol";
+    f.strategy_kind.value = "crypto_trend_ls";
     f.symbols.value = "BTC-USD,ETH-USD,SOL-USD,BNB-USD";
     f.defensive_symbol.value = "";
     f.initial_cash.value = 1000;
     f.lot_size.value = 0.0001;
     f.min_trade_notional.value = 10;
     f.minimum_commission.value = 0;
-    f.commission_bps.value = 10;
+    f.commission_bps.value = 5;
     f.slippage_bps.value = 10;
-    f.rebalance_frequency.value = "weekly";
-    f.lookback_days.value = 40;
+    f.funding_annual_bps.value = 500;
+    f.rebalance_frequency.value = "daily";
+    f.rebalance_band.value = 0.12;
+    f.lookback_days.value = 20;
     f.trend_ma_days.value = 60;
-    f.target_volatility.value = 0.35;
+    f.target_volatility.value = 0.50;
+    f.allow_short.value = "true";
   } else if (m === "US_ETF") {
     f.strategy_kind.value = "dual_momentum";
     f.symbols.value = "SPYM,EFA,IEF,GLDM";
@@ -238,12 +247,15 @@ document.querySelector("#bt-form select[name='market']").onchange = (e) => {
     f.minimum_commission.value = 1;
     f.commission_bps.value = 0;
     f.slippage_bps.value = 10;
+    f.funding_annual_bps.value = 0;
     f.rebalance_frequency.value = "monthly";
+    f.rebalance_band.value = 0.08;
     f.lookback_days.value = 60;
     f.trend_ma_days.value = 120;
+    f.allow_short.value = "false";
   } else {
-    f.strategy_kind.value = "dual_momentum";
-    f.symbols.value = "510300.SH,510500.SH,159915.SZ,510880.SH,518880.SH,513100.SH";
+    f.strategy_kind.value = "risk_parity_trend";
+    f.symbols.value = "510300.SH,510880.SH,518880.SH,513100.SH";
     f.defensive_symbol.value = "";
     f.initial_cash.value = 10000;
     f.lot_size.value = 100;
@@ -251,9 +263,12 @@ document.querySelector("#bt-form select[name='market']").onchange = (e) => {
     f.minimum_commission.value = 5;
     f.commission_bps.value = 1;
     f.slippage_bps.value = 5;
-    f.rebalance_frequency.value = "monthly";
+    f.funding_annual_bps.value = 0;
+    f.rebalance_frequency.value = "quarterly";
+    f.rebalance_band.value = 0.08;
     f.lookback_days.value = 60;
     f.trend_ma_days.value = 120;
+    f.allow_short.value = "false";
   }
 };
 

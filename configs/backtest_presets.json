@@ -2,29 +2,7 @@
   "presets": [
     {
       "preset_id": "cn_etf_dual_momentum",
-      "name": "A股核心ETF双动量 (2021-至今·华宝5元)",
-      "market": "CN_ETF",
-      "currency": "CNY",
-      "symbols": ["510300.SH", "510500.SH", "159915.SZ", "510880.SH", "518880.SH", "513100.SH"],
-      "lot_size": 100,
-      "initial_cash": 10000.0,
-      "start_date": "2021-01-04",
-      "execution_price": "open",
-      "cost": { "commission_bps": 1.0, "minimum_commission": 5.0, "slippage_bps": 5.0, "stamp_duty_sell_bps": 0.0 },
-      "risk": { "max_drawdown_halt": 0.30, "cooldown_sessions": 5, "max_single_weight": 0.60, "min_cash_weight": 0.0 },
-      "strategy": {
-        "kind": "dual_momentum",
-        "rebalance_frequency": "monthly",
-        "rebalance_band": 0.08,
-        "lookback_days": 60,
-        "trend_ma_days": 120,
-        "top_n": 2,
-        "defensive_symbol": null
-      }
-    },
-    {
-      "preset_id": "cn_etf_risk_parity",
-      "name": "A股四资产风险平价趋势 (2021-至今·华宝5元)",
+      "name": "A股四资产季度双动量 (优化低换手·2021-至今)",
       "market": "CN_ETF",
       "currency": "CNY",
       "symbols": ["510300.SH", "510880.SH", "518880.SH", "513100.SH"],
@@ -33,10 +11,32 @@
       "start_date": "2021-01-04",
       "execution_price": "open",
       "cost": { "commission_bps": 1.0, "minimum_commission": 5.0, "slippage_bps": 5.0, "stamp_duty_sell_bps": 0.0 },
-      "risk": { "max_drawdown_halt": 0.30, "cooldown_sessions": 5, "max_single_weight": 0.50, "min_cash_weight": 0.0 },
+      "risk": { "max_drawdown_halt": 0.30, "cooldown_sessions": 5, "max_single_weight": 0.60, "min_cash_weight": 0.0 },
+      "strategy": {
+        "kind": "dual_momentum",
+        "rebalance_frequency": "quarterly",
+        "rebalance_band": 0.08,
+        "lookback_days": 120,
+        "trend_ma_days": 120,
+        "top_n": 2,
+        "defensive_symbol": null
+      }
+    },
+    {
+      "preset_id": "cn_etf_risk_parity",
+      "name": "A股四资产风险平价趋势 (季度低换手·2021-至今)",
+      "market": "CN_ETF",
+      "currency": "CNY",
+      "symbols": ["510300.SH", "510880.SH", "518880.SH", "513100.SH"],
+      "lot_size": 100,
+      "initial_cash": 10000.0,
+      "start_date": "2021-01-04",
+      "execution_price": "open",
+      "cost": { "commission_bps": 1.0, "minimum_commission": 5.0, "slippage_bps": 5.0, "stamp_duty_sell_bps": 0.0 },
+      "risk": { "max_drawdown_halt": 0.25, "cooldown_sessions": 5, "max_single_weight": 0.50, "min_cash_weight": 0.0 },
       "strategy": {
         "kind": "risk_parity_trend",
-        "rebalance_frequency": "monthly",
+        "rebalance_frequency": "quarterly",
         "rebalance_band": 0.08,
         "vol_lookback_days": 60,
         "trend_ma_days": 120,
@@ -123,8 +123,35 @@
       }
     },
     {
+      "preset_id": "crypto_trend_ls_4c",
+      "name": "加密货币多空双向CTA (永续1x无杠杆·4币·2021-至今)",
+      "market": "CRYPTO",
+      "currency": "USD",
+      "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"],
+      "lot_size": 0.0001,
+      "min_trade_notional": 10.0,
+      "initial_cash": 1000.0,
+      "start_date": "2021-01-01",
+      "execution_price": "open",
+      "cost": { "commission_bps": 5.0, "minimum_commission": 0.0, "slippage_bps": 10.0, "stamp_duty_sell_bps": 0.0, "funding_annual_bps": 500.0 },
+      "risk": { "max_drawdown_halt": 0.35, "cooldown_sessions": 5, "max_single_weight": 0.50, "min_cash_weight": 0.0, "allow_short": true, "max_gross_leverage": 1.0 },
+      "strategy": {
+        "kind": "crypto_trend_ls",
+        "rebalance_frequency": "daily",
+        "rebalance_band": 0.12,
+        "fast_ma_days": 20,
+        "trend_ma_days": 60,
+        "short_exit_ma_days": 15,
+        "vol_lookback_days": 30,
+        "target_volatility": 0.50,
+        "short_exposure_scale": 0.60,
+        "short_momentum_threshold": -0.05,
+        "require_btc_bear_for_short": true
+      }
+    },
+    {
       "preset_id": "crypto_trend_vol",
-      "name": "加密货币趋势+波动率控仓 (BTC/ETH/SOL/BNB · 2021-至今)",
+      "name": "加密货币多头日频趋势+波动率控仓 (4币·2021-至今)",
       "market": "CRYPTO",
       "currency": "USD",
       "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"],
@@ -134,15 +161,15 @@
       "start_date": "2021-01-01",
       "execution_price": "open",
       "cost": { "commission_bps": 10.0, "minimum_commission": 0.0, "slippage_bps": 10.0, "stamp_duty_sell_bps": 0.0 },
-      "risk": { "max_drawdown_halt": 0.40, "cooldown_sessions": 7, "max_single_weight": 0.60, "min_cash_weight": 0.0 },
+      "risk": { "max_drawdown_halt": 0.35, "cooldown_sessions": 5, "max_single_weight": 0.60, "min_cash_weight": 0.0 },
       "strategy": {
         "kind": "crypto_trend_vol",
-        "rebalance_frequency": "weekly",
-        "rebalance_band": 0.06,
-        "lookback_days": 40,
+        "rebalance_frequency": "daily",
+        "rebalance_band": 0.10,
+        "lookback_days": 20,
         "trend_ma_days": 60,
         "vol_lookback_days": 30,
-        "target_volatility": 0.35,
+        "target_volatility": 0.45,
         "top_n": 2,
         "defensive_symbol": null
       }

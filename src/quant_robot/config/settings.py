@@ -13,6 +13,7 @@ class CostConfig(BaseModel):
     minimum_commission: float = Field(default=5.0, ge=0.0)
     slippage_bps: float = Field(default=5.0, ge=0.0)
     stamp_duty_sell_bps: float = Field(default=0.0, ge=0.0)
+    funding_annual_bps: float = Field(default=0.0, ge=0.0, le=5000.0)
 
 
 class RiskConfig(BaseModel):
@@ -21,17 +22,31 @@ class RiskConfig(BaseModel):
     cooldown_sessions: int = Field(default=5, ge=0)
     max_single_weight: float = Field(default=1.0, gt=0.0, le=1.0)
     min_cash_weight: float = Field(default=0.0, ge=0.0, lt=1.0)
+    allow_short: bool = False
+    max_gross_leverage: float = Field(default=1.0, gt=0.0, le=2.0)
 
 
 class StrategySpec(BaseModel):
-    kind: Literal["fixed_allocation", "passive_drift", "dual_momentum", "risk_parity_trend", "crypto_trend_vol"]
+    kind: Literal[
+        "fixed_allocation",
+        "passive_drift",
+        "dual_momentum",
+        "risk_parity_trend",
+        "crypto_trend_vol",
+        "crypto_trend_ls",
+    ]
     target_weights: dict[str, float] = Field(default_factory=dict)
     rebalance_frequency: Literal["daily", "weekly", "monthly", "quarterly", "never"] = "monthly"
     rebalance_band: float = Field(default=0.05, ge=0.0, le=1.0)
     lookback_days: int = Field(default=60, ge=5)
+    fast_ma_days: int = Field(default=20, ge=2)
     trend_ma_days: int = Field(default=120, ge=0)
+    short_exit_ma_days: int = Field(default=15, ge=2)
     vol_lookback_days: int = Field(default=60, ge=5)
     target_volatility: float = Field(default=0.35, gt=0.0, le=2.0)
+    short_exposure_scale: float = Field(default=0.60, ge=0.0, le=1.0)
+    short_momentum_threshold: float = Field(default=-0.05, ge=-0.9, le=0.0)
+    require_btc_bear_for_short: bool = True
     top_n: int = Field(default=2, ge=1)
     defensive_symbol: str | None = None
 

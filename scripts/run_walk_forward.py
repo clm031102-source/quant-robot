@@ -29,7 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     cache = MarketCache(data_root / "market_cache")
 
     if args.market == "CN_ETF":
-        symbols = ["510300.SH", "510500.SH", "159915.SZ", "510880.SH", "518880.SH", "513100.SH"]
+        symbols = ["510300.SH", "510880.SH", "518880.SH", "513100.SH"]
         currency, lot_size, min_trade_notional, init_cash = "CNY", 100.0, 0.0, 10000.0
         cost = CostConfig(commission_bps=1.0, minimum_commission=5.0, slippage_bps=5.0)
         defensive = None
@@ -37,13 +37,13 @@ def main(argv: list[str] | None = None) -> int:
         test_sessions = args.test_sessions or 126
         step_sessions = args.step_sessions or 126
         candidates = {
-            "dual_mom_40_ma100": StrategySpec(kind="dual_momentum", rebalance_frequency="monthly", lookback_days=40, trend_ma_days=100, top_n=2, defensive_symbol=defensive),
-            "dual_mom_60_ma120": StrategySpec(kind="dual_momentum", rebalance_frequency="monthly", lookback_days=60, trend_ma_days=120, top_n=2, defensive_symbol=defensive),
-            "risk_parity_trend": StrategySpec(kind="risk_parity_trend", rebalance_frequency="monthly", rebalance_band=0.06, vol_lookback_days=60, trend_ma_days=120, defensive_symbol=defensive),
+            "dual_mom_120_q": StrategySpec(kind="dual_momentum", rebalance_frequency="quarterly", rebalance_band=0.08, lookback_days=120, trend_ma_days=120, top_n=2, defensive_symbol=defensive),
+            "risk_parity_trend_q": StrategySpec(kind="risk_parity_trend", rebalance_frequency="quarterly", rebalance_band=0.08, vol_lookback_days=60, trend_ma_days=120, defensive_symbol=defensive),
+            "risk_parity_trend_m": StrategySpec(kind="risk_parity_trend", rebalance_frequency="monthly", rebalance_band=0.10, vol_lookback_days=60, trend_ma_days=200, defensive_symbol=defensive),
             "fixed_equal_band8": StrategySpec(kind="fixed_allocation", rebalance_frequency="quarterly", rebalance_band=0.08),
             "passive_drift": StrategySpec(kind="passive_drift", rebalance_frequency="never", rebalance_band=0.0),
         }
-        risk = RiskConfig(max_drawdown_halt=0.35, cooldown_sessions=5)
+        risk = RiskConfig(max_drawdown_halt=0.30, cooldown_sessions=5, max_single_weight=0.50)
     elif args.market == "US_ETF":
         symbols = ["SPYM", "EFA", "IEF", "GLDM"]
         currency, lot_size, min_trade_notional, init_cash = "USD", 1.0, 0.0, 1000.0
@@ -63,29 +63,32 @@ def main(argv: list[str] | None = None) -> int:
     else:
         symbols = ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"]
         currency, lot_size, min_trade_notional, init_cash = "USD", 0.0001, 10.0, 1000.0
-        cost = CostConfig(commission_bps=10.0, minimum_commission=0.0, slippage_bps=10.0)
+        cost = CostConfig(commission_bps=5.0, minimum_commission=0.0, slippage_bps=10.0, funding_annual_bps=500.0)
         train_sessions = args.train_sessions or 365
         test_sessions = args.test_sessions or 180
         step_sessions = args.step_sessions or 180
         candidates = {
-            "crypto_trend_vol_35": StrategySpec(
-                kind="crypto_trend_vol",
-                rebalance_frequency="weekly",
-                rebalance_band=0.06,
-                lookback_days=40,
+            "crypto_trend_ls_dc": StrategySpec(
+                kind="crypto_trend_ls",
+                rebalance_frequency="daily",
+                rebalance_band=0.12,
+                fast_ma_days=20,
                 trend_ma_days=60,
-                vol_lookback_days=30,
-                target_volatility=0.35,
-                top_n=2,
-            ),
-            "crypto_trend_vol_50": StrategySpec(
-                kind="crypto_trend_vol",
-                rebalance_frequency="weekly",
-                rebalance_band=0.06,
-                lookback_days=30,
-                trend_ma_days=50,
+                short_exit_ma_days=15,
                 vol_lookback_days=30,
                 target_volatility=0.50,
+                short_exposure_scale=0.60,
+                short_momentum_threshold=-0.05,
+                require_btc_bear_for_short=True,
+            ),
+            "crypto_trend_vol_daily": StrategySpec(
+                kind="crypto_trend_vol",
+                rebalance_frequency="daily",
+                rebalance_band=0.10,
+                lookback_days=20,
+                trend_ma_days=60,
+                vol_lookback_days=30,
+                target_volatility=0.45,
                 top_n=2,
             ),
             "crypto_dual_mom_40_60": StrategySpec(
@@ -107,7 +110,13 @@ def main(argv: list[str] | None = None) -> int:
             ),
             "crypto_passive_drift": StrategySpec(kind="passive_drift", rebalance_frequency="never", rebalance_band=0.0),
         }
-        risk = RiskConfig(max_drawdown_halt=0.45, cooldown_sessions=7)
+        risk = RiskConfig(
+            max_drawdown_halt=0.40,
+            cooldown_sessions=5,
+            max_single_weight=0.50,
+            allow_short=True,
+            max_gross_leverage=1.0,
+        )
 
     bars = cache.load_universe(args.market, symbols)
     if bars.empty:

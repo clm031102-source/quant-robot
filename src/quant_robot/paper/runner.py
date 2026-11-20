@@ -89,7 +89,10 @@ def run_daily_paper_update(
                 "total_return": round(total_ret, 6),
                 "max_drawdown": float(st["max_drawdown"]),
                 "trade_count": int(st["trade_count"]),
-                "total_fees": round(float(st["total_commission"]) + float(st["total_slippage"]), 2),
+                "total_fees": round(
+                    float(st["total_commission"]) + float(st["total_slippage"]) + float(st.get("total_funding", 0.0)),
+                    2,
+                ),
                 "positions_count": len(st["positions"]),
             }
         )

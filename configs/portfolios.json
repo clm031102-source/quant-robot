@@ -2,13 +2,13 @@
   "research_to_paper_only": true,
   "portfolios": [
     {
-      "portfolio_id": "cn_etf_dual_momentum_10k",
-      "name": "A股核心ETF双动量轮动 (1万元·华宝口径)",
-      "description": "宽基+红利+黄金+纳指月频双动量趋势轮动，弱势持现防御，100股整手，华宝万1最低5元。",
+      "portfolio_id": "cn_etf_risk_parity_10k",
+      "name": "A股跨境四资产风险平价趋势 (1万元·季度低换手)",
+      "description": "剔除高波动高换手宽基，聚焦沪深300/红利/黄金/纳指四资产，季度逆波动率配权+120日均线弱势空仓，压低最低5元佣金损耗。",
       "enabled": true,
       "market": "CN_ETF",
       "currency": "CNY",
-      "symbols": ["510300.SH", "510500.SH", "159915.SZ", "510880.SH", "518880.SH", "513100.SH"],
+      "symbols": ["510300.SH", "510880.SH", "518880.SH", "513100.SH"],
       "lot_size": 100,
       "initial_cash": 10000.0,
       "start_date": "2026-11-02",
@@ -20,19 +20,18 @@
         "stamp_duty_sell_bps": 0.0
       },
       "risk": {
-        "max_drawdown_halt": 0.30,
+        "max_drawdown_halt": 0.25,
         "daily_loss_halt": null,
         "cooldown_sessions": 5,
-        "max_single_weight": 0.60,
+        "max_single_weight": 0.50,
         "min_cash_weight": 0.0
       },
       "strategy": {
-        "kind": "dual_momentum",
-        "rebalance_frequency": "monthly",
+        "kind": "risk_parity_trend",
+        "rebalance_frequency": "quarterly",
         "rebalance_band": 0.08,
-        "lookback_days": 60,
+        "vol_lookback_days": 60,
         "trend_ma_days": 120,
-        "top_n": 2,
         "defensive_symbol": null
       }
     },
@@ -183,9 +182,52 @@
       }
     },
     {
+      "portfolio_id": "crypto_trend_ls_1k",
+      "name": "加密货币多空双向CTA (永续1x无杠杆·$1,000)",
+      "description": "BTC/ETH/SOL/BNB 每日趋势检查：多头顺势做多，BTC与单币双死叉确认熊市时0.6x非对称做空，反弹破15日线快速平空防逼空；含5bps手续费+10bps滑点+年化5%资金费率损耗。",
+      "enabled": true,
+      "market": "CRYPTO",
+      "currency": "USD",
+      "symbols": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"],
+      "lot_size": 0.0001,
+      "min_trade_notional": 10.0,
+      "initial_cash": 1000.0,
+      "start_date": "2026-11-01",
+      "execution_price": "open",
+      "cost": {
+        "commission_bps": 5.0,
+        "minimum_commission": 0.0,
+        "slippage_bps": 10.0,
+        "stamp_duty_sell_bps": 0.0,
+        "funding_annual_bps": 500.0
+      },
+      "risk": {
+        "max_drawdown_halt": 0.35,
+        "daily_loss_halt": null,
+        "cooldown_sessions": 5,
+        "max_single_weight": 0.50,
+        "min_cash_weight": 0.0,
+        "allow_short": true,
+        "max_gross_leverage": 1.0
+      },
+      "strategy": {
+        "kind": "crypto_trend_ls",
+        "rebalance_frequency": "daily",
+        "rebalance_band": 0.12,
+        "fast_ma_days": 20,
+        "trend_ma_days": 60,
+        "short_exit_ma_days": 15,
+        "vol_lookback_days": 30,
+        "target_volatility": 0.50,
+        "short_exposure_scale": 0.60,
+        "short_momentum_threshold": -0.05,
+        "require_btc_bear_for_short": true
+      }
+    },
+    {
       "portfolio_id": "crypto_trend_vol_1k",
-      "name": "加密货币主流趋势+波动率控仓 ($1,000·现货口径)",
-      "description": "BTC/ETH/SOL/BNB 周频趋势筛选+逆波动率配权+35%目标波动率控仓，熊市自动空仓持U，0.1%费率+10bps滑点。",
+      "name": "加密货币多头日频风控控仓 ($1,000·现货口径)",
+      "description": "BTC/ETH/SOL/BNB 日频趋势筛选+逆波动率配权+45%目标波动率控仓，熊市自动空仓持U，0.1%费率+10bps滑点。",
       "enabled": true,
       "market": "CRYPTO",
       "currency": "USD",
@@ -202,20 +244,20 @@
         "stamp_duty_sell_bps": 0.0
       },
       "risk": {
-        "max_drawdown_halt": 0.40,
+        "max_drawdown_halt": 0.35,
         "daily_loss_halt": null,
-        "cooldown_sessions": 7,
+        "cooldown_sessions": 5,
         "max_single_weight": 0.60,
         "min_cash_weight": 0.0
       },
       "strategy": {
         "kind": "crypto_trend_vol",
-        "rebalance_frequency": "weekly",
-        "rebalance_band": 0.06,
-        "lookback_days": 40,
+        "rebalance_frequency": "daily",
+        "rebalance_band": 0.10,
+        "lookback_days": 20,
         "trend_ma_days": 60,
         "vol_lookback_days": 30,
-        "target_volatility": 0.35,
+        "target_volatility": 0.45,
         "top_n": 2,
         "defensive_symbol": null
       }

@@ -50,7 +50,7 @@ def should_rebalance_by_band(
     for sym in keys:
         cur = float(current_weights.get(sym, 0.0))
         tgt = float(target_weights.get(sym, 0.0))
-        if (cur == 0.0 and tgt > 0.0) or (cur > 0.0 and tgt == 0.0):
+        if (abs(cur) < 1e-9 and abs(tgt) > 1e-9) or (abs(cur) > 1e-9 and abs(tgt) < 1e-9) or (cur * tgt < 0.0):
             return True
         if abs(cur - tgt) >= band:
             return True
@@ -83,6 +83,15 @@ def compute_target_weights(
         diagnostics.update(extra)
     elif kind == "crypto_trend_vol":
         raw, extra = _crypto_trend_vol_weights(adj_close_panel, available, spec, periods_per_year=periods_per_year)
+        diagnostics.update(extra)
+    elif kind == "crypto_trend_ls":
+        raw, extra = _crypto_trend_ls_weights(
+            adj_close_panel,
+            available,
+            spec,
+            allow_short=risk.allow_short,
+            periods_per_year=periods_per_year,
+        )
         diagnostics.update(extra)
     else:
         raise ValueError(f"Unsupported strategy kind: {kind}")
@@ -280,11 +289,119 @@ def _crypto_trend_vol_weights(
     }
 
 
+def _crypto_trend_ls_weights(
+    panel: pd.DataFrame,
+    symbols: list[str],
+    spec: StrategySpec,
+    *,
+    allow_short: bool,
+    periods_per_year: float = 365.0,
+) -> tuple[dict[str, float], dict[str, object]]:
+    """Asymmetric Long/Short Trend-Following CTA designed for 24/7 perpetual crypto markets.
+
+    - Long entry: price > slow MA, price > fast MA, and fast momentum > 0.
+    - Short entry (only when `allow_short=True`): structural death-cross (fast MA < slow MA),
+      price < slow MA, price < fast short-exit MA (for quick short-squeeze protection),
+      momentum < short_momentum_threshold, and optional BTC macro bear confirmation.
+    - Risk-budget inverse-volatility sizing per slot so high-vol altcoins get smaller notional.
+    """
+    fast_ma = max(2, int(spec.fast_ma_days))
+    slow_ma = max(fast_ma + 5, int(spec.trend_ma_days) if int(spec.trend_ma_days) > 0 else 60)
+    short_exit = max(2, int(spec.short_exit_ma_days))
+    vol_win = max(10, int(spec.vol_lookback_days))
+    target_vol = float(spec.target_volatility)
+    short_scale = float(spec.short_exposure_scale) if allow_short else 0.0
+    short_thresh = float(spec.short_momentum_threshold)
+
+    btc_bear = True
+    if spec.require_btc_bear_for_short and "BTC-USD" in panel.columns:
+        btc_ser = panel["BTC-USD"].dropna()
+        if len(btc_ser) >= slow_ma:
+            btc_p = float(btc_ser.iloc[-1])
+            btc_fast = float(btc_ser.iloc[-fast_ma:].mean())
+            btc_slow = float(btc_ser.iloc[-slow_ma:].mean())
+            btc_bear = (btc_p < btc_slow) and (btc_fast < btc_slow)
+        else:
+            btc_bear = False
+
+    n_slots = max(len(symbols), 1)
+    weights: dict[str, float] = {}
+    diag_signals: dict[str, str] = {}
+    diag_vols: dict[str, float] = {}
+    diag_mom: dict[str, float] = {}
+
+    for sym in symbols:
+        series = panel[sym].dropna()
+        if len(series) <= max(slow_ma, vol_win) + 1:
+            continue
+        p = float(series.iloc[-1])
+        ma_f = float(series.iloc[-fast_ma:].mean())
+        ma_s = float(series.iloc[-slow_ma:].mean())
+        ma_exit = float(series.iloc[-short_exit:].mean())
+        p_fast = float(series.iloc[-1 - fast_ma])
+        if p_fast <= 0:
+            continue
+        mom = p / p_fast - 1.0
+        rets = series.pct_change().dropna().iloc[-vol_win:]
+        vol = float(rets.std(ddof=0)) * math.sqrt(periods_per_year)
+        if not math.isfinite(vol) or vol <= 1e-6:
+            continue
+        diag_vols[sym] = round(vol, 4)
+        diag_mom[sym] = round(mom, 4)
+
+        sig = 0.0
+        if p > ma_s and p > ma_f and mom > 0.0:
+            sig = 1.0
+            diag_signals[sym] = "LONG"
+        elif (
+            short_scale > 0.0
+            and btc_bear
+            and ma_f < ma_s
+            and p < ma_s
+            and p < ma_exit
+            and mom < short_thresh
+        ):
+            sig = -short_scale
+            diag_signals[sym] = "SHORT"
+        else:
+            diag_signals[sym] = "FLAT"
+
+        if abs(sig) > 1e-9:
+            w_raw = sig * (target_vol / (n_slots * vol))
+            weights[sym] = w_raw
+
+    long_cnt = sum(1 for v in weights.values() if v > 0)
+    short_cnt = sum(1 for v in weights.values() if v < 0)
+    regime = "mixed_ls" if (long_cnt and short_cnt) else ("long_trend" if long_cnt else ("short_bear" if short_cnt else "flat_cash"))
+    return weights, {
+        "signals": diag_signals,
+        "momentum_fast": diag_mom,
+        "vols": diag_vols,
+        "btc_bear_regime": btc_bear,
+        "regime": regime,
+        "net_exposure": round(sum(weights.values()), 4),
+        "gross_exposure": round(sum(abs(v) for v in weights.values()), 4),
+    }
+
+
 def _apply_risk_caps(weights: dict[str, float], risk: RiskConfig) -> dict[str, float]:
+    max_gross = max(0.0, risk.max_gross_leverage * (1.0 - risk.min_cash_weight))
+    if risk.allow_short:
+        cleaned: dict[str, float] = {}
+        for sym, raw_w in weights.items():
+            w = float(raw_w)
+            if abs(w) <= 1e-9:
+                continue
+            cleaned[sym] = max(-risk.max_single_weight, min(risk.max_single_weight, w))
+        gross = sum(abs(v) for v in cleaned.values())
+        if gross > max_gross and gross > 0:
+            scale = max_gross / gross
+            cleaned = {sym: w * scale for sym, w in cleaned.items()}
+        return cleaned
+
     cleaned = {sym: min(float(w), risk.max_single_weight) for sym, w in weights.items() if float(w) > 1e-9}
-    max_invested = max(0.0, 1.0 - risk.min_cash_weight)
     total = sum(cleaned.values())
-    if total > max_invested and total > 0:
-        scale = max_invested / total
+    if total > max_gross and total > 0:
+        scale = max_gross / total
         cleaned = {sym: w * scale for sym, w in cleaned.items()}
     return cleaned

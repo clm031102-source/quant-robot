@@ -56,6 +56,7 @@ class PaperLedger:
             "cooldown_left": 0,
             "total_commission": 0.0,
             "total_slippage": 0.0,
+            "total_funding": 0.0,
             "trade_count": 0,
             "days_recorded": 0,
             "first_date": None,
@@ -130,23 +131,32 @@ class PaperLedger:
                 state["pending_targets"] = None
                 state["pending_reason"] = ""
 
-            # 2) Mark-to-market at close
+            # 2) Mark-to-market at close (signed for Long/Short) + daily perpetual funding drag
             close_adj = adj_panel.iloc[idx]
             close_raw = raw_close_panel.iloc[idx]
+            ppy = 365.0 if self.spec.market.upper() == "CRYPTO" else 252.0
             mv = 0.0
+            gross_mv = 0.0
             for sym, pos in list(state["positions"].items()):
                 adj_px = close_adj.get(sym)
                 raw_px = close_raw.get(sym)
                 adj_sh = float(pos["adj_shares"])
-                if adj_sh <= 1e-9:
+                if abs(adj_sh) <= 1e-12:
                     state["positions"].pop(sym, None)
                     continue
                 if pd.notna(adj_px) and float(adj_px) > 0:
                     val = adj_sh * float(adj_px)
+                    pos["side"] = "LONG" if adj_sh > 0 else "SHORT"
                     pos["last_price"] = round(float(raw_px), 4) if pd.notna(raw_px) else round(float(adj_px), 4)
                     pos["market_value"] = round(val, 2)
                     mv += val
+                    gross_mv += abs(val)
             cash = float(state["cash"])
+            if self.spec.cost.funding_annual_bps > 0 and gross_mv > 0:
+                funding_fee = gross_mv * (self.spec.cost.funding_annual_bps / 10000.0) / ppy
+                cash -= funding_fee
+                state["cash"] = round(cash, 4)
+                state["total_funding"] = round(float(state.get("total_funding", 0.0)) + funding_fee, 4)
             nav = cash + mv
             peak_nav = max(float(state["peak_nav"]), nav)
             prev_nav = float(state["prev_nav"])
@@ -155,6 +165,8 @@ class PaperLedger:
 
             state["nav"] = round(nav, 4)
             state["market_value"] = round(mv, 4)
+            state["gross_exposure"] = round(gross_mv / nav, 4) if nav > 0 else 0.0
+            state["net_exposure"] = round(mv / nav, 4) if nav > 0 else 0.0
             state["peak_nav"] = round(peak_nav, 4)
             state["prev_nav"] = round(nav, 4)
             state["max_drawdown"] = round(min(float(state["max_drawdown"]), dd), 6)
@@ -164,6 +176,11 @@ class PaperLedger:
             state["last_date"] = cur_date.isoformat()
             state["updated_at"] = pd.Timestamp.now(tz="UTC").isoformat()
 
+            total_fees = (
+                float(state["total_commission"])
+                + float(state["total_slippage"])
+                + float(state.get("total_funding", 0.0))
+            )
             eq_history.append(
                 {
                     "date": cur_date.isoformat(),
@@ -174,7 +191,7 @@ class PaperLedger:
                     "drawdown": round(dd, 6),
                     "peak_nav": round(peak_nav, 4),
                     "trades": day_trades,
-                    "total_fees": round(float(state["total_commission"]) + float(state["total_slippage"]), 4),
+                    "total_fees": round(total_fees, 4),
                 }
             )
             new_days += 1
@@ -184,7 +201,7 @@ class PaperLedger:
             cur_weights = {
                 sym: (float(pos["market_value"]) / nav)
                 for sym, pos in state["positions"].items()
-                if nav > 0 and float(pos.get("market_value", 0.0)) > 0
+                if nav > 0 and abs(float(pos.get("market_value", 0.0))) > 1e-9
             }
             decision_action = "hold"
             diagnostics: dict[str, Any] = {}
@@ -195,13 +212,13 @@ class PaperLedger:
                 decision_action = f"cooldown_remaining_{state['cooldown_left']}"
                 if state["cooldown_left"] == 0:
                     state["peak_nav"] = round(nav, 4)
-            elif self.spec.risk.max_drawdown_halt is not None and (-dd) >= self.spec.risk.max_drawdown_halt and mv > 0:
+            elif self.spec.risk.max_drawdown_halt is not None and (-dd) >= self.spec.risk.max_drawdown_halt and gross_mv > 0:
                 state["pending_targets"] = {}
                 state["pending_reason"] = f"drawdown_halt_{self.spec.risk.max_drawdown_halt:.0%}"
                 state["cooldown_left"] = max(1, self.spec.risk.cooldown_sessions)
                 decision_action = state["pending_reason"]
                 target_weights_preview = {}
-            elif self.spec.risk.daily_loss_halt is not None and (-daily_ret) >= self.spec.risk.daily_loss_halt and mv > 0:
+            elif self.spec.risk.daily_loss_halt is not None and (-daily_ret) >= self.spec.risk.daily_loss_halt and gross_mv > 0:
                 state["pending_targets"] = {}
                 state["pending_reason"] = f"daily_loss_halt_{self.spec.risk.daily_loss_halt:.1%}"
                 state["cooldown_left"] = max(1, self.spec.risk.cooldown_sessions)
@@ -210,7 +227,6 @@ class PaperLedger:
             else:
                 has_pos = bool(state["positions"])
                 if is_rebalance_day(all_dates, idx, self.spec.strategy.rebalance_frequency, has_positions=has_pos):
-                    ppy = 365.0 if self.spec.market.upper() == "CRYPTO" else 252.0
                     targets, diagnostics = compute_target_weights(
                         history, norm_symbols, self.spec.strategy, self.spec.risk, periods_per_year=ppy
                     )
@@ -277,6 +293,7 @@ class PaperLedger:
             return []
 
         all_syms = sorted(set(self.spec.symbols) | set(positions.keys()))
+        allow_short = bool(self.spec.risk.allow_short)
         desired: dict[str, float] = {}
         scales: dict[str, float] = {}
         for sym in all_syms:
@@ -289,9 +306,26 @@ class PaperLedger:
                 continue
             scale = float(raw_px) / float(adj_px)
             scales[sym] = scale
-            tgt_val = nav * float(target_weights.get(sym, 0.0))
-            lots = math.floor(tgt_val / (float(raw_px) * lot_size))
-            desired[sym] = lots * lot_size * scale
+            tgt_w = float(target_weights.get(sym, 0.0))
+            if not allow_short:
+                tgt_w = max(0.0, tgt_w)
+            tgt_val = nav * tgt_w
+            sign = 1.0 if tgt_val >= 0.0 else -1.0
+            lots = math.floor(abs(tgt_val) / (float(raw_px) * lot_size))
+            desired[sym] = sign * lots * lot_size * scale
+
+        if allow_short:
+            return self._apply_margin_rebalance(
+                state=state,
+                cur_date=cur_date,
+                nav=nav,
+                all_syms=all_syms,
+                desired=desired,
+                scales=scales,
+                exec_prices=exec_prices,
+                raw_prices=raw_prices,
+                reason=reason,
+            )
 
         fills: list[dict[str, Any]] = []
         # 1) Sells first
@@ -406,6 +440,142 @@ class PaperLedger:
                     )
                     break
                 need_lots -= 1
+
+        state["cash"] = round(cash, 4)
+        return fills
+
+    def _apply_margin_rebalance(
+        self,
+        *,
+        state: dict[str, Any],
+        cur_date: date,
+        nav: float,
+        all_syms: list[str],
+        desired: dict[str, float],
+        scales: dict[str, float],
+        exec_prices: pd.Series,
+        raw_prices: pd.Series,
+        reason: str,
+    ) -> list[dict[str, Any]]:
+        cash = float(state["cash"])
+        positions: dict[str, dict[str, Any]] = state["positions"]
+        lot_size = float(self.spec.lot_size)
+        min_notional = float(self.spec.min_trade_notional)
+        cost = self.spec.cost
+        max_gross_leverage = float(self.spec.risk.max_gross_leverage)
+
+        def _fmt_qty(q: float) -> int | float:
+            return int(round(q)) if lot_size >= 1.0 else round(q, 6)
+
+        fills: list[dict[str, Any]] = []
+
+        def _record_trade(sym: str, delta_adj: float, signed_raw_delta: float, raw_px: float, adj_px: float, side: str) -> None:
+            nonlocal cash
+            gross = abs(delta_adj) * adj_px
+            slip = gross * (cost.slippage_bps / 10000.0)
+            comm = max(gross * (cost.commission_bps / 10000.0), cost.minimum_commission)
+            duty = gross * (cost.stamp_duty_sell_bps / 10000.0) if delta_adj < 0 else 0.0
+            cash -= delta_adj * adj_px + slip + comm + duty
+            prev = positions.get(sym)
+            cur_adj = float(prev["adj_shares"]) if prev else 0.0
+            new_adj = cur_adj + delta_adj
+            if abs(new_adj) <= 1e-12:
+                positions.pop(sym, None)
+            else:
+                old_raw = float(prev.get("raw_qty", 0.0)) if prev else 0.0
+                new_raw = old_raw + signed_raw_delta
+                if prev and (old_raw * new_raw > 0) and (abs(new_raw) > abs(old_raw)):
+                    old_cost = float(prev.get("avg_cost", raw_px))
+                    avg_cost = (abs(old_raw) * old_cost + abs(signed_raw_delta) * raw_px) / max(abs(new_raw), 1e-12)
+                elif prev and (old_raw * new_raw > 0):
+                    avg_cost = float(prev.get("avg_cost", raw_px))
+                else:
+                    avg_cost = raw_px
+                positions[sym] = {
+                    "side": "LONG" if new_adj > 0 else "SHORT",
+                    "adj_shares": new_adj,
+                    "raw_qty": _fmt_qty(new_raw),
+                    "avg_cost": round(avg_cost, 4),
+                    "last_price": round(raw_px, 4),
+                    "market_value": round(new_adj * adj_px, 2),
+                }
+            fills.append(
+                {
+                    "date": cur_date.isoformat(),
+                    "symbol": sym,
+                    "side": side,
+                    "quantity": _fmt_qty(abs(signed_raw_delta)),
+                    "raw_price": round(raw_px, 4),
+                    "notional": round(gross, 2),
+                    "commission": round(comm + duty, 4),
+                    "slippage": round(slip, 4),
+                    "reason": reason,
+                }
+            )
+
+        # Pass 1: Close sign flips & reduce exposures first
+        for sym in all_syms:
+            cur_adj = float(positions.get(sym, {}).get("adj_shares", 0.0))
+            tgt_adj = desired[sym]
+            if abs(cur_adj) <= 1e-12:
+                continue
+            adj_px = exec_prices.get(sym)
+            raw_px = raw_prices.get(sym)
+            if pd.isna(adj_px) or pd.isna(raw_px) or float(adj_px) <= 0 or float(raw_px) <= 0:
+                continue
+            adj_px_f, raw_px_f = float(adj_px), float(raw_px)
+            scale = max(scales[sym], 1e-12)
+            flip_or_exit = (cur_adj * tgt_adj < 0.0) or (abs(tgt_adj) <= 1e-12)
+            if flip_or_exit:
+                cur_raw = float(positions[sym].get("raw_qty", cur_adj / scale))
+                side = "SELL" if cur_adj > 0 else "COVER"
+                _record_trade(sym, -cur_adj, -cur_raw, raw_px_f, adj_px_f, side)
+            elif abs(tgt_adj) < abs(cur_adj) - 1e-12:
+                reduce_lots = math.floor((abs(cur_adj - tgt_adj) / scale + 1e-12) / lot_size)
+                if reduce_lots <= 0:
+                    continue
+                raw_qty = reduce_lots * lot_size
+                reduce_adj = min(abs(cur_adj), raw_qty * scale)
+                if reduce_adj * adj_px_f < min_notional:
+                    continue
+                sign_delta = -1.0 if cur_adj > 0 else 1.0
+                side = "SELL" if cur_adj > 0 else "COVER"
+                _record_trade(sym, sign_delta * reduce_adj, sign_delta * raw_qty, raw_px_f, adj_px_f, side)
+
+        # Pass 2: Open or increase Long/Short within gross leverage cap
+        current_gross = sum(
+            abs(float(pos["adj_shares"])) * float(exec_prices[s])
+            for s, pos in positions.items()
+            if pd.notna(exec_prices.get(s)) and float(exec_prices[s]) > 0
+        )
+        remaining_gross = max(0.0, nav * max_gross_leverage * 0.995 - current_gross)
+
+        for sym in all_syms:
+            cur_adj = float(positions.get(sym, {}).get("adj_shares", 0.0))
+            tgt_adj = desired[sym]
+            if abs(tgt_adj) <= abs(cur_adj) + 1e-12:
+                continue
+            adj_px = exec_prices.get(sym)
+            raw_px = raw_prices.get(sym)
+            if pd.isna(adj_px) or pd.isna(raw_px) or float(adj_px) <= 0 or float(raw_px) <= 0:
+                continue
+            adj_px_f, raw_px_f = float(adj_px), float(raw_px)
+            scale = max(scales[sym], 1e-12)
+            sign = 1.0 if tgt_adj > 0 else -1.0
+            need_lots = math.floor((abs(tgt_adj - cur_adj) / scale + 1e-12) / lot_size)
+            unit_gross = lot_size * scale * adj_px_f
+            max_by_gross = math.floor(remaining_gross / max(unit_gross, 1e-12))
+            lots = min(need_lots, max_by_gross)
+            if lots <= 0:
+                continue
+            add_qty = lots * lot_size
+            add_adj = sign * add_qty * scale
+            gross = abs(add_adj) * adj_px_f
+            if gross < min_notional:
+                continue
+            side = "BUY" if sign > 0 else "SHORT"
+            _record_trade(sym, add_adj, sign * add_qty, raw_px_f, adj_px_f, side)
+            remaining_gross = max(0.0, remaining_gross - gross)
 
         state["cash"] = round(cash, 4)
         return fills

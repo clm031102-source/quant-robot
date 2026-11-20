@@ -255,6 +255,83 @@ class CryptoQuantTests(unittest.TestCase):
             self.assertEqual(rep["symbols"][0]["total_rows"], 160)
             self.assertEqual(rep["symbols"][0]["first_date"], "2025-01-01")
 
+    def test_crypto_long_short_cta_profits_in_bear_market_and_tracks_short_ledger(self) -> None:
+        bars = _make_crypto_bull_bear_bars(260)
+        symbols = ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"]
+        spec = StrategySpec(
+            kind="crypto_trend_ls",
+            rebalance_frequency="daily",
+            rebalance_band=0.12,
+            fast_ma_days=20,
+            trend_ma_days=60,
+            short_exit_ma_days=15,
+            vol_lookback_days=30,
+            target_volatility=0.50,
+            short_exposure_scale=0.60,
+            short_momentum_threshold=-0.05,
+            require_btc_bear_for_short=True,
+        )
+        risk = RiskConfig(
+            max_drawdown_halt=0.40,
+            cooldown_sessions=5,
+            max_single_weight=0.50,
+            allow_short=True,
+            max_gross_leverage=1.0,
+        )
+        cost = CostConfig(commission_bps=5.0, minimum_commission=0.0, slippage_bps=10.0, funding_annual_bps=500.0)
+
+        # Verify strategy emits negative short weights in deep bear regime (day 250)
+        adj_pivot = bars.pivot_table(index="date", columns="symbol", values="adj_close").sort_index()
+        bear_w, bear_diag = compute_target_weights(adj_pivot.iloc[:250], symbols, spec, risk, periods_per_year=365.0)
+        self.assertTrue(any(w < 0 for w in bear_w.values()), msg=f"Expected short weights in bear regime, got {bear_w}")
+        self.assertEqual(bear_diag["regime"], "short_bear")
+        self.assertLessEqual(sum(abs(w) for w in bear_w.values()), 1.0 + 1e-9)
+
+        # Backtest exclusively across the 110-day bear crash (starting day 150) -> Long/Short CTA should beat Buy&Hold cleanly
+        all_dates = sorted(bars["date"].unique())
+        bear_start = all_dates[155].isoformat()
+        report = run_portfolio_backtest(
+            bars,
+            name="Crypto L/S Bear Test",
+            market="CRYPTO",
+            currency="USD",
+            symbols=symbols,
+            strategy=spec,
+            cost=cost,
+            risk=risk,
+            initial_cash=1000.0,
+            lot_size=0.0001,
+            min_trade_notional=10.0,
+            start_date=bear_start,
+        )
+        self.assertIn("SHORT", set(report.trades["side"]))
+        self.assertGreater(report.metrics["total_funding"], 0.0)
+        self.assertGreater(report.metrics["total_return"], 0.0)
+        self.assertGreater(report.metrics["total_return"], report.benchmark_metrics["total_return"])
+
+        # PaperLedger signed short position accounting matches exact NAV = cash + signed market_value
+        p_spec = PortfolioSpec(
+            portfolio_id="test_crypto_ls",
+            name="Test Crypto L/S",
+            market="CRYPTO",
+            currency="USD",
+            symbols=symbols,
+            lot_size=0.0001,
+            min_trade_notional=10.0,
+            initial_cash=1000.0,
+            start_date=all_dates[200].isoformat(),
+            cost=cost,
+            risk=risk,
+            strategy=spec,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = PaperLedger(p_spec, Path(tmp) / "paper")
+            res = ledger.sync_bars(bars)
+            st = res["state"]
+            self.assertGreater(st["nav"], 1000.0)
+            self.assertAlmostEqual(st["nav"], st["cash"] + st["market_value"], places=2)
+            self.assertTrue(any(p.get("side") == "SHORT" and float(p["raw_qty"]) < 0 for p in st["positions"].values()))
+
 
 if __name__ == "__main__":
     unittest.main()
